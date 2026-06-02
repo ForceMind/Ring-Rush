@@ -7,7 +7,22 @@
       "Bash(netstat -ano)",
       "Bash(findstr :3000)",
       "Bash(node -e ' *)",
-      "Bash(node -e \"console.log\\('测试成功'\\); process.exit\\(0\\);\")"
+      "Bash(node -e \"console.log\\('测试成功'\\); process.exit\\(0\\);\")",
+      "Bash(grep -E \"\\\\.\\(bat|ps1\\)$\")",
+      "Bash(powershell -Command '[System.IO.File]::WriteAllText\\('\\\\''start.bat'\\\\'', '\\\\''@echo off *)",
+      "Bash(powershell -Command ' *)",
+      "Bash(powershell -File -)",
+      "Bash(r)",
+      "Bash(powershell.exe -NoProfile -Command ' *)",
+      "Bash(powershell.exe *)",
+      "Bash(kill %1)",
+      "Bash(xxd start.ps1)",
+      "Bash(python3 -c ' *)",
+      "Bash(xxd \"E:/Privy/Ring-Rush/start.ps1\")",
+      "Bash(xxd \"E:/Privy/CapMap/一键启动.bat\")",
+      "Bash(xxd \"E:/Privy/Limit-Up-Sniper-QT/start.ps1\")",
+      "Bash(xxd *)",
+      "Bash(cmd.exe //c init.bat)"
     ]
   }
 }

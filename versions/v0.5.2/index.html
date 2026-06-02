@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ring Rush v0.5.4 - 弹棋</title>
+    <title>Ring Rush v0.5.2 - 夺心冲刺</title>
     <style>
         * {
             margin: 0;
@@ -39,11 +39,11 @@
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas" width="600" height="900"></canvas>
-        <div id="version">v0.5.4</div>
+        <div id="version">v0.5.2</div>
     </div>
     <script>
 /**
- * Ring Rush v0.5.4 - 弹棋
+ * Ring Rush v0.5.2 - 夺心冲刺
  */
 
 // ===== 音效管理器 =====
@@ -1053,7 +1053,7 @@ class UI {
 
         ctx.fillStyle = '#888';
         ctx.font = '14px "Segoe UI", sans-serif';
-        ctx.fillText('弹棋 v0.5.4', CENTER_X, 62);
+        ctx.fillText('夺心冲刺 v0.5.2', CENTER_X, 62);
 
         if (this.game.gameMode === 'bot') {
             ctx.fillStyle = AI_DIFFICULTY[this.game.ai.difficulty].color;
@@ -1345,7 +1345,7 @@ class StartScreen {
 
         ctx.fillStyle = '#aaa';
         ctx.font = '20px "Segoe UI", sans-serif';
-        ctx.fillText('弹棋 v0.5.4', CENTER_X, 180);
+        ctx.fillText('夺心冲刺 v0.5.2', CENTER_X, 180);
 
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 24px sans-serif';

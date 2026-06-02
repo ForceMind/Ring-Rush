@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ring Rush v0.5.4 - 弹棋</title>
+    <title>Ring Rush v0.5.1 - 夺心冲刺</title>
     <style>
         * {
             margin: 0;
@@ -39,11 +39,22 @@
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas" width="600" height="900"></canvas>
-        <div id="version">v0.5.4</div>
+        <div id="version">v0.5.1</div>
     </div>
     <script>
 /**
- * Ring Rush v0.5.4 - 弹棋
+ * Ring Rush v0.5.1 - 夺心冲刺
+ *
+ * v0.5.1 修复：
+ * - 移除正方形脉冲动画
+ * - 修复发射区域检测范围
+ * - 小人移动改为平滑动画
+ * - 移除棋子AB文字
+ * - 第三环改为圆形
+ *
+ * v0.4.0 改进：
+ * - 自动识别服务器地址（支持任意部署环境）
+ * - 移除"局域网"限制
  */
 
 // ===== 音效管理器 =====
@@ -1053,7 +1064,7 @@ class UI {
 
         ctx.fillStyle = '#888';
         ctx.font = '14px "Segoe UI", sans-serif';
-        ctx.fillText('弹棋 v0.5.4', CENTER_X, 62);
+        ctx.fillText('夺心冲刺 v0.5.1', CENTER_X, 62);
 
         if (this.game.gameMode === 'bot') {
             ctx.fillStyle = AI_DIFFICULTY[this.game.ai.difficulty].color;
@@ -1345,7 +1356,7 @@ class StartScreen {
 
         ctx.fillStyle = '#aaa';
         ctx.font = '20px "Segoe UI", sans-serif';
-        ctx.fillText('弹棋 v0.5.4', CENTER_X, 180);
+        ctx.fillText('夺心冲刺 v0.5.1', CENTER_X, 180);
 
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 24px sans-serif';
