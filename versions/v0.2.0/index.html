@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ring Rush v0.2.0 - 夺心冲刺</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        canvas {
+            border: 2px solid #16213e;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        #version {
+            position: absolute;
+            bottom: -25px;
+            right: 0;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="600" height="900"></canvas>
+        <div id="version">v0.2.0</div>
+    </div>
+    <script>
+/**
+ * Ring Rush v0.2.0 - 夺心冲刺
+ * 纵向布局版本
+ *
+ * 变更：
+ * - 纵向布局，玩家在上下两端
+ * - 当前玩家视角固定在下方
+ * - 力度随机偏移
+ * - 正方形得分区与桌面方向一致
+ */
+
+// ===== 游戏常量 =====
+const CANVAS_WIDTH = 600;
+const CANVAS_HEIGHT = 900;
+const PIECE_RADIUS = 18;
+const BOARD_X = 75;
+const BOARD_Y = 200;
+const BOARD_WIDTH = 450;
+const BOARD_HEIGHT = 500;
+const LAUNCH_ZONE_WIDTH = 50;
+const LAUNCH_ZONE_HEIGHT = 60;
+const FRICTION = 0.985;
+const RESTITUTION = 0.8;
+const MAX_SPEED = 22;
+const SPEED_THRESHOLD = 0.1;
+const LAUNCH_MULTIPLIER = 0.12;
+const MAX_DRAG_DISTANCE = 250;
+const POWER_RANDOM_RANGE = 0.15;  // 力度随机范围 ±15%
+
+// 得分区域配置
+const SCORING_ZONES = {
+    center:   { radius: 25,  score: 5, color: 'rgba(255, 215, 0, 0.5)' },
+    hexagon:  { radius: 70,  score: 4, color: 'rgba(144, 238, 144, 0.35)' },
+    pentagon: { radius: 115, score: 3, color: 'rgba(135, 206, 250, 0.3)' },
+    square:   { radius: 160, score: 2, color: 'rgba(221, 160, 221, 0.25)' }
+};
+
+// 中心点坐标
+const CENTER_X = BOARD_X + BOARD_WIDTH / 2;
+const CENTER_Y = BOARD_Y + BOARD_HEIGHT / 2;
+
+// 跑道配置（纵向布局，跑道在左侧）
+const TRACK_X = 20;
+const TRACK_Y = 250;
+const TRACK_WIDTH = 40;
+const TRACK_HEIGHT = 400;
+
+// ===== Piece 类 =====
+class Piece {
+    constructor(x, y, player) {
+        this.reset(x, y, player);
+    }
+
+    reset(x, y, player) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = PIECE_RADIUS;
+        this.player = player;
+        this.isLaunched = false;
+        this.isActive = false;
+        this.color = player === 'A' ? '#4a90d9' : '#d94a4a';
+        this.innerColor = player === 'A' ? '#3a7bc8' : '#c83a3a';
+    }
+
+    draw(ctx, highlight = false) {
+        // 外圈
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.strokeStyle = highlight ? '#fff' : 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = highlight ? 3 : 2;
+        ctx.stroke();
+
+        // 内圈装饰
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.55, 0, Math.PI * 2);
+        ctx.fillStyle = this.innerColor;
+        ctx.fill();
+
+        // 中心点
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+
+        // 玩家标记
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.player, this.x, this.y);
+    }
+}
+
+// ===== Physics 类 =====
+class Physics {
+    constructor() {
+        this.pieces = [];
+    }
+
+    addPiece(piece) {
+        this.pieces.push(piece);
+    }
+
+    update() {
+        for (let piece of this.pieces) {
+            if (!piece.isActive) continue;
+
+            piece.x += piece.vx;
+            piece.y += piece.vy;
+            piece.vx *= FRICTION;
+            piece.vy *= FRICTION;
+
+            this.checkBoundaryCollision(piece);
+            this.checkPieceCollisions(piece);
+
+            const speed = Math.sqrt(piece.vx * piece.vx + piece.vy * piece.vy);
+            if (speed < SPEED_THRESHOLD) {
+                piece.vx = 0;
+                piece.vy = 0;
+                piece.isActive = false;
+            }
+        }
+    }
+
+    checkBoundaryCollision(piece) {
+        const minX = BOARD_X + piece.radius;
+        const maxX = BOARD_X + BOARD_WIDTH - piece.radius;
+        const minY = BOARD_Y + piece.radius;
+        const maxY = BOARD_Y + BOARD_HEIGHT - piece.radius;
+
+        if (piece.x < minX) {
+            piece.x = minX;
+            piece.vx = -piece.vx * RESTITUTION;
+        }
+        if (piece.x > maxX) {
+            piece.x = maxX;
+            piece.vx = -piece.vx * RESTITUTION;
+        }
+        if (piece.y < minY) {
+            piece.y = minY;
+            piece.vy = -piece.vy * RESTITUTION;
+        }
+        if (piece.y > maxY) {
+            piece.y = maxY;
+            piece.vy = -piece.vy * RESTITUTION;
+        }
+    }
+
+    checkPieceCollisions(currentPiece) {
+        for (let other of this.pieces) {
+            if (other === currentPiece || !other.isLaunched) continue;
+
+            const dx = other.x - currentPiece.x;
+            const dy = other.y - currentPiece.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDist = currentPiece.radius + other.radius;
+
+            if (distance < minDist && distance > 0) {
+                const nx = dx / distance;
+                const ny = dy / distance;
+                const dvx = currentPiece.vx - other.vx;
+                const dvy = currentPiece.vy - other.vy;
+                const dvDotN = dvx * nx + dvy * ny;
+
+                if (dvDotN > 0) {
+                    const impulse = dvDotN * (1 + RESTITUTION) / 2;
+                    currentPiece.vx -= impulse * nx;
+                    currentPiece.vy -= impulse * ny;
+                    other.vx += impulse * nx;
+                    other.vy += impulse * ny;
+                    other.isActive = true;
+
+                    const overlap = minDist - distance;
+                    const separateX = (overlap / 2) * nx;
+                    const separateY = (overlap / 2) * ny;
+                    currentPiece.x -= separateX;
+                    currentPiece.y -= separateY;
+                    other.x += separateX;
+                    other.y += separateY;
+                }
+            }
+        }
+    }
+
+    allStopped() {
+        return this.pieces.every(p => !p.isActive);
+    }
+
+    reset() {
+        this.pieces = [];
+    }
+}
+
+// ===== Board 类 =====
+class Board {
+    constructor() {
+        this.hexagonVertices = this.generatePolygon(6, SCORING_ZONES.hexagon.radius);
+        this.pentagonVertices = this.generatePolygon(5, SCORING_ZONES.pentagon.radius);
+        // 正方形顶点（0度旋转，边与桌面平行）
+        this.squareVertices = this.generateSquareAligned(SCORING_ZONES.square.radius);
+    }
+
+    generatePolygon(sides, radius) {
+        const vertices = [];
+        const angleStep = (Math.PI * 2) / sides;
+        const startAngle = -Math.PI / 2;
+        for (let i = 0; i < sides; i++) {
+            const angle = startAngle + i * angleStep;
+            vertices.push({
+                x: Math.cos(angle) * radius,
+                y: Math.sin(angle) * radius
+            });
+        }
+        return vertices;
+    }
+
+    // 生成与桌面方向一致的正方形（边平行于桌面边）
+    generateSquareAligned(radius) {
+        return [
+            { x: -radius, y: -radius },
+            { x: radius, y: -radius },
+            { x: radius, y: radius },
+            { x: -radius, y: radius }
+        ];
+    }
+
+    calculateScore(piece) {
+        const dx = piece.x - CENTER_X;
+        const dy = piece.y - CENTER_Y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= SCORING_ZONES.center.radius) {
+            return SCORING_ZONES.center.score;
+        }
+        if (this.isInsidePolygon(dx, dy, this.hexagonVertices)) {
+            return SCORING_ZONES.hexagon.score;
+        }
+        if (this.isInsidePolygon(dx, dy, this.pentagonVertices)) {
+            return SCORING_ZONES.pentagon.score;
+        }
+        if (this.isInsidePolygon(dx, dy, this.squareVertices)) {
+            return SCORING_ZONES.square.score;
+        }
+        return 0;
+    }
+
+    isInsidePolygon(px, py, vertices) {
+        let inside = false;
+        const n = vertices.length;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+            const xi = vertices[i].x, yi = vertices[i].y;
+            const xj = vertices[j].x, yj = vertices[j].y;
+            if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    draw(ctx) {
+        // 棋盘背景
+        ctx.fillStyle = '#2d1f14';
+        ctx.strokeStyle = '#8b7355';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        // 桌面纹理
+        ctx.fillStyle = '#3d2b1a';
+        ctx.beginPath();
+        ctx.roundRect(BOARD_X + 6, BOARD_Y + 6, BOARD_WIDTH - 12, BOARD_HEIGHT - 12, 10);
+        ctx.fill();
+
+        // 得分区域
+        this.drawScoringZones(ctx);
+
+        // 中心十字线
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.moveTo(CENTER_X, BOARD_Y);
+        ctx.lineTo(CENTER_X, BOARD_Y + BOARD_HEIGHT);
+        ctx.moveTo(BOARD_X, CENTER_Y);
+        ctx.lineTo(BOARD_X + BOARD_WIDTH, CENTER_Y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 发射区域
+        this.drawLaunchZones(ctx);
+    }
+
+    drawScoringZones(ctx) {
+        // 正方形（最外层，边与桌面平行）
+        this.drawPolygon(ctx, this.squareVertices, SCORING_ZONES.square.color, '#9370db');
+
+        // 五边形
+        this.drawPolygon(ctx, this.pentagonVertices, SCORING_ZONES.pentagon.color, '#6495ed');
+
+        // 六边形
+        this.drawPolygon(ctx, this.hexagonVertices, SCORING_ZONES.hexagon.color, '#3cb371');
+
+        // 中心圆
+        ctx.beginPath();
+        ctx.arc(CENTER_X, CENTER_Y, SCORING_ZONES.center.radius, 0, Math.PI * 2);
+        ctx.fillStyle = SCORING_ZONES.center.color;
+        ctx.fill();
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 分数标注
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('5', CENTER_X, CENTER_Y + 4);
+        ctx.fillText('4', CENTER_X, CENTER_Y - SCORING_ZONES.hexagon.radius + 15);
+        ctx.fillText('3', CENTER_X, CENTER_Y - SCORING_ZONES.pentagon.radius + 15);
+        ctx.fillText('2', CENTER_X, CENTER_Y - SCORING_ZONES.square.radius + 18);
+    }
+
+    drawPolygon(ctx, vertices, fillColor, strokeColor) {
+        ctx.beginPath();
+        ctx.moveTo(CENTER_X + vertices[0].x, CENTER_Y + vertices[0].y);
+        for (let i = 1; i < vertices.length; i++) {
+            ctx.lineTo(CENTER_X + vertices[i].x, CENTER_Y + vertices[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+
+    drawLaunchZones(ctx) {
+        // 对手发射区（顶部）
+        const topZoneY = BOARD_Y - LAUNCH_ZONE_HEIGHT - 15;
+        ctx.fillStyle = 'rgba(217, 74, 74, 0.2)';
+        ctx.strokeStyle = '#d94a4a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(CENTER_X - LAUNCH_ZONE_WIDTH * 2, topZoneY, LAUNCH_ZONE_WIDTH * 4, LAUNCH_ZONE_HEIGHT, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // 玩家发射区（底部）
+        const bottomZoneY = BOARD_Y + BOARD_HEIGHT + 15;
+        ctx.fillStyle = 'rgba(74, 144, 217, 0.2)';
+        ctx.strokeStyle = '#4a90d9';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(CENTER_X - LAUNCH_ZONE_WIDTH * 2, bottomZoneY, LAUNCH_ZONE_WIDTH * 4, LAUNCH_ZONE_HEIGHT, 8);
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+// ===== Input 类 =====
+class Input {
+    constructor(game) {
+        this.game = game;
+        this.isDragging = false;
+        this.dragStart = { x: 0, y: 0 };
+        this.mouse = { x: 0, y: 0 };
+        this.currentPiece = null;
+
+        this.handleMouseDown = this.handleMouseDown.bind(this);
+        this.handleMouseMove = this.handleMouseMove.bind(this);
+        this.handleMouseUp = this.handleMouseUp.bind(this);
+    }
+
+    init() {
+        this.game.canvas.addEventListener('mousedown', this.handleMouseDown);
+        this.game.canvas.addEventListener('mousemove', this.handleMouseMove);
+        this.game.canvas.addEventListener('mouseup', this.handleMouseUp);
+        this.game.canvas.addEventListener('mouseleave', () => {
+            this.isDragging = false;
+            this.currentPiece = null;
+        });
+    }
+
+    handleMouseDown(e) {
+        if (this.game.gameOver || this.game.isAnimating) return;
+
+        const rect = this.game.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const piece = this.game.getCurrentPiece();
+        if (!piece) return;
+
+        // 检查是否点击在发射区域内（底部）
+        const zoneY = BOARD_Y + BOARD_HEIGHT + 15;
+        const zoneCenterY = zoneY + LAUNCH_ZONE_HEIGHT / 2;
+
+        if (Math.abs(mouseX - piece.x) < LAUNCH_ZONE_WIDTH * 2 &&
+            Math.abs(mouseY - zoneCenterY) < LAUNCH_ZONE_HEIGHT) {
+            this.isDragging = true;
+            this.dragStart = { x: mouseX, y: mouseY };
+            this.currentPiece = piece;
+        }
+    }
+
+    handleMouseMove(e) {
+        const rect = this.game.canvas.getBoundingClientRect();
+        this.mouse = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+
+    handleMouseUp(e) {
+        if (!this.isDragging || !this.currentPiece) {
+            this.isDragging = false;
+            return;
+        }
+
+        const dx = this.dragStart.x - this.mouse.x;
+        const dy = this.dragStart.y - this.mouse.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 5) {
+            // 计算基础力度
+            let speed = Math.min(distance * LAUNCH_MULTIPLIER, MAX_SPEED);
+
+            // 添加随机偏移 (±15%)
+            const randomFactor = 1 + (Math.random() * 2 - 1) * POWER_RANDOM_RANGE;
+            speed *= randomFactor;
+
+            // 限制最大速度
+            speed = Math.min(speed, MAX_SPEED);
+
+            this.currentPiece.vx = (dx / distance) * speed;
+            this.currentPiece.vy = (dy / distance) * speed;
+            this.currentPiece.isLaunched = true;
+            this.currentPiece.isActive = true;
+            this.game.isAnimating = true;
+        }
+
+        this.isDragging = false;
+        this.currentPiece = null;
+    }
+
+    drawAimingLine(ctx) {
+        if (!this.isDragging || !this.currentPiece) return;
+
+        const piece = this.currentPiece;
+        const dx = this.dragStart.x - this.mouse.x;
+        const dy = this.dragStart.y - this.mouse.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 5) return;
+
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        const lineLength = Math.min(distance * 1.5, 200);
+        const tipX = piece.x + dirX * lineLength;
+        const tipY = piece.y + dirY * lineLength;
+
+        // 力度指示（颜色随力度变化）
+        const power = Math.min(distance / MAX_DRAG_DISTANCE, 1);
+        const r = Math.floor(255 * power);
+        const g = Math.floor(255 * (1 - power));
+        const powerColor = `rgb(${r}, ${g}, 0)`;
+
+        // 主瞄准线
+        ctx.beginPath();
+        ctx.setLineDash([8, 4]);
+        ctx.moveTo(piece.x, piece.y);
+        ctx.lineTo(tipX, tipY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 力度条
+        const barWidth = 60;
+        const barHeight = 6;
+        const barX = piece.x - barWidth / 2;
+        const barY = piece.y + piece.radius + 10;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        ctx.fillStyle = powerColor;
+        ctx.fillRect(barX, barY, barWidth * power, barHeight);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        // 目标圆圈
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 8, 0, Math.PI * 2);
+        ctx.strokeStyle = powerColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 3, 0, Math.PI * 2);
+        ctx.fillStyle = powerColor;
+        ctx.fill();
+    }
+}
+
+// ===== UI 类 =====
+class UI {
+    constructor(game) {
+        this.game = game;
+    }
+
+    draw(ctx) {
+        this.drawTitle(ctx);
+        this.drawTrack(ctx);
+        this.drawPlayerInfo(ctx);
+        this.drawRoundInfo(ctx);
+        this.drawPowerInfo(ctx);
+        this.drawScorePopup(ctx);
+
+        if (this.game.gameOver) {
+            this.drawGameOver(ctx);
+        }
+    }
+
+    drawTitle(ctx) {
+        ctx.fillStyle = '#f0e68c';
+        ctx.font = 'bold 32px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('RING RUSH', CENTER_X, 40);
+
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText('夺心冲刺 v0.2.0', CENTER_X, 62);
+    }
+
+    drawTrack(ctx) {
+        const stepHeight = TRACK_HEIGHT / 11;
+        const labels = ['+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5'];
+
+        // 跑道标题
+        ctx.fillStyle = '#f0e68c';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('跑', TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 30);
+        ctx.fillText('道', TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 15);
+
+        for (let i = 0; i < 11; i++) {
+            const y = TRACK_Y + i * stepHeight;
+            const position = 5 - i;  // 从 +5 到 -5
+
+            let fillColor;
+            if (position > 0) fillColor = 'rgba(217, 74, 74, 0.4)';   // 玩家B区域（对手）
+            else if (position < 0) fillColor = 'rgba(74, 144, 217, 0.4)'; // 玩家A区域（自己）
+            else fillColor = 'rgba(200, 200, 200, 0.3)';
+
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(TRACK_X, y, TRACK_WIDTH, stepHeight - 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(TRACK_X, y, TRACK_WIDTH, stepHeight - 2);
+
+            ctx.fillStyle = '#ccc';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labels[i], TRACK_X + TRACK_WIDTH / 2, y + stepHeight / 2);
+        }
+
+        // 小人（根据当前玩家视角调整显示）
+        const visualPosition = this.game.currentPlayer === 'A' ?
+            this.game.runnerPosition : -this.game.runnerPosition;
+        const runnerIndex = 5 - visualPosition;
+        const runnerY = TRACK_Y + runnerIndex * stepHeight + stepHeight / 2;
+        const runnerX = TRACK_X + TRACK_WIDTH / 2;
+
+        // 小人身体
+        ctx.beginPath();
+        ctx.arc(runnerX, runnerY, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#f0e68c';
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 小人表情
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(runnerX - 4, runnerY - 3, 2, 0, Math.PI * 2);
+        ctx.arc(runnerX + 4, runnerY - 3, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(runnerX, runnerY + 3, 4, 0, Math.PI);
+        ctx.stroke();
+    }
+
+    drawPlayerInfo(ctx) {
+        // 对手信息（顶部）
+        const opponent = this.game.currentPlayer === 'A' ? 'B' : 'A';
+        const opponentColor = opponent === 'A' ? '#4a90d9' : '#d94a4a';
+        const opponentLeft = opponent === 'A' ? this.game.piecesLeftA : this.game.piecesLeftB;
+
+        ctx.fillStyle = opponentColor;
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`对手 ${opponent}`, CENTER_X, 100);
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`剩余: ${opponentLeft}`, CENTER_X, 120);
+
+        // 玩家信息（底部）
+        const myColor = this.game.currentPlayer === 'A' ? '#4a90d9' : '#d94a4a';
+        const myLeft = this.game.currentPlayer === 'A' ? this.game.piecesLeftA : this.game.piecesLeftB;
+
+        ctx.fillStyle = myColor;
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(`玩家 ${this.game.currentPlayer}`, CENTER_X, CANVAS_HEIGHT - 80);
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`剩余: ${myLeft}`, CENTER_X, CANVAS_HEIGHT - 60);
+    }
+
+    drawRoundInfo(ctx) {
+        const y = BOARD_Y - 50;
+
+        ctx.fillStyle = '#f0e68c';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, y);
+
+        if (this.game.currentScore > 0) {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText(`得分: +${this.game.currentScore}`, CENTER_X, y + 25);
+        }
+    }
+
+    drawPowerInfo(ctx) {
+        // 显示随机力度提示
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('力度含随机偏移', CENTER_X, CANVAS_HEIGHT - 25);
+    }
+
+    drawScorePopup(ctx) {
+        if (this.game.scorePopup && this.game.scorePopup.timer > 0) {
+            const popup = this.game.scorePopup;
+            const alpha = popup.timer / 100;
+            ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+            ctx.font = 'bold 36px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`+${popup.score}`, popup.x, popup.y - (100 - popup.timer) * 0.5);
+            popup.timer -= 2;
+        }
+    }
+
+    drawGameOver(ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        ctx.fillStyle = this.game.winner ? '#f0e68c' : '#ffffff';
+        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center';
+
+        if (this.game.winner) {
+            const isWinner = this.game.winner === this.game.currentPlayer;
+            ctx.fillText(isWinner ? '你赢了!' : '对手获胜!', CENTER_X, CENTER_Y - 40);
+            ctx.fillStyle = '#aaa';
+            ctx.font = '20px sans-serif';
+            ctx.fillText(`玩家 ${this.game.winner} 获胜`, CENTER_X, CENTER_Y);
+        } else {
+            ctx.fillText('平局!', CENTER_X, CENTER_Y - 20);
+        }
+
+        // 重新开始按钮
+        const btnX = CENTER_X - 80;
+        const btnY = CENTER_Y + 40;
+        const btnW = 160;
+        const btnH = 50;
+
+        ctx.fillStyle = '#4a90d9';
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 10);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText('重新开始', CENTER_X, btnY + 32);
+
+        this.game.restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+    }
+}
+
+// ===== Game 类 =====
+class Game {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+
+        // 游戏状态
+        this.currentPlayer = 'A';
+        this.piecesLeftA = 10;
+        this.piecesLeftB = 10;
+        this.runnerPosition = 0;
+        this.currentScore = 0;
+        this.gameOver = false;
+        this.winner = null;
+        this.isAnimating = false;
+        this.scorePopup = null;
+        this.restartBtn = null;
+        this.roundNumber = 1;
+
+        // 初始化模块
+        this.board = new Board();
+        this.physics = new Physics();
+        this.input = new Input(this);
+        this.ui = new UI(this);
+
+        // 初始化棋子
+        this.piecesA = [];
+        this.piecesB = [];
+        this.initPieces();
+
+        // 绑定事件
+        this.canvas.addEventListener('click', this.handleClick.bind(this));
+    }
+
+    initPieces() {
+        // 玩家A棋子（底部发射区）
+        const bottomZoneY = BOARD_Y + BOARD_HEIGHT + 15 + LAUNCH_ZONE_HEIGHT / 2;
+        for (let i = 0; i < 10; i++) {
+            const x = CENTER_X - LAUNCH_ZONE_WIDTH * 1.5 + i * (LAUNCH_ZONE_WIDTH * 3 / 9);
+            const piece = new Piece(x, bottomZoneY, 'A');
+            this.piecesA.push(piece);
+            this.physics.addPiece(piece);
+        }
+
+        // 玩家B棋子（顶部发射区）
+        const topZoneY = BOARD_Y - 15 - LAUNCH_ZONE_HEIGHT / 2;
+        for (let i = 0; i < 10; i++) {
+            const x = CENTER_X - LAUNCH_ZONE_WIDTH * 1.5 + i * (LAUNCH_ZONE_WIDTH * 3 / 9);
+            const piece = new Piece(x, topZoneY, 'B');
+            this.piecesB.push(piece);
+            this.physics.addPiece(piece);
+        }
+    }
+
+    getCurrentPiece() {
+        if (this.currentPlayer === 'A') {
+            const index = 10 - this.piecesLeftA;
+            return index < 10 ? this.piecesA[index] : null;
+        } else {
+            const index = 10 - this.piecesLeftB;
+            return index < 10 ? this.piecesB[index] : null;
+        }
+    }
+
+    update() {
+        if (this.gameOver) return;
+
+        this.physics.update();
+
+        if (this.isAnimating && this.physics.allStopped()) {
+            this.checkRoundEnd();
+        }
+    }
+
+    checkRoundEnd() {
+        const piece = this.getCurrentPiece();
+        if (piece && piece.isLaunched) {
+            this.currentScore = this.board.calculateScore(piece);
+            this.updateRunnerPosition(this.currentScore);
+
+            if (this.currentScore > 0) {
+                this.scorePopup = {
+                    x: piece.x,
+                    y: piece.y - 30,
+                    score: this.currentScore,
+                    timer: 100
+                };
+            }
+
+            if (this.checkWinner()) {
+                this.gameOver = true;
+                return;
+            }
+        }
+
+        this.switchPlayer();
+    }
+
+    updateRunnerPosition(score) {
+        if (this.currentPlayer === 'A') {
+            this.runnerPosition = Math.max(-5, this.runnerPosition - score);
+        } else {
+            this.runnerPosition = Math.min(5, this.runnerPosition + score);
+        }
+    }
+
+    checkWinner() {
+        if (this.runnerPosition === -5) {
+            this.winner = 'A';
+            return true;
+        }
+        if (this.runnerPosition === 5) {
+            this.winner = 'B';
+            return true;
+        }
+
+        if (this.piecesLeftA === 0 && this.piecesLeftB === 0) {
+            if (this.runnerPosition < 0) {
+                this.winner = 'A';
+            } else if (this.runnerPosition > 0) {
+                this.winner = 'B';
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    switchPlayer() {
+        if (this.currentPlayer === 'A') {
+            this.piecesLeftA--;
+        } else {
+            this.piecesLeftB--;
+        }
+
+        this.currentPlayer = this.currentPlayer === 'A' ? 'B' : 'A';
+        this.currentScore = 0;
+        this.isAnimating = false;
+        this.roundNumber++;
+    }
+
+    handleClick(e) {
+        if (!this.gameOver || !this.restartBtn) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const btn = this.restartBtn;
+
+        if (mouseX >= btn.x && mouseX <= btn.x + btn.w &&
+            mouseY >= btn.y && mouseY <= btn.y + btn.h) {
+            this.restart();
+        }
+    }
+
+    restart() {
+        this.currentPlayer = 'A';
+        this.piecesLeftA = 10;
+        this.piecesLeftB = 10;
+        this.runnerPosition = 0;
+        this.currentScore = 0;
+        this.gameOver = false;
+        this.winner = null;
+        this.isAnimating = false;
+        this.scorePopup = null;
+        this.restartBtn = null;
+        this.roundNumber = 1;
+
+        this.physics.reset();
+        this.piecesA = [];
+        this.piecesB = [];
+        this.initPieces();
+    }
+
+    draw() {
+        const ctx = this.ctx;
+
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        this.board.draw(ctx);
+
+        this.physics.pieces.forEach(piece => {
+            if (piece.isLaunched) {
+                piece.draw(ctx);
+            }
+        });
+
+        const currentPiece = this.getCurrentPiece();
+        if (currentPiece && !currentPiece.isLaunched) {
+            currentPiece.draw(ctx, true);
+        }
+
+        this.input.drawAimingLine(ctx);
+        this.ui.draw(ctx);
+    }
+
+    gameLoop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.gameLoop());
+    }
+
+    start() {
+        this.input.init();
+        this.gameLoop();
+    }
+}
+
+// ===== 启动游戏 =====
+window.onload = function() {
+    const canvas = document.getElementById('gameCanvas');
+    const game = new Game(canvas);
+    game.start();
+};
+    </script>
+</body>
+</html>

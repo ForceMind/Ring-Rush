@@ -1,0 +1,16 @@
+{
+  "name": "ring-rush-server",
+  "version": "0.5.0",
+  "description": "Ring Rush - 在线对战服务器",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "keywords": ["game", "websocket", "multiplayer"],
+  "author": "ForceMind",
+  "license": "MIT"
+}

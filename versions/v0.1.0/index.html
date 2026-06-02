@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ring Rush - 夺心冲刺</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        canvas {
+            border: 2px solid #16213e;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="900" height="600"></canvas>
+    <script>
+/**
+ * Ring Rush - 夺心冲刺
+ * 双人本地对战桌面弹射游戏
+ * 核心机制：弹射棋子 → 物理滑动 → 中心靶得分 → 拔河推进小人
+ */
+
+// ===== 游戏常量 =====
+const CANVAS_WIDTH = 900;
+const CANVAS_HEIGHT = 600;
+const PIECE_RADIUS = 15;           // 棋子半径
+const BOARD_X = 150;               // 棋盘左上角X坐标
+const BOARD_Y = 120;               // 棋盘左上角Y坐标
+const BOARD_WIDTH = 600;           // 棋盘宽度
+const BOARD_HEIGHT = 400;          // 棋盘高度
+const LAUNCH_ZONE_WIDTH = 60;      // 发射区域宽度
+const LAUNCH_ZONE_HEIGHT = 40;     // 发射区域高度
+const TRACK_Y = 70;                // 跑道Y坐标
+const TRACK_HEIGHT = 40;           // 跑道高度
+const TRACK_X = 200;               // 跑道起始X
+const TRACK_WIDTH = 500;           // 跑道总宽度
+const FRICTION = 0.985;            // 摩擦系数（每帧速度衰减）
+const RESTITUTION = 0.8;           // 碰撞恢复系数
+const MAX_SPEED = 20;              // 最大发射速度
+const SPEED_THRESHOLD = 0.1;       // 速度阈值（低于此值视为停止）
+const LAUNCH_MULTIPLIER = 0.15;    // 拖拽距离转速度的系数
+const MAX_DRAG_DISTANCE = 200;     // 最大拖拽距离
+
+// ===== 得分区域配置 =====
+const SCORING_ZONES = {
+    center:  { radius: 20,  score: 5, color: 'rgba(255, 215, 0, 0.4)' },    // 中心圆 - 金色
+    hexagon: { radius: 60,  score: 4, color: 'rgba(144, 238, 144, 0.3)' },  // 六边形 - 浅绿
+    pentagon:{ radius: 100, score: 3, color: 'rgba(135, 206, 250, 0.25)' }, // 五边形 - 浅蓝
+    square:  { radius: 140, score: 2, color: 'rgba(221, 160, 221, 0.2)' }   // 四边形 - 浅紫
+};
+
+// 中心点坐标
+const CENTER_X = BOARD_X + BOARD_WIDTH / 2;
+const CENTER_Y = BOARD_Y + BOARD_HEIGHT / 2;
+
+// ===== Piece 类 - 棋子对象 =====
+class Piece {
+    constructor(x, y, player) {
+        this.reset(x, y, player);
+    }
+
+    reset(x, y, player) {
+        this.x = x;                    // 当前X坐标
+        this.y = y;                    // 当前Y坐标
+        this.vx = 0;                   // X方向速度
+        this.vy = 0;                   // Y方向速度
+        this.radius = PIECE_RADIUS;    // 半径
+        this.player = player;          // 所属玩家 'A' 或 'B'
+        this.isLaunched = false;       // 是否已发射
+        this.isActive = false;         // 是否激活（正在移动）
+        this.color = player === 'A' ? '#4a90d9' : '#d94a4a';  // 玩家颜色
+        this.innerColor = player === 'A' ? '#3a7bc8' : '#c83a3a';
+    }
+
+    // 绘制棋子
+    draw(ctx, highlight = false) {
+        // 外圈
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.strokeStyle = highlight ? '#fff' : 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = highlight ? 3 : 1.5;
+        ctx.stroke();
+
+        // 内圈装饰
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = this.innerColor;
+        ctx.fill();
+
+        // 中心点
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+    }
+}
+
+// ===== Physics 类 - 物理引擎 =====
+class Physics {
+    constructor() {
+        this.pieces = [];           // 所有棋子
+    }
+
+    // 添加棋子到物理系统
+    addPiece(piece) {
+        this.pieces.push(piece);
+    }
+
+    // 更新所有棋子的物理状态
+    update() {
+        for (let piece of this.pieces) {
+            if (!piece.isActive) continue;
+
+            // 更新位置（速度 * 时间，这里简化为每帧更新）
+            piece.x += piece.vx;
+            piece.y += piece.vy;
+
+            // 应用摩擦力（每帧速度衰减）
+            piece.vx *= FRICTION;
+            piece.vy *= FRICTION;
+
+            // 边界碰撞检测（棋盘边界反弹）
+            this.checkBoundaryCollision(piece);
+
+            // 棋子间碰撞检测
+            this.checkPieceCollisions(piece);
+
+            // 速度极低时停止棋子
+            const speed = Math.sqrt(piece.vx * piece.vx + piece.vy * piece.vy);
+            if (speed < SPEED_THRESHOLD) {
+                piece.vx = 0;
+                piece.vy = 0;
+                piece.isActive = false;
+            }
+        }
+    }
+
+    // 边界碰撞检测与反弹
+    checkBoundaryCollision(piece) {
+        const minX = BOARD_X + piece.radius;
+        const maxX = BOARD_X + BOARD_WIDTH - piece.radius;
+        const minY = BOARD_Y + piece.radius;
+        const maxY = BOARD_Y + BOARD_HEIGHT - piece.radius;
+
+        if (piece.x < minX) {
+            piece.x = minX;
+            piece.vx = -piece.vx * RESTITUTION;
+        }
+        if (piece.x > maxX) {
+            piece.x = maxX;
+            piece.vx = -piece.vx * RESTITUTION;
+        }
+        if (piece.y < minY) {
+            piece.y = minY;
+            piece.vy = -piece.vy * RESTITUTION;
+        }
+        if (piece.y > maxY) {
+            piece.y = maxY;
+            piece.vy = -piece.vy * RESTITUTION;
+        }
+    }
+
+    // 棋子间圆形碰撞检测与响应
+    checkPieceCollisions(currentPiece) {
+        for (let other of this.pieces) {
+            if (other === currentPiece || !other.isLaunched) continue;
+
+            const dx = other.x - currentPiece.x;
+            const dy = other.y - currentPiece.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDist = currentPiece.radius + other.radius;
+
+            if (distance < minDist && distance > 0) {
+                // 计算碰撞法线
+                const nx = dx / distance;
+                const ny = dy / distance;
+
+                // 计算相对速度
+                const dvx = currentPiece.vx - other.vx;
+                const dvy = currentPiece.vy - other.vy;
+                const dvDotN = dvx * nx + dvy * ny;
+
+                // 只处理正在接近的棋子
+                if (dvDotN > 0) {
+                    // 简化的弹性碰撞响应
+                    const impulse = dvDotN * (1 + RESTITUTION) / 2;
+                    currentPiece.vx -= impulse * nx;
+                    currentPiece.vy -= impulse * ny;
+                    other.vx += impulse * nx;
+                    other.vy += impulse * ny;
+                    other.isActive = true;
+
+                    // 分离重叠的棋子
+                    const overlap = minDist - distance;
+                    const separateX = (overlap / 2) * nx;
+                    const separateY = (overlap / 2) * ny;
+                    currentPiece.x -= separateX;
+                    currentPiece.y -= separateY;
+                    other.x += separateX;
+                    other.y += separateY;
+                }
+            }
+        }
+    }
+
+    // 检查所有棋子是否都停止
+    allStopped() {
+        return this.pieces.every(p => !p.isActive);
+    }
+
+    // 重置
+    reset() {
+        this.pieces = [];
+    }
+}
+
+// ===== Board 类 - 棋盘与得分逻辑 =====
+class Board {
+    constructor() {
+        // 定义多边形顶点（用于绘制得分区）
+        this.hexagonVertices = this.generatePolygon(6, SCORING_ZONES.hexagon.radius);
+        this.pentagonVertices = this.generatePolygon(5, SCORING_ZONES.pentagon.radius);
+        this.squareVertices = this.generatePolygon(4, SCORING_ZONES.square.radius);
+    }
+
+    // 生成正多边形顶点
+    generatePolygon(sides, radius) {
+        const vertices = [];
+        const angleStep = (Math.PI * 2) / sides;
+        const startAngle = -Math.PI / 2;  // 从顶部开始
+        for (let i = 0; i < sides; i++) {
+            const angle = startAngle + i * angleStep;
+            vertices.push({
+                x: Math.cos(angle) * radius,
+                y: Math.sin(angle) * radius
+            });
+        }
+        return vertices;
+    }
+
+    // 计算棋子得分
+    calculateScore(piece) {
+        const dx = piece.x - CENTER_X;
+        const dy = piece.y - CENTER_Y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // 从内到外判断所在区域
+        if (distance <= SCORING_ZONES.center.radius) {
+            return SCORING_ZONES.center.score;      // 5分
+        }
+        if (this.isInsidePolygon(dx, dy, this.hexagonVertices)) {
+            return SCORING_ZONES.hexagon.score;      // 4分
+        }
+        if (this.isInsidePolygon(dx, dy, this.pentagonVertices)) {
+            return SCORING_ZONES.pentagon.score;     // 3分
+        }
+        if (this.isInsidePolygon(dx, dy, this.squareVertices)) {
+            return SCORING_ZONES.square.score;       // 2分
+        }
+        return 0;  // 区域外不得分
+    }
+
+    // 点是否在多边形内（射线法）
+    isInsidePolygon(px, py, vertices) {
+        let inside = false;
+        const n = vertices.length;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+            const xi = vertices[i].x, yi = vertices[i].y;
+            const xj = vertices[j].x, yj = vertices[j].y;
+            if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    // 绘制棋盘
+    draw(ctx) {
+        // 棋盘背景（木质色调）
+        ctx.fillStyle = '#2d1f14';
+        ctx.strokeStyle = '#8b7355';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        // 桌面纹理
+        ctx.fillStyle = '#3d2b1a';
+        ctx.beginPath();
+        ctx.roundRect(BOARD_X + 5, BOARD_Y + 5, BOARD_WIDTH - 10, BOARD_HEIGHT - 10, 8);
+        ctx.fill();
+
+        // 绘制得分区域（从外到内）
+        this.drawScoringZones(ctx);
+
+        // 绘制中心十字线
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(CENTER_X, BOARD_Y);
+        ctx.lineTo(CENTER_X, BOARD_Y + BOARD_HEIGHT);
+        ctx.moveTo(BOARD_X, CENTER_Y);
+        ctx.lineTo(BOARD_X + BOARD_WIDTH, CENTER_Y);
+        ctx.stroke();
+
+        // 绘制发射区域
+        this.drawLaunchZones(ctx);
+    }
+
+    // 绘制得分区域
+    drawScoringZones(ctx) {
+        // 四边形（最外层）
+        this.drawPolygon(ctx, this.squareVertices, SCORING_ZONES.square.color, '#9370db');
+
+        // 五边形
+        this.drawPolygon(ctx, this.pentagonVertices, SCORING_ZONES.pentagon.color, '#6495ed');
+
+        // 六边形
+        this.drawPolygon(ctx, this.hexagonVertices, SCORING_ZONES.hexagon.color, '#3cb371');
+
+        // 中心圆（最内层）
+        ctx.beginPath();
+        ctx.arc(CENTER_X, CENTER_Y, SCORING_ZONES.center.radius, 0, Math.PI * 2);
+        ctx.fillStyle = SCORING_ZONES.center.color;
+        ctx.fill();
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // 绘制多边形
+    drawPolygon(ctx, vertices, fillColor, strokeColor) {
+        ctx.beginPath();
+        ctx.moveTo(CENTER_X + vertices[0].x, CENTER_Y + vertices[0].y);
+        for (let i = 1; i < vertices.length; i++) {
+            ctx.lineTo(CENTER_X + vertices[i].x, CENTER_Y + vertices[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+
+    // 绘制发射区域
+    drawLaunchZones(ctx) {
+        // 玩家A发射区（左侧）
+        const zoneA_X = BOARD_X - LAUNCH_ZONE_WIDTH - 15;
+        ctx.fillStyle = 'rgba(74, 144, 217, 0.2)';
+        ctx.strokeStyle = '#4a90d9';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(zoneA_X, CENTER_Y - LAUNCH_ZONE_HEIGHT / 2, LAUNCH_ZONE_WIDTH, LAUNCH_ZONE_HEIGHT, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        // 玩家B发射区（右侧）
+        const zoneB_X = BOARD_X + BOARD_WIDTH + 15;
+        ctx.fillStyle = 'rgba(217, 74, 74, 0.2)';
+        ctx.strokeStyle = '#d94a4a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(zoneB_X, CENTER_Y - LAUNCH_ZONE_HEIGHT / 2, LAUNCH_ZONE_WIDTH, LAUNCH_ZONE_HEIGHT, 5);
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+// ===== Input 类 - 输入控制 =====
+class Input {
+    constructor(game) {
+        this.game = game;
+        this.isDragging = false;
+        this.dragStart = { x: 0, y: 0 };
+        this.mouse = { x: 0, y: 0 };
+        this.currentPiece = null;
+
+        // 绑定鼠标事件
+        this.handleMouseDown = this.handleMouseDown.bind(this);
+        this.handleMouseMove = this.handleMouseMove.bind(this);
+        this.handleMouseUp = this.handleMouseUp.bind(this);
+    }
+
+    // 初始化事件监听
+    init() {
+        this.game.canvas.addEventListener('mousedown', this.handleMouseDown);
+        this.game.canvas.addEventListener('mousemove', this.handleMouseMove);
+        this.game.canvas.addEventListener('mouseup', this.handleMouseUp);
+        this.game.canvas.addEventListener('mouseleave', () => {
+            this.isDragging = false;
+            this.currentPiece = null;
+        });
+    }
+
+    // 鼠标按下 - 开始拖拽
+    handleMouseDown(e) {
+        if (this.game.gameOver || this.game.isAnimating) return;
+
+        const rect = this.game.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // 获取当前玩家的待发射棋子
+        const piece = this.game.getCurrentPiece();
+        if (!piece) return;
+
+        // 检查是否点击在棋子附近（发射区域内）
+        const zoneX = piece.player === 'A' ?
+            BOARD_X - LAUNCH_ZONE_WIDTH - 15 :
+            BOARD_X + BOARD_WIDTH + 15;
+        const zoneCenterX = zoneX + LAUNCH_ZONE_WIDTH / 2;
+
+        if (Math.abs(mouseX - zoneCenterX) < LAUNCH_ZONE_WIDTH &&
+            Math.abs(mouseY - CENTER_Y) < LAUNCH_ZONE_HEIGHT) {
+            this.isDragging = true;
+            this.dragStart = { x: mouseX, y: mouseY };
+            this.currentPiece = piece;
+        }
+    }
+
+    // 鼠标移动 - 更新瞄准
+    handleMouseMove(e) {
+        const rect = this.game.canvas.getBoundingClientRect();
+        this.mouse = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+
+    // 鼠标松开 - 发射棋子
+    handleMouseUp(e) {
+        if (!this.isDragging || !this.currentPiece) {
+            this.isDragging = false;
+            return;
+        }
+
+        // 计算发射方向（反向）和速度
+        const dx = this.dragStart.x - this.mouse.x;
+        const dy = this.dragStart.y - this.mouse.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 5) {  // 最小拖拽距离
+            // 计算发射速度（与拖拽方向相反）
+            const speed = Math.min(distance * LAUNCH_MULTIPLIER, MAX_SPEED);
+            this.currentPiece.vx = (dx / distance) * speed;
+            this.currentPiece.vy = (dy / distance) * speed;
+            this.currentPiece.isLaunched = true;
+            this.currentPiece.isActive = true;
+            this.game.isAnimating = true;
+        }
+
+        this.isDragging = false;
+        this.currentPiece = null;
+    }
+
+    // 绘制瞄准线
+    drawAimingLine(ctx) {
+        if (!this.isDragging || !this.currentPiece) return;
+
+        const piece = this.currentPiece;
+        const dx = this.dragStart.x - this.mouse.x;
+        const dy = this.dragStart.y - this.mouse.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 5) return;
+
+        // 计算发射方向
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+
+        // 瞄准线长度（根据拖拽距离缩放）
+        const lineLength = Math.min(distance * 1.5, 250);
+
+        // 瞄准线终点
+        const tipX = piece.x + dirX * lineLength;
+        const tipY = piece.y + dirY * lineLength;
+
+        // 绘制主瞄准线（白色虚线）
+        ctx.beginPath();
+        ctx.setLineDash([8, 4]);
+        ctx.moveTo(piece.x, piece.y);
+        ctx.lineTo(tipX, tipY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 绘制目标圆圈（红色）
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 6, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+}
+
+// ===== UI 类 - 界面绘制 =====
+class UI {
+    constructor(game) {
+        this.game = game;
+    }
+
+    // 绘制所有UI元素
+    draw(ctx) {
+        this.drawTitle(ctx);
+        this.drawTrack(ctx);
+        this.drawPlayerInfo(ctx);
+        this.drawRoundInfo(ctx);
+        this.drawScorePopup(ctx);
+
+        if (this.game.gameOver) {
+            this.drawGameOver(ctx);
+        }
+    }
+
+    // 绘制游戏标题
+    drawTitle(ctx) {
+        ctx.fillStyle = '#f0e68c';
+        ctx.font = 'bold 28px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('RING RUSH', CANVAS_WIDTH / 2, 35);
+
+        ctx.fillStyle = '#888';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText('夺心冲刺', CANVAS_WIDTH / 2, 55);
+    }
+
+    // 绘制跑道（11格）
+    drawTrack(ctx) {
+        const stepWidth = TRACK_WIDTH / 11;
+        const labels = ['-5', '-4', '-3', '-2', '-1', '0', '+1', '+2', '+3', '+4', '+5'];
+
+        for (let i = 0; i < 11; i++) {
+            const x = TRACK_X + i * stepWidth;
+            const position = i - 5;  // -5 到 +5
+
+            // 根据位置设置颜色
+            let fillColor;
+            if (position < 0) fillColor = 'rgba(74, 144, 217, 0.3)';    // 玩家A区域
+            else if (position > 0) fillColor = 'rgba(217, 74, 74, 0.3)'; // 玩家B区域
+            else fillColor = 'rgba(200, 200, 200, 0.2)';                  // 中间格
+
+            // 绘制格子背景
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(x, TRACK_Y, stepWidth - 2, TRACK_HEIGHT);
+
+            // 绘制格子边框
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, TRACK_Y, stepWidth - 2, TRACK_HEIGHT);
+
+            // 绘制标签
+            ctx.fillStyle = '#ccc';
+            ctx.font = '12px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(labels[i], x + stepWidth / 2, TRACK_Y + TRACK_HEIGHT / 2 + 4);
+        }
+
+        // 绘制小人（当前位置指示器）
+        const runnerX = TRACK_X + (this.game.runnerPosition + 5) * stepWidth + stepWidth / 2;
+        const runnerY = TRACK_Y + TRACK_HEIGHT / 2;
+
+        ctx.beginPath();
+        ctx.arc(runnerX, runnerY - 1, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#f0e68c';
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 小人表情
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(runnerX - 3, runnerY - 3, 2, 0, Math.PI * 2);
+        ctx.arc(runnerX + 3, runnerY - 3, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(runnerX, runnerY + 1, 3, 0, Math.PI);
+        ctx.stroke();
+    }
+
+    // 绘制玩家信息
+    drawPlayerInfo(ctx) {
+        // 玩家A（左侧）
+        ctx.fillStyle = '#4a90d9';
+        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('玩家 A', 20, TRACK_Y + 20);
+        ctx.fillStyle = '#888';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText(`剩余: ${this.game.piecesLeftA}`, 20, TRACK_Y + 40);
+
+        // 玩家B（右侧）
+        ctx.fillStyle = '#d94a4a';
+        ctx.font = 'bold 16px "Segoe UI", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('玩家 B', CANVAS_WIDTH - 20, TRACK_Y + 20);
+        ctx.fillStyle = '#888';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText(`剩余: ${this.game.piecesLeftB}`, CANVAS_WIDTH - 20, TRACK_Y + 40);
+    }
+
+    // 绘制回合信息
+    drawRoundInfo(ctx) {
+        const y = BOARD_Y + BOARD_HEIGHT + 30;
+
+        // 当前回合玩家
+        ctx.fillStyle = this.game.currentPlayer === 'A' ? '#4a90d9' : '#d94a4a';
+        ctx.font = 'bold 18px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`当前回合: 玩家 ${this.game.currentPlayer}`, CENTER_X, y);
+
+        // 本回合得分
+        if (this.game.currentScore > 0) {
+            ctx.fillStyle = '#f0e68c';
+            ctx.font = '16px "Segoe UI", sans-serif';
+            ctx.fillText(`本回合得分: +${this.game.currentScore}`, CENTER_X, y + 25);
+        }
+    }
+
+    // 绘制得分弹窗
+    drawScorePopup(ctx) {
+        if (this.game.scorePopup && this.game.scorePopup.timer > 0) {
+            const popup = this.game.scorePopup;
+            ctx.fillStyle = `rgba(255, 215, 0, ${popup.timer / 100})`;
+            ctx.font = 'bold 32px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`+${popup.score}`, popup.x, popup.y - (100 - popup.timer) * 0.5);
+            popup.timer -= 2;
+        }
+    }
+
+    // 绘制游戏结束界面
+    drawGameOver(ctx) {
+        // 半透明覆盖层
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // 胜利/平局信息
+        ctx.fillStyle = this.game.winner ? '#f0e68c' : '#ffffff';
+        ctx.font = 'bold 48px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        if (this.game.winner) {
+            ctx.fillText(`玩家 ${this.game.winner} 获胜!`, CENTER_X, CENTER_Y - 30);
+        } else {
+            ctx.fillText('平局!', CENTER_X, CENTER_Y - 30);
+        }
+
+        // 重新开始按钮
+        const btnX = CENTER_X - 75;
+        const btnY = CENTER_Y + 20;
+        const btnW = 150;
+        const btnH = 45;
+
+        ctx.fillStyle = '#4a90d9';
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 8);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px "Segoe UI", sans-serif';
+        ctx.fillText('重新开始', CENTER_X, btnY + 30);
+
+        // 存储按钮位置用于点击检测
+        this.game.restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+    }
+}
+
+// ===== Game 类 - 游戏主类 =====
+class Game {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+
+        // 游戏状态
+        this.currentPlayer = 'A';      // 当前玩家
+        this.piecesLeftA = 10;         // 玩家A剩余棋子
+        this.piecesLeftB = 10;         // 玩家B剩余棋子
+        this.runnerPosition = 0;       // 小人位置（-5到+5）
+        this.currentScore = 0;         // 本回合得分
+        this.gameOver = false;         // 游戏是否结束
+        this.winner = null;            // 获胜者
+        this.isAnimating = false;      // 棋子是否在移动
+        this.scorePopup = null;        // 得分弹窗
+        this.restartBtn = null;        // 重新开始按钮
+
+        // 初始化模块
+        this.board = new Board();
+        this.physics = new Physics();
+        this.input = new Input(this);
+        this.ui = new UI(this);
+
+        // 初始化棋子
+        this.piecesA = [];
+        this.piecesB = [];
+        this.initPieces();
+
+        // 绑定重新开始按钮
+        this.canvas.addEventListener('click', this.handleClick.bind(this));
+    }
+
+    // 初始化双方棋子
+    initPieces() {
+        const spacing = BOARD_HEIGHT / 11;
+
+        // 玩家A棋子（左侧发射区外）
+        const startX_A = BOARD_X - LAUNCH_ZONE_WIDTH - 15 + LAUNCH_ZONE_WIDTH / 2;
+        for (let i = 0; i < 10; i++) {
+            const piece = new Piece(startX_A, CENTER_Y, 'A');
+            this.piecesA.push(piece);
+            this.physics.addPiece(piece);
+        }
+
+        // 玩家B棋子（右侧发射区外）
+        const startX_B = BOARD_X + BOARD_WIDTH + 15 + LAUNCH_ZONE_WIDTH / 2;
+        for (let i = 0; i < 10; i++) {
+            const piece = new Piece(startX_B, CENTER_Y, 'B');
+            this.piecesB.push(piece);
+            this.physics.addPiece(piece);
+        }
+    }
+
+    // 获取当前玩家的待发射棋子
+    getCurrentPiece() {
+        if (this.currentPlayer === 'A') {
+            const index = 10 - this.piecesLeftA;
+            return index < 10 ? this.piecesA[index] : null;
+        } else {
+            const index = 10 - this.piecesLeftB;
+            return index < 10 ? this.piecesB[index] : null;
+        }
+    }
+
+    // 更新游戏状态
+    update() {
+        if (this.gameOver) return;
+
+        // 更新物理
+        this.physics.update();
+
+        // 检查回合结束
+        if (this.isAnimating && this.physics.allStopped()) {
+            this.checkRoundEnd();
+        }
+    }
+
+    // 检查回合结束
+    checkRoundEnd() {
+        // 计算当前棋子得分
+        const piece = this.getCurrentPiece();
+        if (piece && piece.isLaunched) {
+            this.currentScore = this.board.calculateScore(piece);
+            this.updateRunnerPosition(this.currentScore);
+
+            // 显示得分弹窗
+            if (this.currentScore > 0) {
+                this.scorePopup = {
+                    x: piece.x,
+                    y: piece.y - 20,
+                    score: this.currentScore,
+                    timer: 100
+                };
+            }
+
+            // 检查胜利条件
+            if (this.checkWinner()) {
+                this.gameOver = true;
+                return;
+            }
+        }
+
+        // 切换玩家
+        this.switchPlayer();
+    }
+
+    // 更新小人位置
+    updateRunnerPosition(score) {
+        if (this.currentPlayer === 'A') {
+            // 玩家A得分，小人向负方向移动（向左）
+            this.runnerPosition = Math.max(-5, this.runnerPosition - score);
+        } else {
+            // 玩家B得分，小人向正方向移动（向右）
+            this.runnerPosition = Math.min(5, this.runnerPosition + score);
+        }
+    }
+
+    // 检查是否有获胜者
+    checkWinner() {
+        // 小人到达终点
+        if (this.runnerPosition === -5) {
+            this.winner = 'A';
+            return true;
+        }
+        if (this.runnerPosition === 5) {
+            this.winner = 'B';
+            return true;
+        }
+
+        // 双方棋子用完
+        if (this.piecesLeftA === 0 && this.piecesLeftB === 0) {
+            if (this.runnerPosition < 0) {
+                this.winner = 'A';
+            } else if (this.runnerPosition > 0) {
+                this.winner = 'B';
+            }
+            // runnerPosition === 0 时为平局，winner 保持 null
+            return true;
+        }
+
+        return false;
+    }
+
+    // 切换玩家
+    switchPlayer() {
+        // 扣减当前玩家棋子
+        if (this.currentPlayer === 'A') {
+            this.piecesLeftA--;
+        } else {
+            this.piecesLeftB--;
+        }
+
+        // 切换到另一位玩家
+        this.currentPlayer = this.currentPlayer === 'A' ? 'B' : 'A';
+        this.currentScore = 0;
+        this.isAnimating = false;
+    }
+
+    // 处理点击事件（重新开始按钮）
+    handleClick(e) {
+        if (!this.gameOver || !this.restartBtn) return;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const btn = this.restartBtn;
+
+        if (mouseX >= btn.x && mouseX <= btn.x + btn.w &&
+            mouseY >= btn.y && mouseY <= btn.y + btn.h) {
+            this.restart();
+        }
+    }
+
+    // 重新开始游戏
+    restart() {
+        this.currentPlayer = 'A';
+        this.piecesLeftA = 10;
+        this.piecesLeftB = 10;
+        this.runnerPosition = 0;
+        this.currentScore = 0;
+        this.gameOver = false;
+        this.winner = null;
+        this.isAnimating = false;
+        this.scorePopup = null;
+        this.restartBtn = null;
+
+        // 重置棋子
+        this.physics.reset();
+        this.piecesA = [];
+        this.piecesB = [];
+        this.initPieces();
+    }
+
+    // 绘制游戏
+    draw() {
+        const ctx = this.ctx;
+
+        // 清空画布
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // 绘制棋盘
+        this.board.draw(ctx);
+
+        // 绘制所有已发射的棋子
+        this.physics.pieces.forEach(piece => {
+            if (piece.isLaunched) {
+                piece.draw(ctx);
+            }
+        });
+
+        // 绘制当前待发射棋子（在发射区域内）
+        const currentPiece = this.getCurrentPiece();
+        if (currentPiece && !currentPiece.isLaunched) {
+            currentPiece.draw(ctx, true);
+        }
+
+        // 绘制瞄准线
+        this.input.drawAimingLine(ctx);
+
+        // 绘制UI
+        this.ui.draw(ctx);
+    }
+
+    // 游戏主循环
+    gameLoop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.gameLoop());
+    }
+
+    // 启动游戏
+    start() {
+        this.input.init();
+        this.gameLoop();
+    }
+}
+
+// ===== 启动游戏 =====
+window.onload = function() {
+    const canvas = document.getElementById('gameCanvas');
+    const game = new Game(canvas);
+    game.start();
+};
+    </script>
+</body>
+</html>

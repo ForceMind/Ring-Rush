@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c server.js)",
+      "Bash(npm install *)",
+      "Bash(timeout 5 node server.js)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\('测试成功'\\); process.exit\\(0\\);\")"
+    ]
+  }
+}
