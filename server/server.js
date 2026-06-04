@@ -16,7 +16,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 // 服务器配置
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
 // 静态文件 MIME 类型映射

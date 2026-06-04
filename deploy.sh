@@ -1,107 +1,114 @@
 #!/bin/bash
+# Ring Rush Linux 一键部署脚本 (Systemd版 + 自动迁移)
+# 适用系统: Ubuntu / Debian / CentOS / RHEL
 
-# Ring Rush 一键部署脚本
-# 支持 Ubuntu/Debian/CentOS/RHEL 等常见发行版
+set -e
 
-echo "======================================"
-echo "    Ring Rush 游戏服务器一键部署"
-echo "======================================"
+echo "================================================="
+echo "   Ring Rush - 智能一键部署脚本 (迁移到 Systemd) "
+echo "================================================="
 
-# 检查是否为root用户
+# 1. 检查 root 权限
 if [ "$EUID" -ne 0 ]; then
-  echo "请使用 root 权限运行此脚本 (sudo ./deploy.sh)"
+  echo "❌ 错误: 请使用 root 权限运行此脚本 (例如: sudo bash deploy.sh)"
   exit 1
 fi
 
-# 检测包管理器
-if command -v apt-get >/dev/null; then
-    PKG_MANAGER="apt-get"
-    $PKG_MANAGER update -y
-elif command -v yum >/dev/null; then
-    PKG_MANAGER="yum"
-else
-    echo "不支持的 Linux 发行版，无法自动安装依赖。请手动安装 Node.js 和 PM2。"
+PROJECT_DIR=$(pwd)
+SERVER_DIR="${PROJECT_DIR}/server"
+
+if [ ! -d "$SERVER_DIR" ] || [ ! -f "${SERVER_DIR}/server.js" ]; then
+  echo "❌ 错误: 当前目录下找不到 server/server.js，请在 Ring-Rush 项目根目录下执行此脚本！"
+  exit 1
+fi
+
+# 2. 清理旧的 PM2 进程
+if command -v pm2 > /dev/null; then
+  echo "🧹 检测到服务器安装了 PM2，准备迁移..."
+  # 查找并删除可能冲突的 pm2 进程 (容错处理)
+  pm2 delete ring-rush >/dev/null 2>&1 || true
+  pm2 delete server >/dev/null 2>&1 || true
+  pm2 save --force >/dev/null 2>&1 || true
+  echo "✅ 旧的 PM2 游戏进程已安全清理（如果有的话）。"
+fi
+
+# 3. 检查并安装 Node.js
+if ! command -v node > /dev/null; then
+  echo "📦 未检测到 Node.js，准备开始安装..."
+  if command -v apt-get > /dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    apt-get install -y nodejs
+  elif command -v yum > /dev/null; then
+    curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+    yum install -y nodejs
+  else
+    echo "❌ 错误: 未知的包管理器，请手动安装 Node.js 后重试"
     exit 1
+  fi
+  echo "✅ Node.js 安装完成: $(node -v)"
 fi
 
-# 安装 Node.js
-if ! command -v node >/dev/null; then
-    echo "未检测到 Node.js，正在为您安装..."
-    if [ "$PKG_MANAGER" = "apt-get" ]; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-        $PKG_MANAGER install -y nodejs
-    elif [ "$PKG_MANAGER" = "yum" ]; then
-        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-        $PKG_MANAGER install -y nodejs
-    fi
-else
-    echo "Node.js 已安装: $(node -v)"
-fi
+# 4. 安装游戏依赖
+echo "📦 正在安装依赖..."
+cd "$SERVER_DIR"
+npm install --production
 
-# 安装 PM2 (用于后台守护进程管理)
-if ! command -v pm2 >/dev/null; then
-    echo "未检测到 pm2，正在通过 npm 全局安装..."
-    npm install -g pm2
-else
-    echo "pm2 已安装: $(pm2 -v)"
-fi
-
-# 检查当前目录是否为项目根目录
-if [ ! -d "server" ] || [ ! -f "server/server.js" ]; then
-    echo "错误：请在项目根目录运行此脚本（该目录下应包含 server 文件夹）。"
-    exit 1
-fi
-
-echo "正在安装后端依赖..."
-cd server
-npm install
-cd ..
-
-# 端口回避：寻找一个空闲端口，默认从 3000 开始
-TARGET_PORT=3000
-
-# 检测端口占用 (使用 ss 或 netstat，如果都没有则尝试使用 nc 或 bash 伪设备)
-check_port() {
-    local port=$1
-    if command -v ss >/dev/null; then
-        ss -tuln | grep ":$port " > /dev/null
-    elif command -v netstat >/dev/null; then
-        netstat -tuln | grep ":$port " > /dev/null
-    else
-        # 兼容方法
-        (echo >/dev/tcp/127.0.0.1/$port) >/dev/null 2>&1
-    fi
-}
-
-echo "正在检查端口占用情况..."
-while check_port $TARGET_PORT; do
-    echo "端口 $TARGET_PORT 已被占用，尝试端口 $((TARGET_PORT+1))..."
-    TARGET_PORT=$((TARGET_PORT+1))
+# 5. 自动分配不冲突的端口
+echo "🔍 正在扫描可用端口..."
+PORT=3000
+while true; do
+  # 检查端口是否被占用 (同时适配 ss 和 netstat)
+  if command -v ss > /dev/null; then
+    if ! ss -tuln | grep -q ":$PORT "; then break; fi
+  elif command -v netstat > /dev/null; then
+    if ! netstat -tuln | grep -q ":$PORT "; then break; fi
+  else
+    break
+  fi
+  ((PORT++))
 done
+echo "✅ 自动分配空闲端口: $PORT"
 
-echo "找到可用端口: $TARGET_PORT"
+# 6. 配置 Systemd
+SERVICE_NAME="ring-rush"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
-# 启动服务器
-echo "正在使用 pm2 启动游戏服务器..."
+echo "⚙️  生成底层服务配置..."
+cat > $SERVICE_FILE <<EOF
+[Unit]
+Description=Ring Rush Node.js Game Server
+After=network.target
 
-# 停止已有的同名服务
-pm2 delete "ring-rush" >/dev/null 2>&1
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${SERVER_DIR}
+Environment="PORT=${PORT}"
+Environment="NODE_ENV=production"
+ExecStart=$(command -v node) server.js
+Restart=on-failure
+RestartSec=5
 
-# 传入指定的端口并启动
-PORT=$TARGET_PORT pm2 start server/server.js --name "ring-rush"
+[Install]
+WantedBy=multi-user.target
+EOF
 
-# 保存 pm2 状态
-pm2 save
-pm2 startup
+# 7. 重启并拉起服务
+echo "🚀 启动系统原生服务..."
+systemctl daemon-reload
+systemctl stop $SERVICE_NAME >/dev/null 2>&1 || true
+systemctl enable $SERVICE_NAME
+systemctl restart $SERVICE_NAME
 
-echo "======================================"
-echo "    部署成功！"
-echo "======================================"
-echo "您的游戏服务器正在后台运行。"
-echo "请在浏览器访问: http://您的服务器IP:$TARGET_PORT"
+
+echo "================================================="
+echo "🎉 终极一键部署大功告成！"
 echo ""
-echo "常用 PM2 命令："
-echo "查看日志: pm2 logs ring-rush"
-echo "重启服务: pm2 restart ring-rush"
-echo "停止服务: pm2 stop ring-rush"
-echo "======================================"
+echo "🌐 你现在可以直接通过浏览器访问："
+echo "👉 http://你的服务器公网IP:${PORT}"
+echo ""
+echo "🛠️ 常用管理命令："
+echo "重启游戏: systemctl restart $SERVICE_NAME"
+echo "停止游戏: systemctl stop $SERVICE_NAME"
+echo "查看日志: journalctl -u $SERVICE_NAME -f"
+echo "================================================="
