@@ -187,6 +187,7 @@ export class Game {
 
         this.network.onPlayerLeft = () => {
             this.opponentLeft = true;
+            this.dicePhase = false; // Abort dice phase
             if (!this.gameOver) {
                 this.winner = this.perspective === 'bottom' ? 'A' : 'B';
                 this.gameOver = true;
