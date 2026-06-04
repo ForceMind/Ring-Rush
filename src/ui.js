@@ -195,9 +195,9 @@ export class UI {
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillStyle = myColor; ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(myName, 30, BOARD_Y + BOARD_HEIGHT + 95);
+        ctx.fillText(myName, 30, CANVAS_HEIGHT - 45); // 移到底部，在滑杆下方
         ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
-        ctx.fillText(`剩余: ${myLeft}`, 30, BOARD_Y + BOARD_HEIGHT + 115);
+        ctx.fillText(`剩余: ${myLeft}`, 30, CANVAS_HEIGHT - 25);
         
         if (myIsTurn && !this.game.gameOver && !this.game.dice.phase) {
             ctx.textAlign = 'right';
@@ -352,8 +352,8 @@ export class UI {
         ctx.font = 'bold 16px sans-serif';
         this.game.chat.chatMessages.forEach(msg => {
             const isMe = msg.playerIndex === this.game.network.playerIndex;
-            const isBottom = this.game.perspective === 'bottom';
-            const drawAtBottom = (isMe && isBottom) || (!isMe && !isBottom);
+            // 名字的位置和视角翻转无关，自己的名字永远在屏幕下方，对手永远在屏幕上方
+            const drawAtBottom = isMe;
 
             const text = msg.text;
             const metrics = ctx.measureText(text);
@@ -362,13 +362,13 @@ export class UI {
             let x, y;
 
             if (drawAtBottom) {
-                // 出现在自己名字（左下方）的上方
+                // 出现在自己滑杆（y=830）的上方
                 x = 30;
-                y = BOARD_Y + BOARD_HEIGHT + 45;
+                y = CANVAS_HEIGHT - 120;
             } else {
-                // 出现在对手名字（左上方）的下方
+                // 出现在对手滑杆（y=70）的下方
                 x = 30;
-                y = BOARD_Y - 20;
+                y = 100;
             }
 
             ctx.fillStyle = 'rgba(40, 40, 40, 0.85)';

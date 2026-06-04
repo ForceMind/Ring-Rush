@@ -500,6 +500,14 @@ export class Game {
         }
 
         this.switchPlayer();
+
+        // 切换玩家（扣除棋子）后，再检查一次是否所有棋子都用完了
+        const postWinReason = this.checkWinner();
+        if (postWinReason) {
+            this.pendingWin = true;
+            this.pendingWinReason = postWinReason;
+            this.pendingWinTime = 0;
+        }
     }
 
     updateRunnerPosition(score) {

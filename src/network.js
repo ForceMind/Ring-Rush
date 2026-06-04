@@ -69,9 +69,14 @@ export class NetworkManager {
 
             this.ws.onmessage = (event) => {
                 try {
-                    const message = JSON.parse(event.data);
+                    const msg = JSON.parse(event.data);
+                    
+                    if (msg.type === 'welcome') {
+                        this.playerId = msg.playerId;
+                    }
+                    
+                    this.handleMessage(msg);
                     this._lastPong = Date.now();
-                    this.handleMessage(message);
                 } catch (e) {
                     console.error('消息解析错误:', e);
                 }
