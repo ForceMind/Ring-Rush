@@ -130,7 +130,7 @@ export class NetworkManager {
                 if (this.onPieceLaunch) this.onPieceLaunch(message);
                 break;
             case 'slider_sync':
-                if (this.onSliderSync) this.onSliderSync(message.value);
+                if (this.onSliderSync) this.onSliderSync(message.value, message.player);
                 break;
             case 'player_rolled':
                 if (this.onPlayerRolled) this.onPlayerRolled(message.playerIndex, message.val);

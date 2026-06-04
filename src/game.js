@@ -125,9 +125,10 @@ export class Game {
             this.handleRemotePieceLaunch(message.piece);
         };
         
-        this.network.onSliderSync = (value) => {
+        this.network.onSliderSync = (value, player) => {
             if (!this.isMyTurn()) {
-                const piece = this.getCurrentPiece();
+                const pieceArray = player === 'A' ? this.piecesA : this.piecesB;
+                const piece = pieceArray.find(p => !p.isLaunched && !p.isDiscarded);
                 if (!piece || piece.isLaunched) return;
                 const minX = (this.canvas.width / 2) - 100 + piece.radius;
                 const maxX = (this.canvas.width / 2) + 100 - piece.radius;
@@ -237,26 +238,12 @@ export class Game {
         };
 
         this.network.onRequestSync = (targetPlayerId) => {
-            const state = {
-                scoreA: this.scoreA,
-                scoreB: this.scoreB,
-                roundNumber: this.roundNumber,
-                currentPlayer: this.currentPlayer,
-                turnStartTime: this.turnStartTime,
-                turnTimeLeft: this.turnTimeLeft,
-                dicePhase: this.dicePhase,
-                diceResults: this.diceResults,
-                diceTieResult: this.diceTieResult,
-                diceRolling: this.opponentRolling,
-                opponentRolling: this.diceRolling,
-                diceTargetVal: this.opDiceTargetVal,
-                opDiceTargetVal: this.diceTargetVal,
-                diceRollAnimEndTime: Date.now() + 2000,
-                opDiceRollAnimEndTime: Date.now() + 2000,
-                piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
-                piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched }))
-            };
-            this.network.send({ type: 'full_sync', targetPlayerId, state });
+            this.network.send({ type: 'full_sync', targetPlayerId, state: this.getState() });
+        };
+
+        this.network.onGameState = (state) => {
+            this.isAnimating = false;
+            this.network.onFullSync(state);
         };
 
         this.network.onFullSync = (state) => {
@@ -442,7 +429,8 @@ export class Game {
     }
 
     handleRemotePieceLaunch(pieceData) {
-        const piece = this.getCurrentPiece();
+        const pieceArray = pieceData.player === 'A' ? this.piecesA : this.piecesB;
+        const piece = pieceArray.find(p => !p.isLaunched && !p.isDiscarded);
         if (piece) {
             piece.x = pieceData.x;
             piece.y = pieceData.y;
@@ -450,6 +438,7 @@ export class Game {
             piece.vy = pieceData.vy;
             piece.isLaunched = true;
             piece.isActive = true;
+            this.currentPlayer = pieceData.player; // Fix potential state desync
             this.isAnimating = true;
             this.audio.play('launch');
         }
@@ -516,7 +505,14 @@ export class Game {
         }
 
         if (this.isAnimating && this.physics.allStopped()) {
+            const wasMyTurn = this.isMyTurn();
             this.checkRoundEnd();
+            
+            if (this.gameMode === 'online') {
+                if (wasMyTurn || this.gameOver) {
+                    this.network.updateGameState(this.getState());
+                }
+            }
         }
 
         // 清理过期的聊天消息
@@ -570,6 +566,15 @@ export class Game {
                 piece.isActive = false;
                 piece.vx = 0;
                 piece.vy = 0;
+                
+                // Reset Y coordinate
+                const offset = 25;
+                if (piece.player === 'A') {
+                    piece.y = BOARD_Y + BOARD_HEIGHT + offset;
+                } else {
+                    piece.y = BOARD_Y - offset;
+                }
+                
                 this.input.sliderValue = 0.5;
                 this.input.applySliderToPiece();
                 
@@ -631,6 +636,28 @@ export class Game {
         }
 
         return false;
+    }
+
+    getState() {
+        return {
+            scoreA: this.scoreA,
+            scoreB: this.scoreB,
+            roundNumber: this.roundNumber,
+            currentPlayer: this.currentPlayer,
+            turnStartTime: this.turnStartTime,
+            turnTimeLeft: this.turnTimeLeft,
+            dicePhase: this.dicePhase,
+            diceResults: this.diceResults,
+            diceTieResult: this.diceTieResult,
+            diceRolling: this.opponentRolling,
+            opponentRolling: this.diceRolling,
+            diceTargetVal: this.opDiceTargetVal,
+            opDiceTargetVal: this.diceTargetVal,
+            diceRollAnimEndTime: Date.now() + 2000,
+            opDiceRollAnimEndTime: Date.now() + 2000,
+            piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
+            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched }))
+        };
     }
 
     drawDiceScreen(ctx) {

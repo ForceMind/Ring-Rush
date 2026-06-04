@@ -173,7 +173,8 @@ export class Input {
                 this.sliderSyncTimer = setTimeout(() => {
                     this.game.network.send({
                         type: 'slider_sync',
-                        value: this.sliderValue
+                        value: this.sliderValue,
+                        player: this.game.currentPlayer
                     });
                 }, 2000);
             }
