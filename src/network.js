@@ -22,8 +22,13 @@ export class NetworkManager {
     getServerUrl() {
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const port = window.location.port || '3000';
-        return `${protocol}//${host}:${port}`;
+        let portStr = '';
+        if (window.location.port) {
+            portStr = ':' + window.location.port;
+        } else if (host === 'localhost' || host === '127.0.0.1') {
+            portStr = ':3000'; // 本地开发回退
+        }
+        return `${protocol}//${host}${portStr}`;
     }
 
     connect() {

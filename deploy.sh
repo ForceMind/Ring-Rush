@@ -100,12 +100,72 @@ systemctl stop $SERVICE_NAME >/dev/null 2>&1 || true
 systemctl enable $SERVICE_NAME
 systemctl restart $SERVICE_NAME
 
+# 8. 配置 Nginx 域名反向代理
+echo ""
+read -p "🌐 是否需要配置域名访问？(如果需要，脚本将自动配置 Nginx 反向代理) [y/N]: " NEED_DOMAIN
+if [[ "$NEED_DOMAIN" =~ ^[Yy]$ ]]; then
+  read -p "✏️  请输入你的域名 (例如: game.yourdomain.com): " DOMAIN_NAME
+  
+  if [ -n "$DOMAIN_NAME" ]; then
+    echo "📦 正在检查并安装 Nginx..."
+    if ! command -v nginx > /dev/null; then
+      if command -v apt-get > /dev/null; then
+        apt-get update > /dev/null
+        apt-get install -y nginx
+      elif command -v yum > /dev/null; then
+        yum install -y epel-release || true
+        yum install -y nginx
+      fi
+    fi
+    
+    NGINX_CONF="/etc/nginx/conf.d/${DOMAIN_NAME}.conf"
+    if [ -d "/etc/nginx/sites-available" ]; then
+      NGINX_CONF="/etc/nginx/sites-available/${DOMAIN_NAME}.conf"
+    fi
+    
+    echo "⚙️  正在生成 Nginx 配置文件: $NGINX_CONF"
+    cat > $NGINX_CONF <<EOF
+server {
+    listen 80;
+    server_name ${DOMAIN_NAME};
+
+    location / {
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+EOF
+
+    if [ -d "/etc/nginx/sites-available" ]; then
+      ln -sf $NGINX_CONF /etc/nginx/sites-enabled/ || true
+    fi
+
+    echo "🚀 重启 Nginx 使配置生效..."
+    systemctl enable nginx || true
+    systemctl restart nginx || true
+    
+    echo "✅ Nginx 域名反向代理配置完毕！(已开启 WebSocket 支持)"
+    echo "⚠️  请确保你的域名 ${DOMAIN_NAME} 已经解析到这台服务器的公网 IP。"
+  else
+    echo "⚠️ 域名为空，跳过 Nginx 配置。"
+  fi
+fi
 
 echo "================================================="
 echo "🎉 终极一键部署大功告成！"
 echo ""
 echo "🌐 你现在可以直接通过浏览器访问："
-echo "👉 http://你的服务器公网IP:${PORT}"
+if [ -n "$DOMAIN_NAME" ]; then
+  echo "👉 http://${DOMAIN_NAME}"
+  echo "(注意: 首次访问如果报错，请检查域名解析是否已生效)"
+else
+  echo "👉 http://你的服务器公网IP:${PORT}"
+fi
 echo ""
 echo "🛠️ 常用管理命令："
 echo "重启游戏: systemctl restart $SERVICE_NAME"
