@@ -259,10 +259,19 @@ export class UI {
             return; // Bot doesn't surrender
         }
         
-        const btnX = CANVAS_WIDTH - 80;
-        const btnY = isTop ? 12 : CANVAS_HEIGHT - 40;
         const btnW = 60;
         const btnH = 28;
+        let btnX, btnY;
+
+        if (isTop) {
+            // Local Player B (screen flipped): their top-right is bottom-left
+            btnX = 20;
+            btnY = CANVAS_HEIGHT - 12 - btnH;
+        } else {
+            // Local Player A or Online Player: top-right
+            btnX = CANVAS_WIDTH - 20 - btnW;
+            btnY = 12;
+        }
 
         ctx.fillStyle = 'rgba(244, 67, 54, 0.2)';
         ctx.beginPath();
@@ -467,22 +476,29 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawDisconnectOverlay(ctx) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        const bannerW = 300;
+        const bannerH = 80;
+        const bannerX = CENTER_X - bannerW / 2;
+        const bannerY = 80;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(bannerX, bannerY, bannerW, bannerH, 10);
+        ctx.fill();
 
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 28px sans-serif';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
         
         // 简单的闪烁动画
         const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / 300));
         ctx.globalAlpha = alpha;
-        ctx.fillText('对方已断线，等待重连中...', CENTER_X, CENTER_Y - 20);
+        ctx.fillText('对方已断线，等待重连中...', CENTER_X, bannerY + 30);
         
         ctx.globalAlpha = 1.0;
-        ctx.font = '16px sans-serif';
+        ctx.font = '12px sans-serif';
         ctx.fillStyle = '#aaa';
-        ctx.fillText('（60秒内未重连将自动判负）', CENTER_X, CENTER_Y + 20);
+        ctx.fillText('（60秒内未重连将自动判负）', CENTER_X, bannerY + 55);
     }
 
     /**
@@ -515,9 +531,9 @@ export class UI {
                 isMe = (msg.playerIndex === (isBottom ? 'A' : 'B'));
             }
 
-            const x = isMe ? CANVAS_WIDTH - 40 : 40;
-            const y = isMe ? BOARD_Y + BOARD_HEIGHT + 70 : BOARD_Y - 70;
-            const isRightAlign = isMe;
+            const x = 30;
+            const y = isMe ? BOARD_Y + BOARD_HEIGHT + 45 : BOARD_Y - 45;
+            const isRightAlign = false;
 
             ctx.save();
             ctx.globalAlpha = alpha;
@@ -540,14 +556,16 @@ export class UI {
 
             // 小尾巴
             ctx.beginPath();
-            if (isRightAlign) {
-                ctx.moveTo(x - 20, boxY + boxH);
-                ctx.lineTo(x - 5, boxY + boxH + 10);
-                ctx.lineTo(x - 10, boxY + boxH);
-            } else {
-                ctx.moveTo(x + 20, boxY + boxH);
+            if (isMe) {
+                // 指向下方玩家名字
+                ctx.moveTo(x + 10, boxY + boxH);
                 ctx.lineTo(x + 5, boxY + boxH + 10);
-                ctx.lineTo(x + 10, boxY + boxH);
+                ctx.lineTo(x + 20, boxY + boxH);
+            } else {
+                // 指向上方玩家名字
+                ctx.moveTo(x + 10, boxY);
+                ctx.lineTo(x + 5, boxY - 10);
+                ctx.lineTo(x + 20, boxY);
             }
             ctx.fill();
 

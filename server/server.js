@@ -239,7 +239,19 @@ wss.on('connection', (ws) => {
                     players.delete(player.id);
                     player = oldPlayer; // 更新闭包引用
                     
-                    player.send({ type: 'reconnect_success', room: rooms.get(player.roomId)?.toJSON() });
+                    const room = rooms.get(player.roomId);
+                    let opponentName = '对手';
+                    if (room) {
+                        if (player.playerIndex === 'A' && room.guest) opponentName = room.guest.name;
+                        if (player.playerIndex === 'B' && room.host) opponentName = room.host.name;
+                    }
+                    
+                    player.send({ 
+                        type: 'reconnect_success', 
+                        room: room?.toJSON(),
+                        playerIndex: player.playerIndex,
+                        opponentName: opponentName
+                    });
                     
                     broadcastToRoom(player.roomId, {
                         type: 'opponent_reconnected',
@@ -367,8 +379,8 @@ function handleMessage(player, message) {
                 type: 'chat',
                 playerId: player.id,
                 playerName: player.name,
-                message: message.message
-            });
+                text: message.text
+            }, player.id);
             break;
 
         case 'surrender':

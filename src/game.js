@@ -280,92 +280,97 @@ export class Game {
         };
 
         // 注入聊天UI
-        if (!document.getElementById('ringRushChatContainer')) {
-            const container = document.createElement('div');
-            container.id = 'ringRushChatContainer';
-            container.innerHTML = `
-                <style>
-                    #ringRushChatContainer {
-                        position: absolute;
-                        bottom: 20px;
-                        right: 20px;
-                        z-index: 100;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: flex-end;
-                    }
-                    #chatMenu {
-                        display: none;
-                        flex-direction: column;
-                        background: rgba(0, 0, 0, 0.8);
-                        border-radius: 8px;
-                        padding: 8px;
-                        margin-bottom: 10px;
-                    }
-                    #chatMenu.active {
-                        display: flex;
-                    }
-                    .chat-btn {
-                        background: rgba(74, 144, 217, 0.8);
-                        color: white;
-                        border: 2px solid rgba(255, 255, 255, 0.5);
-                        border-radius: 50%;
-                        width: 50px;
-                        height: 50px;
-                        font-size: 24px;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-                        transition: all 0.2s;
-                    }
-                    .chat-btn:active {
-                        transform: scale(0.95);
-                    }
-                    .chat-option {
-                        background: transparent;
-                        color: #fff;
-                        border: none;
-                        padding: 8px 12px;
-                        text-align: right;
-                        font-size: 14px;
-                        cursor: pointer;
-                        white-space: nowrap;
-                    }
-                    .chat-option:hover {
-                        background: rgba(255, 255, 255, 0.2);
-                        border-radius: 4px;
-                    }
-                </style>
-                <div id="chatMenu">
-                    <button class="chat-option">你好，祝你好运！ 👋</button>
-                    <button class="chat-option">打得不错！ 👍</button>
-                    <button class="chat-option">漂亮的一击！ 🎯</button>
-                    <button class="chat-option">哎呀，失误了... 💦</button>
-                    <button class="chat-option">快点吧，我等得花儿都谢了！ ⏰</button>
-                    <button class="chat-option">谢谢指教，再来一局？ 🤝</button>
-                </div>
-                <button class="chat-btn">💬</button>
-            `;
-            document.getElementById('gameContainer').appendChild(container);
-            
-            const btn = container.querySelector('.chat-btn');
-            const menu = container.querySelector('#chatMenu');
-            const options = container.querySelectorAll('.chat-option');
+        if (this.gameMode === 'online') {
+            if (!document.getElementById('ringRushChatContainer')) {
+                const container = document.createElement('div');
+                container.id = 'ringRushChatContainer';
+                container.innerHTML = `
+                    <style>
+                        #ringRushChatContainer {
+                            position: absolute;
+                            bottom: 20px;
+                            right: 20px;
+                            z-index: 100;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: flex-end;
+                        }
+                        #chatMenu {
+                            display: none;
+                            flex-direction: column;
+                            background: rgba(0, 0, 0, 0.8);
+                            border-radius: 8px;
+                            padding: 8px;
+                            margin-bottom: 10px;
+                        }
+                        #chatMenu.active {
+                            display: flex;
+                        }
+                        .chat-btn {
+                            background: rgba(74, 144, 217, 0.8);
+                            color: white;
+                            border: 2px solid rgba(255, 255, 255, 0.5);
+                            border-radius: 50%;
+                            width: 50px;
+                            height: 50px;
+                            font-size: 24px;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                            transition: all 0.2s;
+                        }
+                        .chat-btn:active {
+                            transform: scale(0.95);
+                        }
+                        .chat-option {
+                            background: transparent;
+                            color: #fff;
+                            border: none;
+                            padding: 8px 12px;
+                            text-align: right;
+                            font-size: 14px;
+                            cursor: pointer;
+                            white-space: nowrap;
+                        }
+                        .chat-option:hover {
+                            background: rgba(255, 255, 255, 0.2);
+                            border-radius: 4px;
+                        }
+                    </style>
+                    <div id="chatMenu">
+                        <button class="chat-option">你好，祝你好运！ 👋</button>
+                        <button class="chat-option">打得不错！ 👍</button>
+                        <button class="chat-option">漂亮的一击！ 🎯</button>
+                        <button class="chat-option">哎呀，失误了... 💦</button>
+                        <button class="chat-option">快点吧，我等得花儿都谢了！ ⏰</button>
+                        <button class="chat-option">谢谢指教，再来一局？ 🤝</button>
+                    </div>
+                    <button class="chat-btn">💬</button>
+                `;
+                document.getElementById('gameContainer').appendChild(container);
+                
+                const btn = container.querySelector('.chat-btn');
+                const menu = container.querySelector('#chatMenu');
+                const options = container.querySelectorAll('.chat-option');
 
-            btn.onclick = () => {
-                menu.classList.toggle('active');
-            };
-
-            options.forEach(opt => {
-                opt.onclick = () => {
-                    this.sendChat(opt.textContent.trim());
-                    menu.classList.remove('active');
+                btn.onclick = () => {
+                    menu.classList.toggle('active');
                 };
-            });
+
+                options.forEach(opt => {
+                    opt.onclick = () => {
+                        this.sendChat(opt.textContent.trim());
+                        menu.classList.remove('active');
+                    };
+                });
+            } else {
+                document.getElementById('ringRushChatContainer').style.display = 'flex';
+            }
         } else {
-            document.getElementById('ringRushChatContainer').style.display = 'flex';
+            const chatEl = document.getElementById('ringRushChatContainer');
+            if (chatEl) chatEl.style.display = 'none';
         }
 
         this.startDicePhase();

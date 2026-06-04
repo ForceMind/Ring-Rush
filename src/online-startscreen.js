@@ -74,6 +74,26 @@ export class OnlineStartScreen {
 
     handleNetworkMessage(message) {
         switch (message.type) {
+            case 'reconnect_success':
+                if (message.room && message.room.state === 'playing') {
+                    // Start the game!
+                    this.gameStartMessage = {
+                        playerIndex: message.playerIndex,
+                        opponentName: message.opponentName
+                    };
+                    this.currentScreen = 'main';
+                    if (this.onStart) {
+                        const cb = this.onStart;
+                        this.onStart = null;
+                        cb('online', null);
+                    }
+                } else if (message.room) {
+                    this.currentRoom = message.room;
+                    this.currentScreen = 'in_room';
+                    this.isReady = false;
+                    this.draw();
+                }
+                break;
             case 'room_created':
                 this.currentRoom = message.room;
                 this.currentScreen = 'in_room';
