@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ring Rush - Casual UI Mockup</title>
+    <style>
+        /* 核心配色：马卡龙/糖果色 */
+        :root {
+            --bg-color: #e0f7fa;          /* 极浅薄荷蓝背景 */
+            --board-bg: #fffbf0;          /* 奶黄白桌面 */
+            --board-border: #f0e6d2;      /* 桌面柔和边框 */
+            
+            /* 得分区颜色 */
+            --zone-sq: rgba(221, 160, 221, 0.4);  /* 浅紫 */
+            --zone-pent: rgba(135, 206, 250, 0.4);/* 浅蓝 */
+            --zone-hex: rgba(144, 238, 144, 0.5); /* 薄荷绿 */
+            --zone-center: #ffe066;               /* 明黄 */
+
+            /* 玩家颜色 */
+            --player-a: #82c4ff; /* 浅马卡龙蓝 */
+            --player-b: #ff9e9e; /* 浅马卡龙粉红 */
+            
+            --text-color: #555555;
+            --text-light: #888888;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Nunito', 'Quicksand', 'Segoe UI', sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 10%),
+                              radial-gradient(circle at 80% 70%, rgba(255,255,255,0.4) 0%, transparent 15%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+
+        .mockup-container {
+            position: relative;
+            width: 420px;
+            height: 750px;
+            background: var(--board-bg);
+            border-radius: 36px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.08), inset 0 0 0 8px #ffffff;
+            border: 2px solid var(--board-border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 30px 0;
+        }
+
+        /* 顶部玩家面板 */
+        .player-panel {
+            width: 80%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            border-radius: 50px;
+            background: #ffffff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+            z-index: 10;
+        }
+        .player-b-panel { border: 2px solid var(--player-b); }
+        .player-a-panel { border: 2px solid var(--player-a); }
+
+        .player-info { display: flex; flex-direction: column; }
+        .player-name { font-weight: bold; font-size: 16px; }
+        .player-b-panel .player-name { color: #e57373; }
+        .player-a-panel .player-name { color: #4ba3e3; }
+        .pieces-left { font-size: 12px; color: var(--text-light); }
+        .timer { font-weight: 800; font-size: 18px; color: #ffca28; }
+
+        /* 发射区 */
+        .launch-zone {
+            width: 70%;
+            height: 60px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0.7;
+        }
+        .launch-top { background: linear-gradient(to bottom, rgba(255, 158, 158, 0.2), transparent); border: 2px dashed var(--player-b); }
+        .launch-bottom { background: linear-gradient(to top, rgba(130, 196, 255, 0.2), transparent); border: 2px dashed var(--player-a); }
+
+        /* 棋盘中心区域 */
+        .board-center {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 得分环 */
+        .zone { position: absolute; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .zone-4 { width: 320px; height: 320px; background: var(--zone-sq); border-radius: 32px; align-items: flex-start; padding-top: 15px; }
+        .zone-3 { width: 230px; height: 230px; background: var(--zone-pent); align-items: flex-start; padding-top: 15px; }
+        .zone-2 { width: 140px; height: 140px; background: var(--zone-hex); align-items: flex-start; padding-top: 15px; }
+        .zone-1 { width: 50px; height: 50px; background: var(--zone-center); box-shadow: 0 0 20px rgba(255,224,102,0.6); color: #c29900; font-size: 18px; align-items: center; padding: 0; }
+
+        /* 棋子 (Pucks) - 扁平圆润无把手 */
+        .puck {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1), inset 0 2px 4px rgba(255,255,255,0.6);
+            display: flex; justify-content: center; align-items: center;
+            border: 2px solid rgba(255,255,255,0.4);
+        }
+        .puck::after {
+            content: '';
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+        }
+        .puck-b { background: var(--player-b); }
+        .puck-a { background: var(--player-a); }
+
+        /* 跑道 / 进度条 */
+        .track {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 300px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            border: 2px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px 0;
+            align-items: center;
+        }
+        .track-marker { width: 6px; height: 2px; background: #ccc; border-radius: 2px; }
+        .track-runner {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #ffca28;
+            border-radius: 50%;
+            top: 40%;
+            left: -7px;
+            box-shadow: 0 2px 8px rgba(255,202,40,0.5);
+            border: 3px solid #fff;
+        }
+        .track-label { position: absolute; font-size: 10px; font-weight: bold; color: #aaa; left: 18px; }
+
+        /* 底部投降按钮 */
+        .surrender-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: #fff;
+            border: 2px solid #ffccbc;
+            color: #ff8a65;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="mockup-container">
+    
+    <!-- 侧边跑道 -->
+    <div class="track">
+        <span class="track-label" style="top: 10px;">B胜</span>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <div class="track-marker"></div>
+        <span class="track-label" style="bottom: 10px;">A胜</span>
+        
+        <!-- 小人指示器 -->
+        <div class="track-runner"></div>
+    </div>
+
+    <!-- 顶部对手面板 -->
+    <div class="player-panel player-b-panel">
+        <div class="player-info">
+            <span class="player-name">对手 (B)</span>
+            <span class="pieces-left">剩余: 7</span>
+        </div>
+        <div class="timer">14s</div>
+    </div>
+
+    <!-- 顶部发射区 -->
+    <div class="launch-zone launch-top"></div>
+
+    <!-- 棋盘中心区域 -->
+    <div class="board-center">
+        <!-- 简化的同心得分区 -->
+        <div class="zone zone-4">2分</div>
+        <div class="zone zone-3">3分</div>
+        <div class="zone zone-2">4分</div>
+        <div class="zone zone-1">5</div>
+
+        <!-- 散落的棋子 -->
+        <div class="puck puck-b" style="top: 40px; left: 100px;"></div>
+        <div class="puck puck-a" style="top: 120px; left: 160px;"></div>
+        <div class="puck puck-b" style="top: 160px; left: 140px;"></div>
+        <div class="puck puck-a" style="top: 220px; left: 60px;"></div>
+        <div class="puck puck-a" style="top: 180px; left: 240px;"></div>
+    </div>
+
+    <!-- 底部发射区 -->
+    <div class="launch-zone launch-bottom">
+        <div class="puck puck-a" style="position: relative; opacity: 0.8;"></div>
+    </div>
+
+    <!-- 底部玩家面板 -->
+    <div class="player-panel player-a-panel">
+        <div class="player-info">
+            <span class="player-name">你 (A)</span>
+            <span class="pieces-left">剩余: 7</span>
+        </div>
+        <div class="timer" style="color: #4ba3e3;">--</div>
+    </div>
+
+    <div class="surrender-btn">投降</div>
+
+</div>
+
+</body>
+</html>

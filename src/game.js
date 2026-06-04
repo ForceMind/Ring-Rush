@@ -363,7 +363,10 @@ export class Game {
             this.updateRunnerPosition(this.currentScore);
 
             if (this.currentScore > 0) {
-                this.ui.addScoreAnimation(piece.x, piece.y - 30, this.currentScore);
+                const isTop = this.perspective === 'top';
+                const sx = isTop ? this.tx(piece.x) : piece.x;
+                const sy = isTop ? this.ty(piece.y) : piece.y;
+                this.ui.addScoreAnimation(sx, sy - 30, this.currentScore);
                 this.particles.emitScore(piece.x, piece.y);
                 this.audio.play('score');
             }

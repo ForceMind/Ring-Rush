@@ -34,9 +34,6 @@ export class Input {
         // 发球位置滑块
         this.sliderDragging = false;
         this.sliderValue = 0.5; // 0=最左, 1=最右
-        this.sliderTrackX = 50;
-        this.sliderTrackY = CANVAS_HEIGHT - 70;
-        this.sliderTrackW = CANVAS_WIDTH - 100;
         this.sliderHandleR = 12;
 
         this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -47,6 +44,15 @@ export class Input {
     /**
      * 初始化事件监听器（鼠标 + 触摸）
      */
+    getSliderMetrics() {
+        const isLocalRed = this.game.mode === 'local' && this.game.currentPlayer === 'B';
+        return {
+            x: 50,
+            y: isLocalRed ? 70 : CANVAS_HEIGHT - 70,
+            w: CANVAS_WIDTH - 100
+        };
+    }
+
     init() {
         this.game.canvas.addEventListener('mousedown', this.handleMouseDown);
         this.game.canvas.addEventListener('mousemove', this.handleMouseMove);
@@ -97,8 +103,9 @@ export class Input {
         const mouseY = (e.clientY - rect.top) * scaleY;
 
         // 滑块点击
-        const handleX = this.sliderTrackX + this.sliderValue * this.sliderTrackW;
-        const handleY = this.sliderTrackY;
+        const metrics = this.getSliderMetrics();
+        const handleX = metrics.x + this.sliderValue * metrics.w;
+        const handleY = metrics.y;
         if (Math.sqrt((mouseX - handleX) ** 2 + (mouseY - handleY) ** 2) < this.sliderHandleR + 8) {
             this.sliderDragging = true;
             return;
@@ -126,7 +133,12 @@ export class Input {
         this.mouse = { x: mouseX, y: mouseY };
 
         if (this.sliderDragging) {
-            let newValue = (mouseX - this.sliderTrackX) / this.sliderTrackW;
+            const metrics = this.getSliderMetrics();
+            let newValue = (mouseX - metrics.x) / metrics.w;
+            // Mirror logic for top player: if dragging from their perspective, left/right is inverted physically.
+            if (metrics.y === 70) {
+                newValue = 1 - newValue;
+            }
             this.sliderValue = Math.max(0, Math.min(1, newValue));
             this.applySliderToPiece();
             
@@ -299,16 +311,20 @@ export class Input {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawSlider(ctx) {
-        // 只在自己回合且棋子未发射时显示
-        if (this.game.gameOver || this.game.isAnimating) return;
-        if (this.game.isBotTurn()) return;
-        if (this.game.isOnlineGame() && !this.game.isMyTurn()) return;
-        const piece = this.game.getCurrentPiece();
-        if (!piece || piece.isLaunched) return;
+        if (!this.game.hasStarted || this.game.isAnimating || this.game.dicePhase) return;
+        const currentPiece = this.game.getCurrentPiece();
+        if (!currentPiece) return;
 
-        const tx = this.sliderTrackX;
-        const ty = this.sliderTrackY;
-        const tw = this.sliderTrackW;
+        // 如果是电脑回合，不绘制滑块
+        if (this.game.mode === 'bot' && this.game.currentPlayer === 'B') return;
+
+        // 在线模式下只绘制自己的滑块
+        if (this.game.isOnlineGame() && this.game.currentPlayer !== this.game.playerIndex) return;
+
+        const metrics = this.getSliderMetrics();
+        const tx = metrics.x;
+        const ty = metrics.y;
+        const tw = metrics.w;
         const hr = this.sliderHandleR;
 
         // 标签
@@ -330,13 +346,16 @@ export class Input {
         const myColorDrag = isBottom ? '#6ab0ff' : '#ff6b6b';
 
         // 已选范围
-        ctx.fillStyle = `rgba(${myColorRGB}, 0.4)`;
+        const drawValue = ty === 70 ? 1 - this.sliderValue : this.sliderValue;
+        
+        ctx.fillStyle = this.game.currentPlayer === 'A' ? 'rgba(52, 152, 219, 0.5)' : 'rgba(231, 76, 60, 0.5)';
         ctx.beginPath();
-        ctx.roundRect(tx, ty - 3, tw * this.sliderValue, 6, 3);
+        ctx.roundRect(tx, ty - 3, tw * drawValue, 6, 3);
         ctx.fill();
 
-        // 把手
-        const hx = tx + this.sliderValue * tw;
+        // 绘制滑块把手
+        const hx = tx + drawValue * tw;
+        const hy = ty;
         const handleWidth = 24;
         const handleHeight = 32;
 

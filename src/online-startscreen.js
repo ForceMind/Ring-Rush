@@ -5,7 +5,7 @@
 import { CANVAS_WIDTH, CANVAS_HEIGHT, CENTER_X, CENTER_Y, VERSION, AI_DIFFICULTY } from './constants.js';
 import { NetworkManager } from './network.js';
 
-export class StartScreen {
+export class OnlineStartScreen {
     constructor(canvas, onStart) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
@@ -559,9 +559,7 @@ export class StartScreen {
 
                 // 在线大厅按钮
                 if (btn.id === 'back_to_main') {
-                    this.currentScreen = 'main';
-                    this.selectedMode = null;
-                    this.draw();
+                    window.location.href = 'index.html';
                 } else if (btn.id === 'connect') {
                     await this.connectToServer();
                 } else if (btn.id === 'create_room') {
