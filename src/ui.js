@@ -46,6 +46,7 @@ export class UI {
         this.drawNetworkStatus(ctx);
         this.drawSurrenderButton(ctx);
         this.drawScoreAnimations(ctx);
+        this.drawChatBubbles(ctx);
 
         if (this.game.gameOver) {
             this.drawGameOver(ctx);
@@ -353,7 +354,9 @@ export class UI {
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = '#fff';
                 ctx.font = '24px sans-serif';
-                ctx.fillText(`得分比 ${this.game.scoreA} : ${this.game.scoreB}`, CENTER_X, CENTER_Y - 20);
+                const sa = this.game.scoreA || 0;
+                const sb = this.game.scoreB || 0;
+                ctx.fillText(`得分比 ${sa} : ${sb}`, CENTER_X, CENTER_Y - 20);
             } else {
                 const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
                 ctx.shadowColor = isWinner ? '#ffd700' : '#f44336';
@@ -385,7 +388,13 @@ export class UI {
         const btnW = 200;
         const btnH = 60;
 
-        if (this.game.waitingForRestart) {
+        if (this.game.showRestartAgreed) {
+            ctx.fillStyle = '#4CAF50';
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.fillText('双方已同意，即将开始...', CENTER_X, btnY + 30);
+            this.game.restartBtn = null;
+        } else if (this.game.waitingForRestart) {
             ctx.fillStyle = '#aaa';
             ctx.textAlign = 'center';
             ctx.font = '20px sans-serif';
@@ -474,5 +483,81 @@ export class UI {
         ctx.font = '16px sans-serif';
         ctx.fillStyle = '#aaa';
         ctx.fillText('（60秒内未重连将自动判负）', CENTER_X, CENTER_Y + 20);
+    }
+
+    /**
+     * 绘制聊天气泡
+     * @param {CanvasRenderingContext2D} ctx
+     */
+    drawChatBubbles(ctx) {
+        if (!this.game.chatMessages || this.game.chatMessages.length === 0) return;
+
+        const now = Date.now();
+        const isBottom = this.game.perspective === 'bottom';
+
+        this.game.chatMessages.forEach(msg => {
+            const age = now - msg.timestamp;
+            if (age > 3500) return;
+
+            let alpha = 1;
+            if (age > 3000) {
+                alpha = 1 - (age - 3000) / 500;
+            } else if (age < 200) {
+                alpha = age / 200;
+            }
+
+            // 判断显示位置
+            let isMe = false;
+            if (this.game.gameMode === 'online') {
+                isMe = (msg.playerIndex === this.game.playerIndex);
+            } else {
+                // 本地对战时（仅理论上，如果没有在线环境）
+                isMe = (msg.playerIndex === (isBottom ? 'A' : 'B'));
+            }
+
+            const x = isMe ? CANVAS_WIDTH - 40 : 40;
+            const y = isMe ? BOARD_Y + BOARD_HEIGHT + 70 : BOARD_Y - 70;
+            const isRightAlign = isMe;
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+
+            ctx.font = 'bold 16px sans-serif';
+            const textWidth = ctx.measureText(msg.text).width;
+            const paddingX = 15;
+            const paddingY = 10;
+            
+            const boxW = textWidth + paddingX * 2;
+            const boxH = 40;
+            const boxX = isRightAlign ? x - boxW : x;
+            const boxY = y;
+
+            // 气泡背景
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, 20);
+            ctx.fill();
+
+            // 小尾巴
+            ctx.beginPath();
+            if (isRightAlign) {
+                ctx.moveTo(x - 20, boxY + boxH);
+                ctx.lineTo(x - 5, boxY + boxH + 10);
+                ctx.lineTo(x - 10, boxY + boxH);
+            } else {
+                ctx.moveTo(x + 20, boxY + boxH);
+                ctx.lineTo(x + 5, boxY + boxH + 10);
+                ctx.lineTo(x + 10, boxY + boxH);
+            }
+            ctx.fill();
+
+            // 文本
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(msg.text, boxX + paddingX, boxY + boxH / 2);
+
+            ctx.restore();
+        });
     }
 }

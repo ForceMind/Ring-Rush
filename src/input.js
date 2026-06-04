@@ -41,6 +41,12 @@ export class Input {
         this.handleMouseUp = this.handleMouseUp.bind(this);
     }
 
+    cleanup() {
+        this.game.canvas.removeEventListener('mousedown', this.handleMouseDown);
+        this.game.canvas.removeEventListener('mousemove', this.handleMouseMove);
+        this.game.canvas.removeEventListener('mouseup', this.handleMouseUp);
+    }
+
     /**
      * 初始化事件监听器（鼠标 + 触摸）
      */

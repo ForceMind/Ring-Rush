@@ -52,6 +52,7 @@ export class Game {
         this.roundNumber = 1;
         this.turnStartTime = 0;
         this.turnTimeLeft = 60;
+        this.chatMessages = [];
 
         this.audio = new AudioManager();
         this.particles = new ParticleSystem();
@@ -182,7 +183,11 @@ export class Game {
         };
 
         this.network.onRestartGame = () => {
-            this.performRestart();
+            this.showRestartAgreed = true;
+            setTimeout(() => {
+                this.showRestartAgreed = false;
+                this.performRestart();
+            }, 1500);
         };
 
         this.network.onPlayerLeft = () => {
@@ -220,6 +225,14 @@ export class Game {
                 turnStartTime: this.turnStartTime,
                 turnTimeLeft: this.turnTimeLeft,
                 dicePhase: this.dicePhase,
+                diceResults: this.diceResults,
+                diceTieResult: this.diceTieResult,
+                diceRolling: this.opponentRolling,
+                opponentRolling: this.diceRolling,
+                diceTargetVal: this.opDiceTargetVal,
+                opDiceTargetVal: this.diceTargetVal,
+                diceRollAnimEndTime: Date.now() + 2000,
+                opDiceRollAnimEndTime: Date.now() + 2000,
                 piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
                 piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched }))
             };
@@ -234,6 +247,14 @@ export class Game {
             this.turnStartTime = state.turnStartTime;
             this.turnTimeLeft = state.turnTimeLeft;
             this.dicePhase = state.dicePhase;
+            this.diceResults = state.diceResults;
+            this.diceTieResult = state.diceTieResult;
+            this.diceRolling = state.diceRolling;
+            this.opponentRolling = state.opponentRolling;
+            this.diceTargetVal = state.diceTargetVal;
+            this.opDiceTargetVal = state.opDiceTargetVal;
+            this.diceRollAnimEndTime = state.diceRollAnimEndTime;
+            this.opDiceRollAnimEndTime = state.opDiceRollAnimEndTime;
             
             for (let i = 0; i < this.piecesA.length; i++) {
                 if (state.piecesA[i]) {
@@ -252,6 +273,100 @@ export class Game {
             
             this.opponentTemporarilyDisconnected = false;
         };
+
+        this.network.onChat = (playerId, text) => {
+            const senderIndex = (playerId === this.network.playerId) ? this.playerIndex : (this.playerIndex === 'A' ? 'B' : 'A');
+            this.chatMessages.push({ text, playerIndex: senderIndex, timestamp: Date.now() });
+        };
+
+        // 注入聊天UI
+        if (!document.getElementById('ringRushChatContainer')) {
+            const container = document.createElement('div');
+            container.id = 'ringRushChatContainer';
+            container.innerHTML = `
+                <style>
+                    #ringRushChatContainer {
+                        position: absolute;
+                        bottom: 20px;
+                        right: 20px;
+                        z-index: 100;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-end;
+                    }
+                    #chatMenu {
+                        display: none;
+                        flex-direction: column;
+                        background: rgba(0, 0, 0, 0.8);
+                        border-radius: 8px;
+                        padding: 8px;
+                        margin-bottom: 10px;
+                    }
+                    #chatMenu.active {
+                        display: flex;
+                    }
+                    .chat-btn {
+                        background: rgba(74, 144, 217, 0.8);
+                        color: white;
+                        border: 2px solid rgba(255, 255, 255, 0.5);
+                        border-radius: 50%;
+                        width: 50px;
+                        height: 50px;
+                        font-size: 24px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                        transition: all 0.2s;
+                    }
+                    .chat-btn:active {
+                        transform: scale(0.95);
+                    }
+                    .chat-option {
+                        background: transparent;
+                        color: #fff;
+                        border: none;
+                        padding: 8px 12px;
+                        text-align: right;
+                        font-size: 14px;
+                        cursor: pointer;
+                        white-space: nowrap;
+                    }
+                    .chat-option:hover {
+                        background: rgba(255, 255, 255, 0.2);
+                        border-radius: 4px;
+                    }
+                </style>
+                <div id="chatMenu">
+                    <button class="chat-option">你好，祝你好运！ 👋</button>
+                    <button class="chat-option">打得不错！ 👍</button>
+                    <button class="chat-option">漂亮的一击！ 🎯</button>
+                    <button class="chat-option">哎呀，失误了... 💦</button>
+                    <button class="chat-option">快点吧，我等得花儿都谢了！ ⏰</button>
+                    <button class="chat-option">谢谢指教，再来一局？ 🤝</button>
+                </div>
+                <button class="chat-btn">💬</button>
+            `;
+            document.getElementById('gameContainer').appendChild(container);
+            
+            const btn = container.querySelector('.chat-btn');
+            const menu = container.querySelector('#chatMenu');
+            const options = container.querySelectorAll('.chat-option');
+
+            btn.onclick = () => {
+                menu.classList.toggle('active');
+            };
+
+            options.forEach(opt => {
+                opt.onclick = () => {
+                    this.sendChat(opt.textContent.trim());
+                    menu.classList.remove('active');
+                };
+            });
+        } else {
+            document.getElementById('ringRushChatContainer').style.display = 'flex';
+        }
 
         this.startDicePhase();
         this.initPieces();
@@ -324,7 +439,10 @@ export class Game {
             if (this.diceRolling) {
                 const timeLeft = Math.max(0, this.diceRollAnimEndTime - now);
                 if (timeLeft > 0 || (this.gameMode === 'online' && !this.diceTargetVal)) {
-                    const progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
+                    let progress = 0;
+                    if (this.gameMode !== 'online' || this.diceTargetVal) {
+                        progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
+                    }
                     const interval = 50 + progress * progress * progress * 400; // 50ms 到 450ms
                     if (!this.lastDiceUpdate || now - this.lastDiceUpdate > interval) {
                         this.diceVal = Math.floor(Math.random() * 6) + 1;
@@ -337,7 +455,10 @@ export class Game {
             if (this.opponentRolling) {
                 const timeLeft = Math.max(0, this.opDiceRollAnimEndTime - now);
                 if (timeLeft > 0 || (this.gameMode === 'online' && !this.opDiceTargetVal)) {
-                    const progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
+                    let progress = 0;
+                    if (this.gameMode !== 'online' || this.opDiceTargetVal) {
+                        progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
+                    }
                     const interval = 50 + progress * progress * progress * 400;
                     if (!this.lastOpDiceUpdate || now - this.lastOpDiceUpdate > interval) {
                         this.opDiceVal = Math.floor(Math.random() * 6) + 1;
@@ -368,7 +489,11 @@ export class Game {
             this.checkRoundEnd();
         }
 
-        // 倒计时逻辑
+        // 清理过期的聊天消息
+        const now2 = Date.now();
+        this.chatMessages = this.chatMessages.filter(msg => now2 - msg.timestamp < 3500);
+
+        // 如果在动画中，或者游戏结束，不更新倒计时逻辑
         if (!this.isAnimating && !this.dicePhase && !this.gameOver) {
             const elapsed = Date.now() - this.turnStartTime;
             this.turnTimeLeft = Math.max(0, 60 - Math.floor(elapsed / 1000));
@@ -677,6 +802,12 @@ export class Game {
         this.turnTimeLeft = 60;
     }
 
+    sendChat(text) {
+        if (!this.isOnlineGame()) return;
+        this.network.send({ type: 'chat', text });
+        this.chatMessages.push({ text, playerIndex: this.playerIndex, timestamp: Date.now() });
+    }
+
     isMyTurn() {
         if (!this.isOnlineGame()) return true;
         return this.currentPlayer === (this.perspective === 'bottom' ? 'A' : 'B');
@@ -828,9 +959,14 @@ export class Game {
     }
 
     exitGame() {
+        this.isDestroyed = true;
         if (this.isOnlineGame()) {
             this.network.send({ type: 'leave_room' });
         }
+        
+        const chatContainer = document.getElementById('ringRushChatContainer');
+        if (chatContainer) chatContainer.style.display = 'none';
+
         if (this.onExit) this.onExit();
     }
 

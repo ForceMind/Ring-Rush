@@ -574,6 +574,8 @@ function handleRestartRequest(player) {
         room.restartRequests.has(room.guest.id)) {
         
         room.restartRequests.clear();
+        room.diceRolls = {}; // 清空骰子数据，准备开始
+        room.diceAcks = new Set();
         console.log(`房间 ${room.id} 双方同意重新开始`);
         
         broadcastToRoom(player.roomId, {

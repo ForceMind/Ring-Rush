@@ -138,6 +138,9 @@ export class NetworkManager {
             case 'game_start_sync':
                 if (this.onGameStartSync) this.onGameStartSync();
                 break;
+            case 'chat':
+                if (this.onChat) this.onChat(message.playerId, message.text);
+                break;
             case 'surrender':
                 if (this.onSurrender) this.onSurrender();
                 break;
