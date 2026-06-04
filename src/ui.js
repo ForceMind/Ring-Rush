@@ -96,17 +96,15 @@ export class UI {
         ctx.font = 'bold 16px sans-serif';
         ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, BOARD_Y - 25);
 
-        // 右上：模式标签
-        ctx.textAlign = 'right';
-        ctx.font = '12px sans-serif';
+        // 顶部居中：模式标签
+        ctx.font = 'bold 12px sans-serif';
         if (this.game.gameMode === 'bot') {
             ctx.fillStyle = AI_DIFFICULTY[this.game.ai.difficulty].color;
-            ctx.fillText(`Bot (${AI_DIFFICULTY[this.game.ai.difficulty].name})`, CANVAS_WIDTH - 15, 12);
+            ctx.fillText(`Bot (${AI_DIFFICULTY[this.game.ai.difficulty].name})`, CENTER_X, 15);
         } else if (this.game.gameMode === 'online') {
             ctx.fillStyle = '#4CAF50';
-            ctx.fillText('在线对战', CANVAS_WIDTH - 15, 12);
+            ctx.fillText('在线对战', CENTER_X, 15);
         }
-        ctx.textAlign = 'center';
     }
 
     /**

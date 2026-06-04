@@ -69,16 +69,51 @@ export class Physics {
      * @returns {boolean} 是否发生了碰撞
      */
     checkBoundaryCollision(piece) {
-        const minX = BOARD_X + piece.radius;
-        const maxX = BOARD_X + BOARD_WIDTH - piece.radius;
-        const minY = BOARD_Y + piece.radius;
-        const maxY = BOARD_Y + BOARD_HEIGHT - piece.radius;
+        // BOARD_X = 75, BOARD_WIDTH = 450. Center = 300.
+        // LAUNCH_ZONE_WIDTH = 50. Box width = 200.
+        const boardMinX = BOARD_X + piece.radius;
+        const boardMaxX = BOARD_X + BOARD_WIDTH - piece.radius;
+        const boardMinY = BOARD_Y + piece.radius;
+        const boardMaxY = BOARD_Y + BOARD_HEIGHT - piece.radius;
+        
+        const center = BOARD_X + BOARD_WIDTH / 2;
+        const zoneLeft = center - 100 + piece.radius;
+        const zoneRight = center + 100 - piece.radius;
+        
+        const absMinY = BOARD_Y - 85 + piece.radius;
+        const absMaxY = BOARD_Y + BOARD_HEIGHT + 85 - piece.radius;
+        
         let bounced = false;
 
-        if (piece.x < minX) { piece.x = minX; piece.vx = -piece.vx * RESTITUTION; bounced = true; }
-        if (piece.x > maxX) { piece.x = maxX; piece.vx = -piece.vx * RESTITUTION; bounced = true; }
-        if (piece.y < minY) { piece.y = minY; piece.vy = -piece.vy * RESTITUTION; bounced = true; }
-        if (piece.y > maxY) { piece.y = maxY; piece.vy = -piece.vy * RESTITUTION; bounced = true; }
+        // X collision
+        if (piece.y < boardMinY || piece.y > boardMaxY) {
+            // In launch zone or gap, restrict to zone width
+            if (piece.x < zoneLeft) { piece.x = zoneLeft; piece.vx *= -RESTITUTION; bounced = true; }
+            if (piece.x > zoneRight) { piece.x = zoneRight; piece.vx *= -RESTITUTION; bounced = true; }
+        } else {
+            // In main board, restrict to board width
+            if (piece.x < boardMinX) { piece.x = boardMinX; piece.vx *= -RESTITUTION; bounced = true; }
+            if (piece.x > boardMaxX) { piece.x = boardMaxX; piece.vx *= -RESTITUTION; bounced = true; }
+        }
+
+        // Y collision
+        const inOpening = piece.x >= zoneLeft && piece.x <= zoneRight;
+        
+        if (piece.y < boardMinY) {
+            if (!inOpening) {
+                piece.y = boardMinY; piece.vy *= -RESTITUTION; bounced = true;
+            } else if (piece.y < absMinY) {
+                piece.y = absMinY; piece.vy *= -RESTITUTION; bounced = true;
+            }
+        }
+        
+        if (piece.y > boardMaxY) {
+            if (!inOpening) {
+                piece.y = boardMaxY; piece.vy *= -RESTITUTION; bounced = true;
+            } else if (piece.y > absMaxY) {
+                piece.y = absMaxY; piece.vy *= -RESTITUTION; bounced = true;
+            }
+        }
 
         return bounced;
     }

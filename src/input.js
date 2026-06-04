@@ -69,20 +69,38 @@ export class Input {
             this.currentPiece = null;
         });
 
+        let touchStartX = 0, touchStartY = 0, touchHasMoved = false;
+
         // Touch support
         this.game.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchHasMoved = false;
             this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
         }, { passive: false });
+        
         this.game.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
+            if (Math.abs(touch.clientX - touchStartX) > 5 || Math.abs(touch.clientY - touchStartY) > 5) {
+                touchHasMoved = true;
+            }
             this.handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
         }, { passive: false });
+        
         this.game.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
-            this.handleMouseUp({});
+            const touch = e.changedTouches ? e.changedTouches[0] : (e.touches ? e.touches[0] : null);
+            if (touch) {
+                this.handleMouseUp({ clientX: touch.clientX, clientY: touch.clientY });
+                if (!touchHasMoved) {
+                    this.game.handleClick({ clientX: touch.clientX, clientY: touch.clientY });
+                }
+            } else {
+                this.handleMouseUp({});
+            }
         }, { passive: false });
     }
 
