@@ -3,7 +3,7 @@
  * 游戏全局常量定义
  */
 
-export const VERSION = '0.7.4';
+export const VERSION = '0.8.0';
 
 // ===== 画布尺寸 =====
 export const CANVAS_WIDTH = 600;
