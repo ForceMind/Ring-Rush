@@ -414,6 +414,11 @@ function handleMessage(player, message) {
             handleRestartRequest(player);
             break;
 
+        case 'ping':
+            // 客户端心跳，回复 pong
+            player.send({ type: 'pong' });
+            break;
+
         default:
             console.log('未知消息类型:', message.type, '来自:', player.name);
             player.send({ type: 'error', message: `未知消息: ${message.type}` });

@@ -33,52 +33,136 @@ export class NetworkManager {
 
     connect() {
         return new Promise((resolve, reject) => {
-            try {
-                const serverUrl = this.getServerUrl();
-                console.log('连接服务器:', serverUrl);
-                this.ws = new WebSocket(serverUrl);
-                let resolved = false;
+            this._connectResolve = resolve;
+            this._connectReject = reject;
+            this._resolved = false;
+            this._setupSocket();
+            this._setupVisibilityListener();
+        });
+    }
 
-                this.ws.onopen = () => {
-                    this.isConnected = true;
-                    console.log('已连接到服务器');
-                    
-                    const savedId = sessionStorage.getItem('ringRushPlayerId');
-                    if (savedId) {
-                        this.send({ type: 'reconnect', playerId: savedId });
-                    }
-                    
-                    if (!resolved) {
-                        resolved = true;
-                        resolve();
-                    }
-                };
+    _setupSocket() {
+        try {
+            const serverUrl = this.getServerUrl();
+            console.log('连接服务器:', serverUrl);
+            this.ws = new WebSocket(serverUrl);
 
-                this.ws.onmessage = (event) => {
-                    try {
-                        const message = JSON.parse(event.data);
-                        this.handleMessage(message);
-                    } catch (e) {
-                        console.error('消息解析错误:', e);
-                    }
-                };
+            this.ws.onopen = () => {
+                this.isConnected = true;
+                this._reconnecting = false;
+                console.log('已连接到服务器');
+                
+                // 尝试用保存的 ID 重连身份
+                const savedId = sessionStorage.getItem('ringRushPlayerId');
+                if (savedId) {
+                    this.send({ type: 'reconnect', playerId: savedId });
+                }
+                
+                if (this._connectResolve && !this._resolved) {
+                    this._resolved = true;
+                    this._connectResolve();
+                }
 
-                this.ws.onclose = () => {
-                    this.isConnected = false;
-                    console.log('与服务器断开连接');
-                };
+                // 启动心跳检测
+                this._startHeartbeat();
+            };
 
-                this.ws.onerror = (error) => {
-                    console.error('WebSocket 错误:', error);
-                    if (!resolved) {
-                        resolved = true;
-                        reject(error);
-                    }
-                };
-            } catch (error) {
-                reject(error);
+            this.ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    this._lastPong = Date.now();
+                    this.handleMessage(message);
+                } catch (e) {
+                    console.error('消息解析错误:', e);
+                }
+            };
+
+            this.ws.onclose = () => {
+                this.isConnected = false;
+                this._stopHeartbeat();
+                console.log('与服务器断开连接');
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+                if (this._connectReject && !this._resolved) {
+                    this._resolved = true;
+                    this._connectReject(error);
+                }
+            };
+        } catch (error) {
+            if (this._connectReject && !this._resolved) {
+                this._resolved = true;
+                this._connectReject(error);
+            }
+        }
+    }
+
+    /**
+     * 页面获得焦点/可见时自动检测并重连
+     * 解决手机切后台、锁屏后 WebSocket 静默断开的问题
+     */
+    _setupVisibilityListener() {
+        if (this._visibilityBound) return; // 防止重复绑定
+        this._visibilityBound = true;
+
+        const checkAndReconnect = () => {
+            if (this._reconnecting) return;
+            // WebSocket 已经不是 OPEN 状态，需要重连
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                console.log('[网络] 检测到连接已断开，自动重连...');
+                this._reconnecting = true;
+                this.isConnected = false;
+                this._stopHeartbeat();
+                this._setupSocket();
+            }
+        };
+
+        // 页面可见性变化（切后台/切回来）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // 短暂延迟，等待网络恢复
+                setTimeout(checkAndReconnect, 300);
             }
         });
+
+        // 窗口获得焦点
+        window.addEventListener('focus', () => {
+            setTimeout(checkAndReconnect, 300);
+        });
+
+        // 网络恢复
+        window.addEventListener('online', () => {
+            setTimeout(checkAndReconnect, 500);
+        });
+    }
+
+    /**
+     * 心跳检测：定期发 ping，若服务端长时间无响应则判定断线
+     */
+    _startHeartbeat() {
+        this._stopHeartbeat();
+        this._lastPong = Date.now();
+        this._heartbeatTimer = setInterval(() => {
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                this._stopHeartbeat();
+                return;
+            }
+            // 超过 15 秒没收到任何消息，判定连接已死
+            if (Date.now() - this._lastPong > 15000) {
+                console.log('[网络] 心跳超时，关闭连接触发重连');
+                this.ws.close();
+                return;
+            }
+            this.send({ type: 'ping' });
+        }, 5000);
+    }
+
+    _stopHeartbeat() {
+        if (this._heartbeatTimer) {
+            clearInterval(this._heartbeatTimer);
+            this._heartbeatTimer = null;
+        }
     }
 
     handleMessage(message) {

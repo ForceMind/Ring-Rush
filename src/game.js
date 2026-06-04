@@ -71,6 +71,11 @@ export class Game {
         this.opponentLeft = false;
         this.isDestroyed = false;
 
+        // 延迟胜利状态
+        this.pendingWin = false;      // 是否有待展示的胜利
+        this.pendingWinReason = null;  // 'surrender' | 'runner' | 'timeout' | 'allUsed'
+        this.pendingWinTime = 0;      // 提示语开始显示的时间
+
         // 保存绑定引用，方便后续移除（修复内存泄漏）
         this._boundHandleClick = this.handleClick.bind(this);
         this.canvas.addEventListener('click', this._boundHandleClick);
@@ -170,8 +175,9 @@ export class Game {
         
         this.network.onSurrender = () => {
             this.winner = this.perspective === 'bottom' ? 'A' : 'B';
-            this.gameOver = true;
-            this.audio.play('win');
+            this.pendingWin = true;
+            this.pendingWinReason = 'surrender';
+            this.pendingWinTime = Date.now();
         };
 
         this.network.onOpponentRestartRequest = () => {
@@ -336,6 +342,32 @@ export class Game {
     }
 
     update() {
+        // 延迟胜利：等待小人动画播完、提示语展示完毕后再进入 gameOver
+        if (this.pendingWin) {
+            // 继续播放小人移动动画
+            if (this.runnerAnimating) {
+                const diff = this.runnerPosition - this.runnerDisplayPosition;
+                if (Math.abs(diff) < RUNNER_SNAP_THRESHOLD) {
+                    this.runnerDisplayPosition = this.runnerPosition;
+                    this.runnerAnimating = false;
+                } else {
+                    this.runnerDisplayPosition += diff * RUNNER_SMOOTH_FACTOR;
+                }
+            }
+            this.particles.update();
+            // 小人动画结束后，展示提示语至少 1.5 秒，然后进入 gameOver
+            if (!this.runnerAnimating) {
+                if (!this.pendingWinTime) this.pendingWinTime = Date.now();
+                if (Date.now() - this.pendingWinTime >= 1500) {
+                    this.pendingWin = false;
+                    this.gameOver = true;
+                    this.particles.emitWin(CENTER_X, CENTER_Y);
+                    this.audio.play('win');
+                }
+            }
+            return;
+        }
+
         if (this.gameOver) return;
         
         const now = Date.now();
@@ -389,16 +421,20 @@ export class Game {
                     this.timeoutsA++;
                     if (this.timeoutsA >= 3) {
                         this.winner = 'B';
-                        this.gameOver = true;
+                        this.pendingWin = true;
+                        this.pendingWinReason = 'timeout';
+                        this.pendingWinTime = Date.now();
                     }
                 } else {
                     this.timeoutsB++;
                     if (this.timeoutsB >= 3) {
                         this.winner = 'A';
-                        this.gameOver = true;
+                        this.pendingWin = true;
+                        this.pendingWinReason = 'timeout';
+                        this.pendingWinTime = Date.now();
                     }
                 }
-                if (!this.gameOver) {
+                if (!this.pendingWin && !this.gameOver) {
                     this.switchPlayer();
                 }
             }
@@ -418,12 +454,11 @@ export class Game {
                 piece.vx = 0;
                 piece.vy = 0;
                 
-                // Reset Y coordinate
-                const offset = 25;
+                // Reset Y coordinate — 必须和 initPieces 中的初始位置完全一致
                 if (piece.player === 'A') {
-                    piece.y = BOARD_Y + BOARD_HEIGHT + offset;
+                    piece.y = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT / 2;
                 } else {
-                    piece.y = BOARD_Y - offset;
+                    piece.y = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT / 2;
                 }
                 
                 this.input.sliderValue = 0.5;
@@ -447,14 +482,15 @@ export class Game {
                 const sx = isTop ? this.tx(piece.x) : piece.x;
                 const sy = isTop ? this.ty(piece.y) : piece.y;
                 this.ui.addScoreAnimation(sx, sy - 30, this.currentScore);
-                this.particles.emitScore(piece.x, piece.y);
+                this.particles.emitScore(sx, sy);
                 this.audio.play('score');
             }
 
-            if (this.checkWinner()) {
-                this.gameOver = true;
-                this.particles.emitWin(CENTER_X, CENTER_Y);
-                this.audio.play('win');
+            const winReason = this.checkWinner();
+            if (winReason) {
+                this.pendingWin = true;
+                this.pendingWinReason = winReason;
+                this.pendingWinTime = 0; // 等小人动画结束后才开始计时
                 return;
             }
         }
@@ -476,14 +512,14 @@ export class Game {
     }
 
     checkWinner() {
-        if (this.runnerPosition <= -WIN_THRESHOLD) { this.winner = 'A'; return true; }
-        if (this.runnerPosition >= WIN_THRESHOLD) { this.winner = 'B'; return true; }
+        if (this.runnerPosition <= -WIN_THRESHOLD) { this.winner = 'A'; return 'runner'; }
+        if (this.runnerPosition >= WIN_THRESHOLD) { this.winner = 'B'; return 'runner'; }
 
         if (this.piecesLeftA === 0 && this.piecesLeftB === 0) {
             if (this.runnerPosition < 0) this.winner = 'A';
             else if (this.runnerPosition > 0) this.winner = 'B';
             else this.winner = null;
-            return true;
+            return 'allUsed';
         }
 
         return false;

@@ -48,6 +48,10 @@ export class UI {
         this.drawScoreAnimations(ctx);
 
 
+        if (this.game.pendingWin) {
+            this.drawPendingWin(ctx);
+        }
+
         if (this.game.gameOver) {
             this.drawGameOver(ctx);
         } else if (this.game.opponentTemporarilyDisconnected) {
@@ -334,6 +338,35 @@ export class UI {
 
             return anim.timer > 0;
         });
+    }
+
+    drawPendingWin(ctx) {
+        if (!this.game.pendingWinReason) return;
+        
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, CANVAS_HEIGHT / 2 - 60, CANVAS_WIDTH, 120);
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 48px sans-serif';
+        
+        let msg = '';
+        if (this.game.pendingWinReason === 'surrender') {
+            msg = '对方投降了！';
+        } else if (this.game.pendingWinReason === 'runner') {
+            msg = '到达终点！';
+        } else if (this.game.pendingWinReason === 'timeout') {
+            msg = '对方超时判负！';
+        } else if (this.game.pendingWinReason === 'allUsed') {
+            msg = '棋子用尽！';
+        }
+        
+        ctx.fillText(msg, CENTER_X, CENTER_Y);
+        ctx.restore();
     }
 
     /**
