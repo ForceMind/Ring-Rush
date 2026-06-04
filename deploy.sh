@@ -22,15 +22,23 @@ if [ ! -d "$SERVER_DIR" ] || [ ! -f "${SERVER_DIR}/server.js" ]; then
   exit 1
 fi
 
-# 2. 清理旧的 PM2 进程
+SERVICE_NAME="ring-rush"
+
+# 2. 清理旧的 Systemd 和 PM2 进程
+echo "🧹 准备清理旧的部署实例并释放端口..."
+systemctl stop $SERVICE_NAME >/dev/null 2>&1 || true
+
 if command -v pm2 > /dev/null; then
-  echo "🧹 检测到服务器安装了 PM2，准备迁移..."
-  # 查找并删除可能冲突的 pm2 进程 (容错处理)
+  echo "🧹 检测到服务器安装了 PM2，尝试清理本项目的进程..."
+  pm2 delete server.js >/dev/null 2>&1 || true
   pm2 delete ring-rush >/dev/null 2>&1 || true
   pm2 delete server >/dev/null 2>&1 || true
   pm2 save --force >/dev/null 2>&1 || true
-  echo "✅ 旧的 PM2 游戏进程已安全清理（如果有的话）。"
+  echo "✅ 旧的 PM2 游戏进程已清理。"
 fi
+
+# 等待2秒确保端口完全释放
+sleep 2
 
 # 3. 检查并安装 Node.js
 if ! command -v node > /dev/null; then
@@ -70,7 +78,6 @@ done
 echo "✅ 自动分配空闲端口: $PORT"
 
 # 6. 配置 Systemd
-SERVICE_NAME="ring-rush"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 echo "⚙️  生成底层服务配置..."
