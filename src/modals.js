@@ -82,7 +82,7 @@ export class ModalManager {
                 if (this.game.gameMode === 'local') {
                     this.game.winner = this.game.currentPlayer === 'A' ? 'B' : 'A';
                 } else if (this.game.gameMode === 'online') {
-                    this.game.winner = this.game.playerIndex === 'A' ? 'B' : 'A';
+                    this.game.winner = this.game.network.playerIndex === 'A' ? 'B' : 'A';
                 } else {
                     this.game.winner = 'B'; // Bot wins
                 }

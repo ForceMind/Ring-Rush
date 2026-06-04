@@ -7,7 +7,6 @@ export class ChatManager {
     constructor(game) {
         this.game = game;
         this.chatMessages = [];
-        this.initDOM();
     }
 
     initDOM() {
@@ -116,7 +115,7 @@ export class ChatManager {
     sendChat(text) {
         if (!this.game.isOnlineGame()) return;
         this.game.network.send({ type: 'chat', text });
-        this.addMessage(text, this.game.playerIndex);
+        this.addMessage(text, this.game.network.playerIndex);
     }
 
     addMessage(text, playerIndex) {

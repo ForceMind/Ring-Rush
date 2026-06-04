@@ -46,7 +46,7 @@ export class UI {
         this.drawNetworkStatus(ctx);
         this.drawSurrenderButton(ctx);
         this.drawScoreAnimations(ctx);
-        this.drawChatBubbles(ctx);
+
 
         if (this.game.gameOver) {
             this.drawGameOver(ctx);
@@ -194,7 +194,7 @@ export class UI {
         ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
         ctx.fillText(`剩余: ${myLeft}`, 30, BOARD_Y + BOARD_HEIGHT + 115);
         
-        if (myIsTurn && !this.game.gameOver && !this.game.dicePhase) {
+        if (myIsTurn && !this.game.gameOver && !this.game.dice.phase) {
             ctx.textAlign = 'right';
             ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800'; 
             ctx.font = 'bold 16px sans-serif';
@@ -214,7 +214,7 @@ export class UI {
         ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
         ctx.fillText(`剩余: ${opLeft}`, 30, BOARD_Y - 35);
         
-        if (opIsTurn && !this.game.gameOver && !this.game.dicePhase) {
+        if (opIsTurn && !this.game.gameOver && !this.game.dice.phase) {
             ctx.textAlign = 'right';
             ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800';
             ctx.font = 'bold 16px sans-serif';
@@ -248,7 +248,7 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawSurrenderButton(ctx) {
-        if (this.game.gameOver || this.game.dicePhase) return;
+        if (this.game.gameOver || this.game.dice.phase) return;
         
         let isTop = false;
         if (this.game.gameMode === 'local' && this.game.currentPlayer === 'B') {
@@ -499,81 +499,5 @@ export class UI {
         ctx.fillText('（60秒内未重连将自动判负）', CENTER_X, bannerY + 55);
     }
 
-    /**
-     * 绘制聊天气泡
-     * @param {CanvasRenderingContext2D} ctx
-     */
-    drawChatBubbles(ctx) {
-        if (!this.game.chatMessages || this.game.chatMessages.length === 0) return;
 
-        const now = Date.now();
-        const isBottom = this.game.perspective === 'bottom';
-
-        this.game.chatMessages.forEach(msg => {
-            const age = now - msg.timestamp;
-            if (age > 3500) return;
-
-            let alpha = 1;
-            if (age > 3000) {
-                alpha = 1 - (age - 3000) / 500;
-            } else if (age < 200) {
-                alpha = age / 200;
-            }
-
-            // 判断显示位置
-            let isMe = false;
-            if (this.game.gameMode === 'online') {
-                isMe = (msg.playerIndex === this.game.playerIndex);
-            } else {
-                // 本地对战时（仅理论上，如果没有在线环境）
-                isMe = (msg.playerIndex === (isBottom ? 'A' : 'B'));
-            }
-
-            const x = 30;
-            const y = isMe ? BOARD_Y + BOARD_HEIGHT + 45 : BOARD_Y - 45;
-            const isRightAlign = false;
-
-            ctx.save();
-            ctx.globalAlpha = alpha;
-
-            ctx.font = 'bold 16px sans-serif';
-            const textWidth = ctx.measureText(msg.text).width;
-            const paddingX = 15;
-            const paddingY = 10;
-            
-            const boxW = textWidth + paddingX * 2;
-            const boxH = 40;
-            const boxX = isRightAlign ? x - boxW : x;
-            const boxY = y;
-
-            // 气泡背景
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-            ctx.beginPath();
-            ctx.roundRect(boxX, boxY, boxW, boxH, 20);
-            ctx.fill();
-
-            // 小尾巴
-            ctx.beginPath();
-            if (isMe) {
-                // 指向下方玩家名字
-                ctx.moveTo(x + 10, boxY + boxH);
-                ctx.lineTo(x + 5, boxY + boxH + 10);
-                ctx.lineTo(x + 20, boxY + boxH);
-            } else {
-                // 指向上方玩家名字
-                ctx.moveTo(x + 10, boxY);
-                ctx.lineTo(x + 5, boxY - 10);
-                ctx.lineTo(x + 20, boxY);
-            }
-            ctx.fill();
-
-            // 文本
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(msg.text, boxX + paddingX, boxY + boxH / 2);
-
-            ctx.restore();
-        });
-    }
 }

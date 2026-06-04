@@ -93,7 +93,7 @@ export class DiceManager {
         let opLabel = this.game.gameMode === 'online' ? '对手' : '红方 (B)';
         
         if (this.results) {
-            const myOriginalId = this.game.gameMode === 'online' ? this.game.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
+            const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
             myVal = this.game.perspective === 'bottom' ? this.results.a : this.results.b;
             opVal = this.game.perspective === 'bottom' ? this.results.b : this.results.a;
             
@@ -121,7 +121,7 @@ export class DiceManager {
 
         // 结果或按钮
         if (this.results) {
-            const myOriginalId = this.game.gameMode === 'online' ? this.game.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
+            const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
             const first = this.results.first;
             let firstLabel = first === myOriginalId ? '你先手！' : '对手先手';
             if (this.game.gameMode !== 'online') {

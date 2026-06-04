@@ -138,12 +138,12 @@ export class Game {
             this.currentPlayer = 'A'; // 先手总是A(蓝色)
             this.roundNumber = 1;
             this.turnStartTime = Date.now();
+            this.turnTimeLeft = 60;
             this.initPieces();
             this.input.sliderValue = 0.5;
             this.input.applySliderToPiece();
-            this.dice.startPhase();
             if (this.gameMode === 'online') {
-                this.chat.initDOM();
+                this.chat.setVisibility(true);
             }
         };
 
@@ -239,7 +239,7 @@ export class Game {
             this.dice.opRollAnimEndTime = state.opDiceRollAnimEndTime;
             
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
-                const myFirst = this.dice.results.first === this.playerIndex;
+                const myFirst = this.dice.results.first === this.network.playerIndex;
                 this.perspective = myFirst ? 'bottom' : 'top';
             }
             
@@ -266,7 +266,7 @@ export class Game {
         };
 
         this.network.onChat = (playerId, text) => {
-            const senderIndex = (playerId === this.network.playerId) ? this.playerIndex : (this.playerIndex === 'A' ? 'B' : 'A');
+            const senderIndex = (playerId === this.network.playerId) ? this.network.playerIndex : (this.network.playerIndex === 'A' ? 'B' : 'A');
             this.chat.addMessage(text, senderIndex);
         };
 
@@ -276,7 +276,7 @@ export class Game {
             this.chat.setVisibility(false);
         }
 
-        this.startDicePhase();
+        this.dice.startPhase();
         this.initPieces();
         this.input.init();
         this.gameLoop();
@@ -346,6 +346,7 @@ export class Game {
 
         this.physics.update();
         this.particles.update();
+        this.chat.update();
 
         // 小人移动动画
         if (this.runnerAnimating) {
@@ -510,7 +511,7 @@ export class Game {
         };
     }
 
-
+    switchPlayer() {
         if (this.currentPlayer === 'A') this.piecesLeftA--;
         else this.piecesLeftB--;
 
@@ -599,11 +600,6 @@ export class Game {
         this.scorePopup = null;
         this.restartBtn = null;
         this.roundNumber = 1;
-        this.dicePhase = false;
-        this.diceRolling = false;
-        this.diceResults = null;
-        this.diceFirstPlayer = null;
-        this.opponentRolling = false;
         this.turnStartTime = 0;
         this.turnTimeLeft = 60;
         this.timeoutsA = 0;
@@ -613,7 +609,7 @@ export class Game {
         this.physics.reset();
         this.piecesA = [];
         this.piecesB = [];
-        this.startDicePhase();
+        this.dice.startPhase();
         this.initPieces();
     }
 
@@ -623,8 +619,8 @@ export class Game {
         ctx.fillStyle = '#0f0f1a';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        if (this.dicePhase) {
-            this.drawDiceScreen(ctx);
+        if (this.dice.phase) {
+            this.dice.draw(ctx);
             return;
         }
 

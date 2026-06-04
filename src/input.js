@@ -111,10 +111,10 @@ export class Input {
     handleMouseDown(e) {
         if (this.game.gameOver || this.game.isAnimating || this.game.isBotTurn() || this.game.opponentTemporarilyDisconnected) return;
         
-        if (this.game.dicePhase) {
+        if (this.game.dice.phase) {
             const rect = this.game.canvas.getBoundingClientRect();
             const sx = CANVAS_WIDTH / rect.width, sy = CANVAS_HEIGHT / rect.height;
-            this.game.handleDiceClick((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy);
+            this.game.dice.handleClick((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy);
             return;
         }
 
