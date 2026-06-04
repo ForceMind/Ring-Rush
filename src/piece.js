@@ -19,6 +19,7 @@ export class Piece {
         this.player = player;
         this.isLaunched = false;
         this.isActive = false;
+        this.hasEnteredBoard = false;
         this.color = player === 'A' ? '#4a90d9' : '#d94a4a';
         this.innerColor = player === 'A' ? '#3a7bc8' : '#c83a3a';
         this.glowIntensity = 0;

@@ -96,7 +96,20 @@ export class Game {
             const a = Math.floor(Math.random() * 6) + 1;
             const b = Math.floor(Math.random() * 6) + 1;
             let first = a > b ? 'bottom' : b > a ? 'top' : null;
-            if (!first) return this.rollLocalDice(); // 平局重掷
+            if (!first) {
+                // 平局重掷
+                this.diceTieResult = true;
+                this.diceRolling = false;
+                this.opponentRolling = false;
+                this.diceVal = a;
+                this.opDiceVal = b;
+                setTimeout(() => {
+                    this.diceTieResult = false;
+                    this.startDicePhase();
+                    this.rollLocalDice();
+                }, 2000);
+                return;
+            }
             this.applyDiceResults({ a, b, first });
         }, 1500);
     }
@@ -170,6 +183,8 @@ export class Game {
                 this.diceTieResult = true;
                 this.diceRolling = false;
                 this.opponentRolling = false;
+                this.diceVal = this.diceTargetVal;
+                this.opDiceVal = this.opDiceTargetVal;
                 setTimeout(() => {
                     this.diceTieResult = false;
                     this.startDicePhase();
@@ -550,6 +565,24 @@ export class Game {
     checkRoundEnd() {
         const piece = this.getCurrentPiece();
         if (piece && piece.isLaunched) {
+            if (!piece.hasEnteredBoard) {
+                piece.isLaunched = false;
+                piece.isActive = false;
+                piece.vx = 0;
+                piece.vy = 0;
+                this.input.sliderValue = 0.5;
+                this.input.applySliderToPiece();
+                
+                const msg = '未进入棋盘，重新发球';
+                if (this.ui.showTemporaryMessage) {
+                    this.ui.showTemporaryMessage(msg, 1500);
+                } else {
+                    this.scorePopup = { text: msg, color: '#f44336', timer: 60, x: piece.x, y: piece.y };
+                }
+                this.isAnimating = false;
+                return;
+            }
+
             this.currentScore = this.board.calculateScore(piece);
             this.updateRunnerPosition(this.currentScore);
 
@@ -752,6 +785,7 @@ export class Game {
         this.opDiceVal = null;
         this.diceTargetVal = null;
         this.opDiceTargetVal = null;
+        this.diceTieResult = false;
 
         const chatEl = document.getElementById('ringRushChatContainer');
         if (chatEl) chatEl.style.display = 'none';

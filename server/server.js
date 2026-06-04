@@ -594,7 +594,7 @@ function handleRestartRequest(player) {
             type: 'restart_game'
         });
         
-        startGame(room);
+        room.state = 'playing';
     }
 }
 

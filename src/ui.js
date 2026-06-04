@@ -90,13 +90,8 @@ export class UI {
         ctx.font = '11px sans-serif';
         ctx.fillText(`弹棋 ${VERSION}`, 15, 32);
 
-        // 中上：回合
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#f0e68c';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, BOARD_Y - 25);
-
         // 顶部居中：模式标签
+        ctx.textAlign = 'center';
         ctx.font = 'bold 12px sans-serif';
         if (this.game.gameMode === 'bot') {
             ctx.fillStyle = AI_DIFFICULTY[this.game.ai.difficulty].color;
@@ -105,6 +100,11 @@ export class UI {
             ctx.fillStyle = '#4CAF50';
             ctx.fillText('在线对战', CENTER_X, 15);
         }
+        
+        // 模式标签正下方：回合
+        ctx.fillStyle = '#f0e68c';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, 35);
     }
 
     /**

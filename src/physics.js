@@ -63,15 +63,7 @@ export class Physics {
         }
     }
 
-    /**
-     * 检测并处理棋子与边界的碰撞
-     * @param {Piece} piece
-     * @param {number} prevY
-     * @returns {boolean} 是否发生了碰撞
-     */
-    checkBoundaryCollision(piece, prevY) {
-        // BOARD_X = 75, BOARD_WIDTH = 450. Center = 300.
-        // LAUNCH_ZONE_WIDTH = 50. Box width = 200.
+    checkBoundaryCollision(piece) {
         const boardMinX = BOARD_X + piece.radius;
         const boardMaxX = BOARD_X + BOARD_WIDTH - piece.radius;
         const boardMinY = BOARD_Y + piece.radius;
@@ -86,6 +78,13 @@ export class Physics {
         
         let bounced = false;
 
+        // Check if piece has entered the board
+        if (!piece.hasEnteredBoard && piece.isLaunched) {
+            if (piece.y >= boardMinY && piece.y <= boardMaxY) {
+                piece.hasEnteredBoard = true;
+            }
+        }
+
         // X collision
         if (piece.y < boardMinY || piece.y > boardMaxY) {
             // In launch zone or gap, restrict to zone width
@@ -99,22 +98,23 @@ export class Physics {
 
         // Y collision
         if (piece.y < boardMinY) {
-            if (piece.y < absMinY) {
-                // Absolute top boundary
-                piece.y = absMinY; piece.vy *= -RESTITUTION; bounced = true;
-            } else if (prevY >= boardMinY) {
-                // Trying to leave the board, block it!
+            if (piece.hasEnteredBoard || piece.player === 'A') {
+                // Already entered, or it's A (starts at bottom, crossing top means crossed the board)
                 piece.y = boardMinY; piece.vy *= -RESTITUTION; bounced = true;
+            } else {
+                if (piece.y < absMinY) {
+                    piece.y = absMinY; piece.vy *= -RESTITUTION; bounced = true;
+                }
             }
         }
         
         if (piece.y > boardMaxY) {
-            if (piece.y > absMaxY) {
-                // Absolute bottom boundary
-                piece.y = absMaxY; piece.vy *= -RESTITUTION; bounced = true;
-            } else if (prevY <= boardMaxY) {
-                // Trying to leave the board, block it!
+            if (piece.hasEnteredBoard || piece.player === 'B') {
                 piece.y = boardMaxY; piece.vy *= -RESTITUTION; bounced = true;
+            } else {
+                if (piece.y > absMaxY) {
+                    piece.y = absMaxY; piece.vy *= -RESTITUTION; bounced = true;
+                }
             }
         }
 
