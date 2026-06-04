@@ -582,6 +582,9 @@ export class Game {
         this.turnStartTime = Date.now();
         this.turnTimeLeft = 60;
         
+        // 提示加时赛
+        this.overtimePromptEndTime = Date.now() + 3000;
+        
         // 把滑块拉回默认位置
         this.input.sliderValue = 0.5;
         this.input.applySliderToPiece();

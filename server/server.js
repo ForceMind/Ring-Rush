@@ -400,7 +400,7 @@ function handleMessage(player, message) {
                 playerId: player.id,
                 playerName: player.name,
                 text: message.text
-            }, player.id);
+            });
             break;
 
         case 'surrender':

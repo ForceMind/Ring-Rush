@@ -48,6 +48,23 @@ export class UI {
         this.drawScoreAnimations(ctx);
         this.drawChatBubbles(ctx);
 
+        if (this.game.overtimePromptEndTime && Date.now() < this.game.overtimePromptEndTime) {
+            ctx.save();
+            ctx.fillStyle = '#ffdf00';
+            ctx.font = 'bold 36px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            const alpha = Math.max(0, (this.game.overtimePromptEndTime - Date.now()) / 1000);
+            ctx.globalAlpha = Math.min(1, alpha);
+            
+            ctx.fillText('加时赛: 双方各 +3子', CENTER_X, CENTER_Y - 50);
+            ctx.restore();
+        }
 
         if (this.game.pendingWin) {
             this.drawPendingWin(ctx);
@@ -439,7 +456,7 @@ export class UI {
         } else if (this.game.pendingWinReason === 'allUsed') {
             msg = '棋子用尽！';
         } else if (this.game.pendingWinReason === 'overtime') {
-            msg = '平局！进入加时赛 (+3子)';
+            msg = '平局！即将进入加时赛';
         }
         
         ctx.fillText(msg, CENTER_X, CENTER_Y);

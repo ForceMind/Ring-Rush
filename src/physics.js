@@ -35,6 +35,13 @@ export class Physics {
     }
 
     /**
+     * 清除物理系统中的所有棋子
+     */
+    clearPieces() {
+        this.pieces = [];
+    }
+
+    /**
      * 每帧更新所有活跃棋子的位置和速度
      */
     update() {
