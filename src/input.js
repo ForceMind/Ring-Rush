@@ -311,15 +311,11 @@ export class Input {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawSlider(ctx) {
-        if (!this.game.hasStarted || this.game.isAnimating || this.game.dicePhase) return;
+        if (this.game.gameOver || this.game.isAnimating) return;
+        if (this.game.isBotTurn && this.game.isBotTurn()) return;
+        if (this.game.isOnlineGame && this.game.isOnlineGame() && !this.game.isMyTurn()) return;
         const currentPiece = this.game.getCurrentPiece();
-        if (!currentPiece) return;
-
-        // 如果是电脑回合，不绘制滑块
-        if (this.game.mode === 'bot' && this.game.currentPlayer === 'B') return;
-
-        // 在线模式下只绘制自己的滑块
-        if (this.game.isOnlineGame() && this.game.currentPlayer !== this.game.playerIndex) return;
+        if (!currentPiece || currentPiece.isLaunched) return;
 
         const metrics = this.getSliderMetrics();
         const tx = metrics.x;

@@ -249,8 +249,15 @@ export class UI {
     drawSurrenderButton(ctx) {
         if (this.game.gameOver || this.game.dicePhase) return;
         
+        let isTop = false;
+        if (this.game.gameMode === 'local' && this.game.currentPlayer === 'B') {
+            isTop = true;
+        } else if (this.game.gameMode === 'bot' && this.game.currentPlayer === 'B') {
+            return; // Bot doesn't surrender
+        }
+        
         const btnX = CANVAS_WIDTH - 80;
-        const btnY = CANVAS_HEIGHT - 40;
+        const btnY = isTop ? 12 : CANVAS_HEIGHT - 40;
         const btnW = 60;
         const btnH = 28;
 
@@ -266,7 +273,16 @@ export class UI {
         ctx.font = '12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('投降', btnX + btnW / 2, btnY + btnH / 2);
+        
+        ctx.save();
+        if (isTop) {
+            ctx.translate(btnX + btnW / 2, btnY + btnH / 2);
+            ctx.rotate(Math.PI);
+            ctx.fillText('投降', 0, 0);
+        } else {
+            ctx.fillText('投降', btnX + btnW / 2, btnY + btnH / 2);
+        }
+        ctx.restore();
 
         this.game.surrenderBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
     }
@@ -324,17 +340,31 @@ export class UI {
         ctx.textAlign = 'center';
         
         if (this.game.winner) {
-            const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
-            ctx.shadowColor = isWinner ? '#ffd700' : '#f44336';
-            ctx.shadowBlur = 20;
-            ctx.fillStyle = isWinner ? '#ffd700' : '#f44336';
-            ctx.font = 'bold 64px sans-serif';
-            ctx.fillText(isWinner ? 'VICTORY' : 'DEFEAT', CENTER_X, CENTER_Y - 80);
-            
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#fff';
-            ctx.font = '24px sans-serif';
-            ctx.fillText(isWinner ? '恭喜！你赢得了比赛！' : '很遗憾，你输了比赛。', CENTER_X, CENTER_Y - 20);
+            if (this.game.gameMode === 'local') {
+                const isBlueWin = this.game.winner === 'A';
+                ctx.shadowColor = isBlueWin ? '#4a90d9' : '#f44336';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = isBlueWin ? '#4a90d9' : '#f44336';
+                ctx.font = 'bold 64px sans-serif';
+                ctx.fillText(isBlueWin ? '蓝方胜利！' : '红方胜利！', CENTER_X, CENTER_Y - 80);
+                
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px sans-serif';
+                ctx.fillText(`得分比 ${this.game.scoreA} : ${this.game.scoreB}`, CENTER_X, CENTER_Y - 20);
+            } else {
+                const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
+                ctx.shadowColor = isWinner ? '#ffd700' : '#f44336';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = isWinner ? '#ffd700' : '#f44336';
+                ctx.font = 'bold 64px sans-serif';
+                ctx.fillText(isWinner ? 'VICTORY' : 'DEFEAT', CENTER_X, CENTER_Y - 80);
+                
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px sans-serif';
+                ctx.fillText(isWinner ? '恭喜！你赢得了比赛！' : '很遗憾，你输了比赛。', CENTER_X, CENTER_Y - 20);
+            }
         } else {
             ctx.shadowColor = '#fff';
             ctx.shadowBlur = 20;

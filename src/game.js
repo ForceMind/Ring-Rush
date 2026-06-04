@@ -664,7 +664,13 @@ export class Game {
             if (mouseX >= btn.x && mouseX <= btn.x + btn.w &&
                 mouseY >= btn.y && mouseY <= btn.y + btn.h) {
                 if (confirm('确定要投降吗？')) {
-                    this.winner = this.perspective === 'bottom' ? 'B' : 'A';
+                    if (this.gameMode === 'local') {
+                        this.winner = this.currentPlayer === 'A' ? 'B' : 'A';
+                    } else if (this.gameMode === 'online') {
+                        this.winner = this.playerIndex === 'A' ? 'B' : 'A';
+                    } else {
+                        this.winner = 'B'; // Bot wins
+                    }
                     this.gameOver = true;
                     if (this.isOnlineGame()) {
                         this.network.send({ type: 'surrender' });

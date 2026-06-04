@@ -32,8 +32,23 @@ window.onload = function() {
     resizeCanvas();
 
     const startScreen = new OnlineStartScreen(canvas, (mode, difficulty) => {
-        game.setMode(mode, difficulty);
-        game.startGame();
+        const network = startScreen.network;
+        startScreen.cleanup();
+        
+        const msg = startScreen.gameStartMessage;
+        if (msg) {
+            game.initOnlineGame(network, msg.playerIndex, msg.opponentName);
+            startScreen.gameStartMessage = null;
+        } else {
+            network.onGameStart = (message) => {
+                game.initOnlineGame(network, message.playerIndex, message.opponentName);
+            };
+        }
+
+        game.onExit = () => {
+            network.disconnect();
+            window.location.reload();
+        };
     });
 
     // 跳过主菜单，直接进入在线大厅
