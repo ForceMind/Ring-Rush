@@ -1,7 +1,7 @@
 {
   "name": "ring-rush-server",
-  "version": "0.7.0",
-  "description": "Ring Rush Multiplayer Server",
+  "version": "0.7.1",
+  "description": "WebSocket server for Ring Rush game",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

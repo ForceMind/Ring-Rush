@@ -151,6 +151,11 @@ export class Game {
             this.turnTimeLeft = 60;
             this.input.sliderValue = 0.5;
             this.input.applySliderToPiece();
+            
+            if (this.gameMode === 'online') {
+                const chatEl = document.getElementById('ringRushChatContainer');
+                if (chatEl) chatEl.style.display = 'flex';
+            }
         };
 
         this.network.onDiceResult = (results) => {
@@ -269,6 +274,11 @@ export class Game {
                     this.piecesB[i].y = state.piecesB[i].y;
                     this.piecesB[i].isLaunched = state.piecesB[i].isLaunched;
                 }
+            }
+            
+            if (this.gameMode === 'online') {
+                const chatEl = document.getElementById('ringRushChatContainer');
+                if (chatEl) chatEl.style.display = this.dicePhase ? 'none' : 'flex';
             }
             
             this.opponentTemporarilyDisconnected = false;
@@ -742,6 +752,9 @@ export class Game {
         this.opDiceVal = null;
         this.diceTargetVal = null;
         this.opDiceTargetVal = null;
+
+        const chatEl = document.getElementById('ringRushChatContainer');
+        if (chatEl) chatEl.style.display = 'none';
     }
 
     handleDiceClick(mx, my, force = false) {
@@ -808,7 +821,7 @@ export class Game {
     }
 
     sendChat(text) {
-        if (!this.isOnlineGame()) return;
+        if (!this.isOnlineGame() || this.dicePhase) return;
         this.network.send({ type: 'chat', text });
         this.chatMessages.push({ text, playerIndex: this.playerIndex, timestamp: Date.now() });
     }
