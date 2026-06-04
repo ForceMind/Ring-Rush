@@ -263,11 +263,11 @@ function handleMessage(player, message) {
             break;
 
         case 'dice_roll':
-            broadcastToRoom(player.roomId, {
-                type: 'player_rolling',
-                playerIndex: player.playerIndex
-            }, player.id);
             handleDiceRoll(player);
+            break;
+
+        case 'dice_ack':
+            handleDiceAck(player);
             break;
 
         case 'list_rooms':
@@ -283,6 +283,13 @@ function handleMessage(player, message) {
                 type: 'piece_launch',
                 playerId: player.id,
                 piece: message.piece
+            }, player.id);
+            break;
+
+        case 'slider_sync':
+            broadcastToRoom(player.roomId, {
+                type: 'slider_sync',
+                value: message.value
             }, player.id);
             break;
 
@@ -539,35 +546,76 @@ function handleDiceRoll(player) {
     console.log(`[dice] ${player.name} 掷骰子, roomId: ${player.roomId}`);
     if (!player.roomId) return;
     const room = rooms.get(player.roomId);
-    if (!room || room.state !== 'playing') {
-        console.log(`[dice] 房间无效或状态不对: ${room ? room.state : 'null'}`);
-        return;
-    }
+    if (!room || room.state !== 'playing') return;
 
     if (!room.diceRolls) room.diceRolls = {};
-    if (room.diceRolls[player.playerIndex]) return; // 已掷过
+    if (room.diceRolls[player.playerIndex]) return; // 该玩家已出结果
 
+    // 为该玩家生成点数
     const roll = Math.floor(Math.random() * 6) + 1;
     room.diceRolls[player.playerIndex] = roll;
     console.log(`[dice] ${player.name} 掷了 ${roll}`);
 
+    // 广播给所有人，该玩家已经掷了骰子，目标点数是 roll
+    broadcastToRoom(room.id, {
+        type: 'player_rolled',
+        playerIndex: player.playerIndex,
+        val: roll
+    });
+
+    // 如果双方都掷了
     if (room.diceRolls['A'] && room.diceRolls['B']) {
-        const aVal = room.diceRolls['A'], bVal = room.diceRolls['B'];
+        const aVal = room.diceRolls['A'];
+        const bVal = room.diceRolls['B'];
         let first = aVal > bVal ? 'A' : bVal > aVal ? 'B' : null;
-        console.log(`[dice] 结果: A=${aVal}, B=${bVal}, first=${first}`);
+        
         if (!first) {
+            // 平局
             room.diceRolls = {};
-            room.getPlayers().forEach(p => p.send({ type: 'dice_tie' }));
+            console.log(`[dice] 平局 A=${aVal}, B=${bVal}`);
+            // 延迟发平局，确保先发player_rolled被处理
+            setTimeout(() => {
+                broadcastToRoom(room.id, { type: 'dice_tie' });
+            }, 100);
             return;
         }
+        
         const results = { a: aVal, b: bVal, first };
-        room.getPlayers().forEach(p => p.send({ type: 'dice_result', results }));
+        console.log(`[dice] 结果: A=${aVal}, B=${bVal}, first=${first}`);
+        
+        // 延迟发结果
+        setTimeout(() => {
+            broadcastToRoom(room.id, { type: 'dice_result', results });
+        }, 100);
+    }
+}
+
+// 骰子结果确认
+function handleDiceAck(player) {
+    if (!player.roomId) return;
+    const room = rooms.get(player.roomId);
+    if (!room || room.state !== 'playing') return;
+
+    if (!room.diceAcks) room.diceAcks = new Set();
+    room.diceAcks.add(player.id);
+
+    if (room.host && room.guest && 
+        room.diceAcks.has(room.host.id) && 
+        room.diceAcks.has(room.guest.id)) {
+        
+        room.diceAcks.clear();
+        room.diceRolls = {}; // 清空骰子数据，准备开始
+        
+        console.log(`房间 ${room.id} 双方确认骰子结果，正式开始控制`);
+        broadcastToRoom(room.id, { type: 'game_start_sync' });
     }
 }
 
 // 开始游戏
 function startGame(room) {
     room.state = 'playing';
+    room.diceRolls = {}; 
+    room.diceAcks = new Set();
 
     const roomPlayers = room.getPlayers();
     roomPlayers.forEach(p => {

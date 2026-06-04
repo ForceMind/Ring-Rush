@@ -108,8 +108,14 @@ export class NetworkManager {
             case 'piece_launch':
                 if (this.onPieceLaunch) this.onPieceLaunch(message);
                 break;
-            case 'player_rolling':
-                if (this.onPlayerRolling) this.onPlayerRolling(message.playerIndex);
+            case 'slider_sync':
+                if (this.onSliderSync) this.onSliderSync(message.value);
+                break;
+            case 'player_rolled':
+                if (this.onPlayerRolled) this.onPlayerRolled(message.playerIndex, message.val);
+                break;
+            case 'game_start_sync':
+                if (this.onGameStartSync) this.onGameStartSync();
                 break;
             case 'surrender':
                 if (this.onSurrender) this.onSurrender();

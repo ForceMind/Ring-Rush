@@ -13,7 +13,8 @@ import {
     MAX_SPEED,
     MAX_DRAG_DISTANCE,
     POWER_RANDOM_RANGE,
-    PIECE_RADIUS
+    PIECE_RADIUS,
+    TRACK_STEPS
 } from './constants.js';
 
 /**
@@ -120,15 +121,25 @@ export class Input {
      */
     handleMouseMove(e) {
         const rect = this.game.canvas.getBoundingClientRect();
-        this.mouse = {
-            x: (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width),
-            y: (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height)
-        };
+        const mouseX = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+        const mouseY = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+        this.mouse = { x: mouseX, y: mouseY };
 
         if (this.sliderDragging) {
-            this.sliderValue = Math.max(0, Math.min(1,
-                (this.mouse.x - this.sliderTrackX) / this.sliderTrackW));
+            let newValue = (mouseX - this.sliderTrackX) / this.sliderTrackW;
+            this.sliderValue = Math.max(0, Math.min(1, newValue));
             this.applySliderToPiece();
+            
+            if (this.game.isOnlineGame()) {
+                if (this.sliderSyncTimer) clearTimeout(this.sliderSyncTimer);
+                this.sliderSyncTimer = setTimeout(() => {
+                    this.game.network.send({
+                        type: 'slider_sync',
+                        value: this.sliderValue
+                    });
+                }, 2000);
+            }
+            return;
         }
     }
 
@@ -326,14 +337,29 @@ export class Input {
 
         // 把手
         const hx = tx + this.sliderValue * tw;
+        const handleWidth = 24;
+        const handleHeight = 32;
+
         ctx.save();
         ctx.shadowColor = myColorHex;
         ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.arc(hx, ty, hr, 0, Math.PI * 2);
+        ctx.roundRect(hx - handleWidth / 2, ty - handleHeight / 2, handleWidth, handleHeight, 6);
         ctx.fillStyle = this.sliderDragging ? myColorDrag : myColorHex;
         ctx.fill();
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // 绘制防滑纹理 (3条竖线)
+        ctx.beginPath();
+        ctx.moveTo(hx - 4, ty - 6);
+        ctx.lineTo(hx - 4, ty + 6);
+        ctx.moveTo(hx, ty - 6);
+        ctx.lineTo(hx, ty + 6);
+        ctx.moveTo(hx + 4, ty - 6);
+        ctx.lineTo(hx + 4, ty + 6);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();

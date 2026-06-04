@@ -303,7 +303,10 @@ export class UI {
             ctx.textAlign = 'center';
             ctx.shadowColor = '#ffd700';
             ctx.shadowBlur = 10;
-            ctx.fillText(`+${anim.score}`, anim.x, anim.y);
+            const isTop = this.game.perspective === 'top';
+            const dx = isTop ? this.game.tx(anim.x) : anim.x;
+            const dy = isTop ? this.game.ty(anim.y) : anim.y;
+            ctx.fillText(`+${anim.score}`, dx, dy);
             ctx.restore();
 
             return anim.timer > 0;

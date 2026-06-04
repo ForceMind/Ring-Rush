@@ -110,14 +110,65 @@ export class Game {
         this.network.onPieceLaunch = (message) => {
             this.handleRemotePieceLaunch(message.piece);
         };
+        
+        this.network.onSliderSync = (value) => {
+            if (!this.isMyTurn()) {
+                const piece = this.getCurrentPiece();
+                if (!piece || piece.isLaunched) return;
+                const minX = (this.canvas.width / 2) - 100 + piece.radius;
+                const maxX = (this.canvas.width / 2) + 100 - piece.radius;
+                
+                const opPerspective = this.perspective === 'bottom' ? 'top' : 'bottom';
+                if (opPerspective === 'top') {
+                    piece.x = maxX - value * (maxX - minX);
+                } else {
+                    piece.x = minX + value * (maxX - minX);
+                }
+            }
+        };
+
+        this.network.onPlayerRolled = (playerIndex, val) => {
+            if (this.perspective === 'bottom') {
+                if (playerIndex === 'A') { this.diceRolling = true; this.diceRollAnimEndTime = Date.now() + 2000; this.diceTargetVal = val; }
+                if (playerIndex === 'B') { this.opponentRolling = true; this.opDiceRollAnimEndTime = Date.now() + 2000; this.opDiceTargetVal = val; }
+            } else {
+                if (playerIndex === 'B') { this.diceRolling = true; this.diceRollAnimEndTime = Date.now() + 2000; this.diceTargetVal = val; }
+                if (playerIndex === 'A') { this.opponentRolling = true; this.opDiceRollAnimEndTime = Date.now() + 2000; this.opDiceTargetVal = val; }
+            }
+        };
+
+        this.network.onGameStartSync = () => {
+            this.dicePhase = false;
+            let myFirst = false;
+            if (this.gameMode === 'online') {
+                myFirst = this.diceResults.first === this.network.playerIndex;
+                this.perspective = myFirst ? 'bottom' : 'top'; // 赢家在下方(蓝色)
+            }
+            this.currentPlayer = 'A'; // 先手总是A(蓝色)
+            this.roundNumber = 1;
+            this.turnStartTime = Date.now();
+            this.turnTimeLeft = 60;
+            this.input.sliderValue = 0.5;
+            this.input.applySliderToPiece();
+        };
 
         this.network.onDiceResult = (results) => {
             this.applyDiceResults(results);
         };
 
         this.network.onDiceTie = () => {
-            this.diceRolling = false;
-            this.diceResults = null;
+            const now = Date.now();
+            const myLeft = Math.max(0, (this.diceRollAnimEndTime || 0) - now);
+            const opLeft = Math.max(0, (this.opDiceRollAnimEndTime || 0) - now);
+            setTimeout(() => {
+                this.diceTieResult = true;
+                this.diceRolling = false;
+                this.opponentRolling = false;
+                setTimeout(() => {
+                    this.diceTieResult = false;
+                    this.startDicePhase();
+                }, 2000);
+            }, Math.max(myLeft, opLeft));
         };
         
         this.network.onSurrender = () => {
@@ -209,7 +260,44 @@ export class Game {
     }
 
     update() {
-        if (this.gameOver || this.dicePhase) return;
+        if (this.gameOver) return;
+        
+        const now = Date.now();
+        if (this.dicePhase) {
+            if (!this.diceRolling && !this.diceResults && !this.diceTieResult) {
+                if (now >= this.diceCountdownEndTime) {
+                    this.handleDiceClick(0, 0, true);
+                }
+            }
+
+            if (this.diceRolling) {
+                const timeLeft = Math.max(0, this.diceRollAnimEndTime - now);
+                if (timeLeft > 0 || (this.gameMode === 'online' && !this.diceTargetVal)) {
+                    const progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
+                    const interval = 50 + progress * progress * progress * 400; // 50ms 到 450ms
+                    if (!this.lastDiceUpdate || now - this.lastDiceUpdate > interval) {
+                        this.diceVal = Math.floor(Math.random() * 6) + 1;
+                        this.lastDiceUpdate = now;
+                    }
+                } else if (this.diceTargetVal || this.gameMode !== 'online') {
+                    if (this.diceTargetVal) this.diceVal = this.diceTargetVal;
+                }
+            }
+            if (this.opponentRolling) {
+                const timeLeft = Math.max(0, this.opDiceRollAnimEndTime - now);
+                if (timeLeft > 0 || (this.gameMode === 'online' && !this.opDiceTargetVal)) {
+                    const progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
+                    const interval = 50 + progress * progress * progress * 400;
+                    if (!this.lastOpDiceUpdate || now - this.lastOpDiceUpdate > interval) {
+                        this.opDiceVal = Math.floor(Math.random() * 6) + 1;
+                        this.lastOpDiceUpdate = now;
+                    }
+                } else if (this.opDiceTargetVal || this.gameMode !== 'online') {
+                    if (this.opDiceTargetVal) this.opDiceVal = this.opDiceTargetVal;
+                }
+            }
+            return;
+        }
 
         this.physics.update();
         this.particles.update();
@@ -368,8 +456,8 @@ export class Game {
             myLabel = myFirst ? '你先手 (蓝)' : '你后手 (红)';
             opLabel = myFirst ? '对手后手 (红)' : '对手先手 (蓝)';
         } else {
-            if (this.diceRolling) myVal = Math.floor(Math.random() * 6) + 1;
-            if (this.opponentRolling || this.diceRolling && this.gameMode !== 'online') opVal = Math.floor(Math.random() * 6) + 1;
+            myVal = this.diceVal;
+            opVal = this.opDiceVal;
         }
 
         this.drawDie(ctx, CENTER_X - 120, 320, myVal, myColor, myLabel);
@@ -387,26 +475,39 @@ export class Game {
             const firstLabel = first === myOriginalId ? '你先手！' : '对手先手';
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, 420);
-        } else if (this.diceRolling) {
-            ctx.fillStyle = '#aaa'; ctx.font = '16px sans-serif';
-            ctx.fillText('掷骰子中...', CENTER_X, 530);
+        } else if (this.diceTieResult) {
+            ctx.fillStyle = '#f44336'; ctx.font = 'bold 36px sans-serif';
+            ctx.fillText('平局，重掷！', CENTER_X, 420);
         } else {
-            // 倒计时
-            const timeLeft = Math.max(0, 5 - Math.floor((now - this.diceStartTime) / 1000));
-            if (timeLeft === 0 && !this.diceRolling) {
-                this.handleDiceClick(CENTER_X, 500, true);
+            if (!this.diceRolling) {
+                ctx.fillStyle = '#ddd'; ctx.font = '16px sans-serif';
+                const left = Math.ceil(Math.max(0, this.diceCountdownEndTime - Date.now()) / 1000);
+                ctx.fillText(`${left}秒后自动摇号...`, CENTER_X, 580);
+                
+                const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
+                const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
+                grad.addColorStop(0, '#4CAF50'); grad.addColorStop(1, '#388E3C');
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill();
+                ctx.strokeStyle = '#66BB6A'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
+                ctx.fillText('掷骰子', CENTER_X, by + 28);
+                this.diceBtn = { x: bx, y: by, w: bw, h: bh };
+
+                if (this.opponentRolling) {
+                    ctx.fillStyle = '#ff9800'; ctx.font = 'bold 20px sans-serif';
+                    ctx.fillText('对手已掷，请你掷骰子', CENTER_X, 450);
+                }
+            } else {
+                this.diceBtn = null;
+                if (!this.opponentRolling) {
+                    ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
+                    ctx.fillText('等待对手掷骰子...', CENTER_X, 500);
+                } else {
+                    ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
+                    ctx.fillText('双方掷骰子中...', CENTER_X, 500);
+                }
             }
-            
-            // 掷骰子按钮
-            const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
-            const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
-            grad.addColorStop(0, '#4CAF50'); grad.addColorStop(1, '#388E3C');
-            ctx.fillStyle = grad;
-            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill();
-            ctx.strokeStyle = '#66BB6A'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
-            ctx.fillText(`掷骰子 (${timeLeft}s)`, CENTER_X, by + 28);
-            this.diceBtn = { x: bx, y: by, w: bw, h: bh };
         }
     }
 
@@ -450,8 +551,13 @@ export class Game {
         this.diceResults = null;
         this.diceBtn = null;
         this.diceStartTime = Date.now();
+        this.diceCountdownEndTime = Date.now() + 5000;
         this.diceRollAnimEndTime = 0;
         this.opDiceRollAnimEndTime = 0;
+        this.diceVal = null;
+        this.opDiceVal = null;
+        this.diceTargetVal = null;
+        this.opDiceTargetVal = null;
     }
 
     handleDiceClick(mx, my, force = false) {
@@ -459,20 +565,13 @@ export class Game {
         const btn = this.diceBtn;
         if (force || (btn && mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h)) {
             this.diceRolling = true;
-            this.diceRollAnimEndTime = Date.now() + 1500;
+            this.diceRollAnimEndTime = Date.now() + 2000;
             if (this.gameMode !== 'online') {
                 this.opponentRolling = true;
-                this.opDiceRollAnimEndTime = Date.now() + 1500;
+                this.opDiceRollAnimEndTime = Date.now() + 2000;
             }
             if (this.gameMode === 'online') {
                 this.network.send({ type: 'dice_roll' });
-                // 超时回退：5秒没响应则本地掷骰子
-                this._diceTimeout = setTimeout(() => {
-                    if (this.dicePhase && this.diceRolling && !this.diceResults) {
-                        console.warn('骰子服务器无响应，使用本地掷骰子');
-                        this.rollLocalDice();
-                    }
-                }, 5000);
             } else {
                 setTimeout(() => this.rollLocalDice(), 0);
             }
@@ -482,37 +581,31 @@ export class Game {
     }
 
     applyDiceResults(results) {
-        if (this._diceTimeout) { clearTimeout(this._diceTimeout); this._diceTimeout = null; }
-        
-        // 等待双方动画都结束再显示结果并切换
-        const myLeft = this.diceRollAnimEndTime ? Math.max(0, this.diceRollAnimEndTime - Date.now()) : 0;
-        const opLeft = this.opDiceRollAnimEndTime ? Math.max(0, this.opDiceRollAnimEndTime - Date.now()) : 0;
+        const now = Date.now();
+        const myLeft = Math.max(0, (this.diceRollAnimEndTime || 0) - now);
+        const opLeft = Math.max(0, (this.opDiceRollAnimEndTime || 0) - now);
         const timeLeft = Math.max(myLeft, opLeft);
 
         setTimeout(() => {
             this.diceResults = results;
             this.diceRolling = false;
             this.opponentRolling = false;
-
-            setTimeout(() => {
-                this.dicePhase = false;
-                
-                // 根据点数重新分配红蓝方和视角
-                let myFirst = false;
-                if (this.gameMode === 'online') {
-                    myFirst = results.first === this.network.playerIndex;
-                    this.perspective = myFirst ? 'bottom' : 'top'; // 赢家在下方(蓝色)
-                } else {
-                    myFirst = results.first === this.perspective;
-                }
-                this.currentPlayer = 'A'; // 先手总是A(蓝色)
-
-                this.roundNumber = 1;
-                this.turnStartTime = Date.now();
-                this.turnTimeLeft = 60;
-                this.input.sliderValue = 0.5;
-                this.input.applySliderToPiece();
-            }, 1000); // 显示结果后停顿1秒
+            
+            if (this.gameMode === 'online') {
+                setTimeout(() => {
+                    this.network.send({ type: 'dice_ack' });
+                }, 2000); // 显示结果2秒后发送ACK
+            } else {
+                setTimeout(() => {
+                    this.dicePhase = false;
+                    this.currentPlayer = 'A'; // 先手总是A(蓝色)
+                    this.roundNumber = 1;
+                    this.turnStartTime = Date.now();
+                    this.turnTimeLeft = 60;
+                    this.input.sliderValue = 0.5;
+                    this.input.applySliderToPiece();
+                }, 2000);
+            }
         }, timeLeft);
     }
 
