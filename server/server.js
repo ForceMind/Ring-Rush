@@ -255,6 +255,7 @@ wss.on('connection', (ws) => {
                     return;
                 } else {
                     player.send({ type: 'reconnect_failed' });
+                    return;
                 }
             }
             
