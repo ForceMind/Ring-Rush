@@ -44,8 +44,8 @@ export const WIN_THRESHOLD = 6;
 
 // ===== 得分区域 =====
 export const SCORING_ZONES = {
-    center:   { radius: 25,  score: 5, color: 'rgba(255, 215, 0, 0.5)' },
-    hexagon:  { radius: 70,  score: 4, color: 'rgba(144, 238, 144, 0.35)' },
+    center:   { radius: 18,  score: 5, color: 'rgba(255, 215, 0, 0.5)' },
+    hexagon:  { radius: 55,  score: 4, color: 'rgba(144, 238, 144, 0.35)' },
     pentagon: { radius: 115, score: 3, color: 'rgba(135, 206, 250, 0.3)' },
     square:   { radius: 160, score: 2, color: 'rgba(221, 160, 221, 0.25)' }
 };

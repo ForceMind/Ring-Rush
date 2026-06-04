@@ -355,12 +355,25 @@ export class UI {
         ctx.font = 'bold 48px sans-serif';
         
         let msg = '';
+        const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
+        const isLocal = this.game.gameMode === 'local';
+
+        let winText = '';
+        let loseText = '';
+        if (isLocal) {
+            winText = this.game.winner === 'A' ? '蓝方' : '红方';
+            loseText = this.game.winner === 'A' ? '红方' : '蓝方';
+        } else {
+            winText = isWinner ? '你' : '对手';
+            loseText = isWinner ? '对手' : '你';
+        }
+
         if (this.game.pendingWinReason === 'surrender') {
-            msg = '对方投降了！';
+            msg = `${loseText}投降了！`;
         } else if (this.game.pendingWinReason === 'runner') {
-            msg = '到达终点！';
+            msg = `${winText}到达终点！`;
         } else if (this.game.pendingWinReason === 'timeout') {
-            msg = '对方超时判负！';
+            msg = `${loseText}超时判负！`;
         } else if (this.game.pendingWinReason === 'allUsed') {
             msg = '棋子用尽！';
         }

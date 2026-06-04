@@ -598,7 +598,7 @@ export class OnlineStartScreen {
                 } else if (btn.id === 'connect') {
                     await this.connectToServer();
                 } else if (btn.id === 'create_room') {
-                    this.network.createRoom('新房间');
+                    this.network.createRoom();
                 } else if (btn.id.startsWith('room_')) {
                     const roomId = parseInt(btn.id.replace('room_', ''));
                     this.network.joinRoom(roomId);
