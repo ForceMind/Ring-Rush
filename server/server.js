@@ -1,5 +1,5 @@
 /**
- * Ring Rush v0.6.0 - 在线对战服务器
+ * Ring Rush v0.6.1 - 在线对战服务器
  *
  * 功能：
  * - 房间管理（创建/加入/离开）
@@ -45,9 +45,13 @@ const server = http.createServer((req, res) => {
     let urlPath = req.url.split('?')[0];
     if (urlPath === '/') urlPath = '/index.html';
 
+    // 判断运行环境决定静态文件根目录
+    const IS_PROD = process.env.NODE_ENV === 'production';
+    const SERVE_DIR = IS_PROD ? path.resolve(PROJECT_ROOT, 'dist') : PROJECT_ROOT;
+
     // 使用 path.resolve 防止目录遍历攻击
-    const filePath = path.resolve(PROJECT_ROOT, '.' + urlPath);
-    if (!filePath.startsWith(PROJECT_ROOT)) {
+    const filePath = path.resolve(SERVE_DIR, '.' + urlPath);
+    if (!filePath.startsWith(SERVE_DIR)) {
         res.writeHead(403);
         res.end('Forbidden');
         return;

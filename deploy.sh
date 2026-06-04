@@ -56,10 +56,16 @@ if ! command -v node > /dev/null; then
   echo "✅ Node.js 安装完成: $(node -v)"
 fi
 
-# 4. 安装游戏依赖
-echo "📦 正在安装依赖..."
+# 4. 安装服务器依赖
+echo "📦 正在安装服务器端依赖..."
 cd "$SERVER_DIR"
 npm install --production
+
+# 4.5 混淆打包前端产物
+echo "📦 正在构建并混淆前端代码 (Vite)..."
+cd "$PROJECT_DIR"
+npm install
+npm run build
 
 # 5. 自动分配不冲突的端口
 echo "🔍 正在扫描可用端口..."

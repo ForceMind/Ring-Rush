@@ -1,6 +1,6 @@
 {
   "name": "ring-rush-server",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Ring Rush - 在线对战服务器",
   "main": "server.js",
   "scripts": {
