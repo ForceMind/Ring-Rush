@@ -85,14 +85,16 @@ export class Input {
      * @param {object} e - 事件对象（或包含 clientX/clientY 的模拟对象）
      */
     handleMouseDown(e) {
-        if (this.game.gameOver || this.game.isAnimating || this.game.isBotTurn()) return;
-        if (this.game.isOnlineGame() && !this.game.isMyTurn()) return;
+        if (this.game.gameOver || this.game.isAnimating || this.game.isBotTurn() || this.game.opponentTemporarilyDisconnected) return;
+        
         if (this.game.dicePhase) {
             const rect = this.game.canvas.getBoundingClientRect();
             const sx = CANVAS_WIDTH / rect.width, sy = CANVAS_HEIGHT / rect.height;
             this.game.handleDiceClick((e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy);
             return;
         }
+
+        if (this.game.isOnlineGame() && !this.game.isMyTurn()) return;
 
         this.game.audio.resume();
 

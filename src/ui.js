@@ -49,6 +49,8 @@ export class UI {
 
         if (this.game.gameOver) {
             this.drawGameOver(ctx);
+        } else if (this.game.opponentTemporarilyDisconnected) {
+            this.drawDisconnectOverlay(ctx);
         }
     }
 
@@ -449,5 +451,28 @@ export class UI {
         ctx.fillText('退出游戏', CENTER_X, exitBtnY + 20);
 
         this.game.exitBtn = { x: btnX, y: exitBtnY, w: btnW, h: 40 };
+    }
+
+    /**
+     * 绘制对方断线等待遮罩
+     * @param {CanvasRenderingContext2D} ctx
+     */
+    drawDisconnectOverlay(ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        
+        // 简单的闪烁动画
+        const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / 300));
+        ctx.globalAlpha = alpha;
+        ctx.fillText('对方已断线，等待重连中...', CENTER_X, CENTER_Y - 20);
+        
+        ctx.globalAlpha = 1.0;
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText('（60秒内未重连将自动判负）', CENTER_X, CENTER_Y + 20);
     }
 }

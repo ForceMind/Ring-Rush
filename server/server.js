@@ -132,6 +132,9 @@ class Room {
         if (this.host && this.host.id === playerId) {
             this.host = this.guest;
             this.guest = null;
+            if (this.host) {
+                this.host.playerIndex = 'A'; // New host is always A
+            }
         } else if (this.guest && this.guest.id === playerId) {
             this.guest = null;
         }
@@ -174,6 +177,7 @@ class Player {
         this.roomId = null;
         this.playerIndex = null;  // 'A' 或 'B'
         this.ready = false;
+        this.disconnectTimeout = null;
     }
 
     send(message) {
@@ -186,7 +190,7 @@ class Player {
 // ===== 消息处理 =====
 wss.on('connection', (ws) => {
     const playerId = generateId();
-    const player = new Player(playerId, ws, `玩家 ${playerId.slice(0, 4)}`);
+    let player = new Player(playerId, ws, `玩家 ${playerId.slice(0, 4)}`);
     players.set(playerId, player);
 
     // 心跳追踪
@@ -225,6 +229,35 @@ wss.on('connection', (ws) => {
 
         try {
             const message = JSON.parse(data);
+            
+            if (message.type === 'reconnect') {
+                const oldPlayer = players.get(message.playerId);
+                if (oldPlayer && oldPlayer.disconnectTimeout) {
+                    clearTimeout(oldPlayer.disconnectTimeout);
+                    oldPlayer.disconnectTimeout = null;
+                    oldPlayer.ws = ws;
+                    players.delete(player.id);
+                    player = oldPlayer; // 更新闭包引用
+                    
+                    player.send({ type: 'reconnect_success', room: rooms.get(player.roomId)?.toJSON() });
+                    
+                    broadcastToRoom(player.roomId, {
+                        type: 'opponent_reconnected',
+                        playerId: player.id
+                    }, player.id);
+                    
+                    // 请求留下的玩家发送全量状态
+                    broadcastToRoom(player.roomId, {
+                        type: 'request_sync',
+                        targetPlayerId: player.id
+                    }, player.id);
+                    
+                    return;
+                } else {
+                    player.send({ type: 'reconnect_failed' });
+                }
+            }
+            
             handleMessage(player, message);
         } catch (e) {
             console.error('消息解析错误:', e, player.name);
@@ -234,8 +267,24 @@ wss.on('connection', (ws) => {
     // 断线处理
     ws.on('close', () => {
         console.log(`玩家断线: ${player.name}`);
+        if (player.roomId) {
+            const room = rooms.get(player.roomId);
+            if (room && room.state === 'playing') {
+                console.log(`玩家 ${player.name} 在游戏中掉线，等待60秒重连...`);
+                player.disconnectTimeout = setTimeout(() => {
+                    handleDisconnect(player);
+                    players.delete(player.id);
+                }, 60000);
+                
+                broadcastToRoom(player.roomId, {
+                    type: 'opponent_disconnected',
+                    playerId: player.id
+                }, player.id);
+                return;
+            }
+        }
         handleDisconnect(player);
-        players.delete(playerId);
+        players.delete(player.id);
     });
 });
 
@@ -295,6 +344,21 @@ function handleMessage(player, message) {
                 type: 'slider_sync',
                 value: message.value
             }, player.id);
+            break;
+
+        case 'full_sync':
+            // 收到全量同步数据，转发给重连的玩家
+            const roomObj = rooms.get(player.roomId);
+            if (roomObj) {
+                const targetId = message.targetPlayerId;
+                const targetPlayer = roomObj.getPlayers().find(p => p.id === targetId);
+                if (targetPlayer) {
+                    targetPlayer.send({
+                        type: 'full_sync',
+                        state: message.state
+                    });
+                }
+            }
             break;
 
         case 'chat':
@@ -402,6 +466,8 @@ function leaveRoom(player) {
     const room = rooms.get(player.roomId);
     if (!room) return;
 
+    const wasHost = (room.host && room.host.id === player.id);
+    
     // 通知其他玩家
     broadcastToRoom(player.roomId, {
         type: 'player_left',
@@ -416,6 +482,13 @@ function leaveRoom(player) {
     // 如果房间空了，删除房间
     if (room.getPlayers().length === 0) {
         rooms.delete(room.id);
+    } else if (wasHost && room.host) {
+        // 通知新房主
+        room.host.send({
+            type: 'host_transferred',
+            room: room.toJSON(),
+            playerIndex: room.host.playerIndex
+        });
     }
 
     player.send({ type: 'room_left' });

@@ -203,6 +203,56 @@ export class Game {
             }
         };
 
+        this.network.onOpponentDisconnected = () => {
+            this.opponentTemporarilyDisconnected = true;
+        };
+
+        this.network.onOpponentReconnected = () => {
+            this.opponentTemporarilyDisconnected = false;
+        };
+
+        this.network.onRequestSync = (targetPlayerId) => {
+            const state = {
+                scoreA: this.scoreA,
+                scoreB: this.scoreB,
+                roundNumber: this.roundNumber,
+                currentPlayer: this.currentPlayer,
+                turnStartTime: this.turnStartTime,
+                turnTimeLeft: this.turnTimeLeft,
+                dicePhase: this.dicePhase,
+                piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
+                piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched }))
+            };
+            this.network.send({ type: 'full_sync', targetPlayerId, state });
+        };
+
+        this.network.onFullSync = (state) => {
+            this.scoreA = state.scoreA;
+            this.scoreB = state.scoreB;
+            this.roundNumber = state.roundNumber;
+            this.currentPlayer = state.currentPlayer;
+            this.turnStartTime = state.turnStartTime;
+            this.turnTimeLeft = state.turnTimeLeft;
+            this.dicePhase = state.dicePhase;
+            
+            for (let i = 0; i < this.piecesA.length; i++) {
+                if (state.piecesA[i]) {
+                    this.piecesA[i].x = state.piecesA[i].x;
+                    this.piecesA[i].y = state.piecesA[i].y;
+                    this.piecesA[i].isLaunched = state.piecesA[i].isLaunched;
+                }
+            }
+            for (let i = 0; i < this.piecesB.length; i++) {
+                if (state.piecesB[i]) {
+                    this.piecesB[i].x = state.piecesB[i].x;
+                    this.piecesB[i].y = state.piecesB[i].y;
+                    this.piecesB[i].isLaunched = state.piecesB[i].isLaunched;
+                }
+            }
+            
+            this.opponentTemporarilyDisconnected = false;
+        };
+
         this.startDicePhase();
         this.initPieces();
         this.input.init();
@@ -638,6 +688,8 @@ export class Game {
         const scaleY = CANVAS_HEIGHT / rect.height;
         const mouseX = (e.clientX - rect.left) * scaleX;
         const mouseY = (e.clientY - rect.top) * scaleY;
+
+        if (this.opponentTemporarilyDisconnected) return;
 
         if (this.gameOver && this.restartBtn) {
             const btn = this.restartBtn;

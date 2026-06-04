@@ -42,6 +42,12 @@ export class NetworkManager {
                 this.ws.onopen = () => {
                     this.isConnected = true;
                     console.log('已连接到服务器');
+                    
+                    const savedId = sessionStorage.getItem('ringRushPlayerId');
+                    if (savedId) {
+                        this.send({ type: 'reconnect', playerId: savedId });
+                    }
+                    
                     if (!resolved) {
                         resolved = true;
                         resolve();
@@ -80,6 +86,16 @@ export class NetworkManager {
             case 'welcome':
                 this.playerId = message.playerId;
                 this.playerName = message.playerName;
+                if (!sessionStorage.getItem('ringRushPlayerId')) {
+                    sessionStorage.setItem('ringRushPlayerId', this.playerId);
+                }
+                break;
+            case 'reconnect_success':
+                this.playerId = sessionStorage.getItem('ringRushPlayerId');
+                if (this.onMessage) this.onMessage(message);
+                break;
+            case 'reconnect_failed':
+                sessionStorage.setItem('ringRushPlayerId', this.playerId);
                 break;
             case 'room_list':
                 if (this.onRoomList) this.onRoomList(message.rooms);
@@ -131,6 +147,21 @@ export class NetworkManager {
             case 'player_left':
                 if (this.onPlayerLeft) this.onPlayerLeft(message);
                 if (this.onMessage) this.onMessage(message);
+                break;
+            case 'host_transferred':
+                if (this.onMessage) this.onMessage(message);
+                break;
+            case 'opponent_disconnected':
+                if (this.onOpponentDisconnected) this.onOpponentDisconnected();
+                break;
+            case 'opponent_reconnected':
+                if (this.onOpponentReconnected) this.onOpponentReconnected();
+                break;
+            case 'request_sync':
+                if (this.onRequestSync) this.onRequestSync(message.targetPlayerId);
+                break;
+            case 'full_sync':
+                if (this.onFullSync) this.onFullSync(message.state);
                 break;
             case 'restart_game':
                 if (this.onRestartGame) this.onRestartGame();

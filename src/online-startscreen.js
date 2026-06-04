@@ -95,11 +95,26 @@ export class OnlineStartScreen {
                 break;
             case 'player_left':
                 if (this.currentRoom) {
-                    this.currentRoom.guestName = null;
+                    if (this.currentRoom.guestName === message.playerName) {
+                        this.currentRoom.guestName = null;
+                        this.currentRoom.guestReady = false;
+                    } else if (this.currentRoom.hostName === message.playerName) {
+                        // The host left, but we didn't get host_transferred yet or we are not the one.
+                        // Actually wait, server will send host_transferred right after player_left.
+                        // So we just clear the appropriate player. But wait, server's room.toJSON() will be in host_transferred!
+                        // So we don't do much here except what we already did.
+                    }
+                    // For safety, we just wait for host_transferred to rebuild room state.
                     this.currentRoom.playerCount = 1;
                     this.isReady = false;
                     this.draw();
                 }
+                break;
+            case 'host_transferred':
+                this.currentRoom = message.room;
+                this.network.playerIndex = message.playerIndex;
+                this.isReady = false;
+                this.draw();
                 break;
             case 'player_ready':
                 if (this.currentRoom) {
