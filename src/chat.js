@@ -19,11 +19,11 @@ export class ChatManager {
                         #ringRushChatContainer {
                             position: absolute;
                             bottom: 20px;
-                            left: 20px; /* 改到左边避免挡住右侧的倒计时 */
+                            right: 20px;
                             z-index: 100;
                             display: flex;
                             flex-direction: column;
-                            align-items: flex-start; /* 菜单向左对齐 */
+                            align-items: flex-end;
                             font-family: sans-serif;
                         }
                         #chatMenu {

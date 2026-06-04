@@ -359,10 +359,14 @@ export class Game {
             if (!this.runnerAnimating) {
                 if (!this.pendingWinTime) this.pendingWinTime = Date.now();
                 if (Date.now() - this.pendingWinTime >= 1500) {
-                    this.pendingWin = false;
-                    this.gameOver = true;
-                    this.particles.emitWin(CENTER_X, CENTER_Y);
-                    this.audio.play('win');
+                    if (this.pendingWinReason === 'overtime') {
+                        this.startOvertime();
+                    } else {
+                        this.pendingWin = false;
+                        this.gameOver = true;
+                        this.particles.emitWin(CENTER_X, CENTER_Y);
+                        this.audio.play('win');
+                    }
                 }
             }
             return;
@@ -516,13 +520,67 @@ export class Game {
         if (this.runnerPosition >= WIN_THRESHOLD) { this.winner = 'B'; return 'runner'; }
 
         if (this.piecesLeftA === 0 && this.piecesLeftB === 0) {
-            if (this.runnerPosition < 0) this.winner = 'A';
-            else if (this.runnerPosition > 0) this.winner = 'B';
-            else this.winner = null;
-            return 'allUsed';
+            if (this.runnerPosition < 0) {
+                this.winner = 'A';
+                return 'allUsed';
+            } else if (this.runnerPosition > 0) {
+                this.winner = 'B';
+                return 'allUsed';
+            } else {
+                this.winner = null;
+                return 'overtime';
+            }
         }
 
         return false;
+    }
+
+    startOvertime() {
+        this.pendingWin = false;
+        this.pendingWinReason = null;
+        this.pendingWinTime = null;
+        this.winner = null;
+
+        // 清空当前棋盘上的所有棋子
+        this.piecesA = [];
+        this.piecesB = [];
+        this.physics.clearPieces();
+        
+        // 各分配 3 颗新棋子
+        const PIECES_IN_OVERTIME = 3;
+        const spacing = (LAUNCH_ZONE_WIDTH - 2 * PIECE_RADIUS) / 2;
+        
+        for (let i = 0; i < PIECES_IN_OVERTIME; i++) {
+            // A队（下方）
+            let ax = BOARD_X + BOARD_WIDTH/2 - spacing + (i % 3) * spacing;
+            let ay = BOARD_Y + BOARD_HEIGHT - LAUNCH_ZONE_HEIGHT/2;
+            let pieceA = new Piece(ax, ay, 'A');
+            this.piecesA.push(pieceA);
+            this.physics.addPiece(pieceA);
+
+            // B队（上方）
+            let bx = BOARD_X + BOARD_WIDTH/2 - spacing + (i % 3) * spacing;
+            let by = BOARD_Y + LAUNCH_ZONE_HEIGHT/2;
+            let pieceB = new Piece(bx, by, 'B');
+            this.piecesB.push(pieceB);
+            this.physics.addPiece(pieceB);
+        }
+        
+        this.piecesLeftA = PIECES_IN_OVERTIME;
+        this.piecesLeftB = PIECES_IN_OVERTIME;
+
+        // 交换球权（如果是上一轮最后出手的，就换人先手）
+        this.currentPlayer = this.currentPlayer === 'A' ? 'B' : 'A';
+        this.turnStartTime = Date.now();
+        this.turnTimeLeft = 60;
+        
+        // 把滑块拉回默认位置
+        this.input.sliderValue = 0.5;
+        this.input.applySliderToPiece();
+        
+        if (this.gameMode === 'online') {
+            this.network.syncGameState();
+        }
     }
 
     getState() {

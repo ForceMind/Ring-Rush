@@ -203,7 +203,8 @@ export class UI {
             ctx.textAlign = 'right';
             ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800'; 
             ctx.font = 'bold 16px sans-serif';
-            ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y + BOARD_HEIGHT + 95);
+            // 思考时间固定在右侧上方
+            ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
         }
 
         // 对手在上方
@@ -361,11 +362,13 @@ export class UI {
             let x, y;
 
             if (drawAtBottom) {
-                x = CANVAS_WIDTH - 20 - w;
-                y = BOARD_Y + BOARD_HEIGHT + 30;
+                // 出现在自己名字（左下方）的上方
+                x = 30;
+                y = BOARD_Y + BOARD_HEIGHT + 45;
             } else {
-                x = CANVAS_WIDTH - 20 - w;
-                y = BOARD_Y - 70;
+                // 出现在对手名字（左上方）的下方
+                x = 30;
+                y = BOARD_Y - 20;
             }
 
             ctx.fillStyle = 'rgba(40, 40, 40, 0.85)';
@@ -377,16 +380,18 @@ export class UI {
             ctx.fill();
             ctx.stroke();
 
-            // 小尾巴
+            // 小尾巴指向名字
             ctx.beginPath();
             if (drawAtBottom) {
-                ctx.moveTo(x + w - 15, y + h);
-                ctx.lineTo(x + w - 5, y + h + 10);
-                ctx.lineTo(x + w - 25, y + h);
+                // 尾巴在左下角，指向名字上方
+                ctx.moveTo(x + 15, y + h);
+                ctx.lineTo(x + 5, y + h + 10);
+                ctx.lineTo(x + 25, y + h);
             } else {
-                ctx.moveTo(x + w - 15, y);
-                ctx.lineTo(x + w - 5, y - 10);
-                ctx.lineTo(x + w - 25, y);
+                // 尾巴在左上角，指向名字下方
+                ctx.moveTo(x + 15, y);
+                ctx.lineTo(x + 5, y - 10);
+                ctx.lineTo(x + 25, y);
             }
             ctx.fill();
 
@@ -433,6 +438,8 @@ export class UI {
             msg = `${loseText}超时判负！`;
         } else if (this.game.pendingWinReason === 'allUsed') {
             msg = '棋子用尽！';
+        } else if (this.game.pendingWinReason === 'overtime') {
+            msg = '平局！进入加时赛 (+3子)';
         }
         
         ctx.fillText(msg, CENTER_X, CENTER_Y);
