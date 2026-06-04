@@ -46,6 +46,7 @@ export class UI {
         this.drawNetworkStatus(ctx);
         this.drawSurrenderButton(ctx);
         this.drawScoreAnimations(ctx);
+        this.drawChatBubbles(ctx);
 
 
         if (this.game.pendingWin) {
@@ -337,6 +338,62 @@ export class UI {
             ctx.restore();
 
             return anim.timer > 0;
+        });
+    }
+
+    /**
+     * 绘制聊天气泡
+     * @param {CanvasRenderingContext2D} ctx
+     */
+    drawChatBubbles(ctx) {
+        if (!this.game.chat || !this.game.chat.chatMessages) return;
+
+        ctx.font = 'bold 16px sans-serif';
+        this.game.chat.chatMessages.forEach(msg => {
+            const isMe = msg.playerIndex === this.game.network.playerIndex;
+            const isBottom = this.game.perspective === 'bottom';
+            const drawAtBottom = (isMe && isBottom) || (!isMe && !isBottom);
+
+            const text = msg.text;
+            const metrics = ctx.measureText(text);
+            const w = metrics.width + 30;
+            const h = 40;
+            let x, y;
+
+            if (drawAtBottom) {
+                x = CANVAS_WIDTH - 20 - w;
+                y = BOARD_Y + BOARD_HEIGHT + 30;
+            } else {
+                x = CANVAS_WIDTH - 20 - w;
+                y = BOARD_Y - 70;
+            }
+
+            ctx.fillStyle = 'rgba(40, 40, 40, 0.85)';
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            // 小尾巴
+            ctx.beginPath();
+            if (drawAtBottom) {
+                ctx.moveTo(x + w - 15, y + h);
+                ctx.lineTo(x + w - 5, y + h + 10);
+                ctx.lineTo(x + w - 25, y + h);
+            } else {
+                ctx.moveTo(x + w - 15, y);
+                ctx.lineTo(x + w - 5, y - 10);
+                ctx.lineTo(x + w - 25, y);
+            }
+            ctx.fill();
+
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x + w / 2, y + h / 2);
         });
     }
 

@@ -19,11 +19,11 @@ export class ChatManager {
                         #ringRushChatContainer {
                             position: absolute;
                             bottom: 20px;
-                            right: 20px;
+                            left: 20px; /* 改到左边避免挡住右侧的倒计时 */
                             z-index: 100;
                             display: flex;
                             flex-direction: column;
-                            align-items: flex-end;
+                            align-items: flex-start; /* 菜单向左对齐 */
                             font-family: sans-serif;
                         }
                         #chatMenu {
@@ -73,12 +73,12 @@ export class ChatManager {
                         }
                     </style>
                     <div id="chatMenu">
-                        <button class="chat-option">你好，祝你好运！ 👋</button>
-                        <button class="chat-option">打得不错！ 👍</button>
-                        <button class="chat-option">漂亮的一击！ 🎯</button>
-                        <button class="chat-option">哎呀，失误了... 💦</button>
-                        <button class="chat-option">快点吧，我等得花儿都谢了！ ⏰</button>
-                        <button class="chat-option">谢谢指教，再来一局？ 🤝</button>
+                        <button class="chat-option" data-id="1">你好，祝你好运！ 👋</button>
+                        <button class="chat-option" data-id="2">打得不错！ 👍</button>
+                        <button class="chat-option" data-id="3">漂亮的一击！ 🎯</button>
+                        <button class="chat-option" data-id="4">哎呀，失误了... 💦</button>
+                        <button class="chat-option" data-id="5">快点吧，我等得花儿都谢了！ ⏰</button>
+                        <button class="chat-option" data-id="6">谢谢指教，再来一局？ 🤝</button>
                     </div>
                     <button class="chat-btn">💬</button>
                 `;
@@ -95,7 +95,7 @@ export class ChatManager {
 
                 options.forEach(opt => {
                     opt.addEventListener('click', () => {
-                        this.sendChat(opt.textContent.trim());
+                        this.sendChat(opt.dataset.id);
                         menu.classList.remove('active');
                     });
                 });
@@ -118,7 +118,16 @@ export class ChatManager {
         this.addMessage(text, this.game.network.playerIndex);
     }
 
-    addMessage(text, playerIndex) {
+    addMessage(textOrId, playerIndex) {
+        const CHAT_MAP = {
+            '1': '你好，祝你好运！ 👋',
+            '2': '打得不错！ 👍',
+            '3': '漂亮的一击！ 🎯',
+            '4': '哎呀，失误了... 💦',
+            '5': '快点吧，我等得花儿都谢了！ ⏰',
+            '6': '谢谢指教，再来一局？ 🤝'
+        };
+        const text = CHAT_MAP[textOrId] || textOrId;
         this.chatMessages.push({ text, playerIndex, timestamp: Date.now() });
     }
 
