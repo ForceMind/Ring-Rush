@@ -15,6 +15,7 @@ function Show-Menu {
     Write-Host "   [4] 检查运行环境" -ForegroundColor Green
     Write-Host "   [5] 打开游戏页面" -ForegroundColor Green
     Write-Host "   [6] 查看端口占用" -ForegroundColor Green
+    Write-Host "   [7] 重启服务器" -ForegroundColor Yellow
     Write-Host "   [0] 退出" -ForegroundColor Red
     Write-Host ""
     Write-Host "  ========================================" -ForegroundColor Cyan
@@ -111,9 +112,49 @@ function Show-PortStatus {
     Read-Host "按 Enter 返回菜单"
 }
 
+function Restart-GameServer {
+    Clear-Host
+    Write-Host "正在重启服务器..." -ForegroundColor Yellow
+
+    # 杀掉占用 3000 端口的进程
+    $connections = netstat -ano | Select-String ":3000\s.*LISTENING"
+    if ($connections) {
+        $procIds = $connections | ForEach-Object { ($_ -split '\s+')[-1] } | Sort-Object -Unique
+        foreach ($procId in $procIds) {
+            if ($procId -match '^\d+$' -and [int]$procId -gt 0) {
+                Write-Host "  终止进程 PID: $procId"
+                Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            }
+        }
+        Start-Sleep -Seconds 1
+        Write-Host "  旧进程已清理" -ForegroundColor Green
+    } else {
+        Write-Host "  没有发现运行中的服务器" -ForegroundColor Gray
+    }
+
+    # 启动新进程
+    Write-Host "  启动新服务器..."
+    Set-Location "$PSScriptRoot\server"
+    if (-not (Test-Path "node_modules")) {
+        npm install | Out-Null
+    }
+    Start-Process -FilePath "node" -ArgumentList "server.js" -WindowStyle Hidden
+    Start-Sleep -Seconds 2
+
+    # 验证
+    $check = netstat -ano | Select-String ":3000\s.*LISTENING"
+    if ($check) {
+        Write-Host "  服务器重启成功！" -ForegroundColor Green
+        Write-Host "  访问地址: http://localhost:3000"
+    } else {
+        Write-Host "  服务器启动失败，请检查日志" -ForegroundColor Red
+    }
+    Read-Host "按 Enter 返回菜单"
+}
+
 do {
     Show-Menu
-    $choice = Read-Host "请选择操作 [0-6]"
+    $choice = Read-Host "请选择操作 [0-7]"
     switch ($choice) {
         "1" { Start-GameServer }
         "2" { Start-BackgroundServer }
@@ -121,6 +162,7 @@ do {
         "4" { Test-Environment }
         "5" { Open-Browser }
         "6" { Show-PortStatus }
+        "7" { Restart-GameServer }
         "0" { Write-Host "再见！" }
         default { Write-Host "无效选择，请重试" }
     }

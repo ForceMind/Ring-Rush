@@ -22,7 +22,16 @@
       "Bash(xxd \"E:/Privy/CapMap/一键启动.bat\")",
       "Bash(xxd \"E:/Privy/Limit-Up-Sniper-QT/start.ps1\")",
       "Bash(xxd *)",
-      "Bash(cmd.exe //c init.bat)"
+      "Bash(cmd.exe //c init.bat)",
+      "Bash(python -m http.server 8080)",
+      "Bash(node server.js)",
+      "Bash(start *)",
+      "Bash(findstr :8080)",
+      "Bash(npx playwright *)",
+      "Bash(npx -y playwright test --help)",
+      "Bash(curl -s http://localhost:3000)",
+      "PowerShell(Stop-Process *)",
+      "Bash(findstr LISTENING)"
     ]
   }
 }

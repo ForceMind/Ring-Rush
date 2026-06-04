@@ -4,7 +4,7 @@
 
 ## 当前版本
 
-**v0.5.4** - 管理工具脚本
+**v0.6.0** - 模块化重构 & Bug 修复
 
 ## 游戏特性
 
@@ -20,7 +20,9 @@
 
 ## 快速开始
 
-双击 `start.bat` 启动管理工具，或直接打开 `index.html` 游玩单机模式。
+双击 `start.bat` 启动管理工具，然后在浏览器访问 `http://localhost:3000`。
+
+> **注意**：v0.6.0 起使用 ES Module，需要通过 HTTP 服务器访问（不能直接双击 index.html）。
 
 如需中文界面，请参考 `README-中文说明.txt`。
 
@@ -37,6 +39,7 @@
 | v0.5.2 | 2026-06-02 | 脚本整合 |
 | v0.5.3 | 2026-06-02 | 中文管理工具 |
 | v0.5.4 | 2026-06-02 | 管理工具脚本 |
+| v0.6.0 | 2026-06-04 | 模块化重构 & Bug 修复 |
 
 ## 开发计划
 
@@ -49,6 +52,7 @@
 - [x] v0.5.2 - 脚本整合
 - [x] v0.5.3 - 中文管理工具
 - [x] v0.5.4 - 管理工具脚本
+- [x] v0.6.0 - 模块化重构 & Bug 修复
 - [ ] v1.0.0 - 正式版
 
 ## 文档
@@ -112,11 +116,39 @@ node server.js
 | 正方形 | 2分 |
 | 区域外 | 0分 |
 
+## 项目结构
+
+```
+Ring-Rush/
+├── index.html          # 入口页面
+├── src/                # 源代码（ES Module）
+│   ├── main.js         # 应用入口
+│   ├── constants.js    # 游戏常量
+│   ├── game.js         # 游戏主类
+│   ├── board.js        # 棋盘绘制
+│   ├── physics.js      # 物理引擎
+│   ├── piece.js        # 棋子类
+│   ├── input.js        # 输入处理（鼠标+触控）
+│   ├── ai.js           # AI 对手
+│   ├── ui.js           # UI 界面
+│   ├── audio.js        # 音效管理
+│   ├── particles.js    # 粒子特效
+│   ├── network.js      # 网络通信
+│   ├── startscreen.js  # 启动界面
+│   └── style.css       # 样式表
+├── server/             # WebSocket 服务器
+│   ├── server.js
+│   └── package.json
+├── docs/               # 文档
+└── start.bat           # 一键启动
+```
+
 ## 技术栈
 
 - HTML5 Canvas
-- 原生 JavaScript (ES6+)
+- 原生 JavaScript (ES6+ Module)
 - CSS3
+- Node.js + WebSocket (在线对战)
 
 ## 许可证
 
