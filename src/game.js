@@ -17,6 +17,9 @@ import { Physics } from './physics.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
 import { AI } from './ai.js';
+import { ModalManager } from './modals.js';
+import { ChatManager } from './chat.js';
+import { DiceManager } from './dice.js';
 import { Piece } from './piece.js';
 
 export class Game {
@@ -31,11 +34,6 @@ export class Game {
 
         // 视角和骰子
         this.perspective = 'bottom'; // 'bottom'=A视角, 'top'=B视角
-        this.dicePhase = false;
-        this.diceRolling = false;
-        this.diceResults = null;
-        this.diceFirstPlayer = null;
-        this.diceTimer = 0;
 
         this.currentPlayer = 'A';
         this.piecesLeftA = PIECES_PER_PLAYER;
@@ -52,14 +50,15 @@ export class Game {
         this.roundNumber = 1;
         this.turnStartTime = 0;
         this.turnTimeLeft = 60;
-        this.chatMessages = [];
-
         this.audio = new AudioManager();
         this.particles = new ParticleSystem();
         this.board = new Board();
         this.physics = new Physics(this);
         this.input = new Input(this);
         this.ui = new UI(this);
+        this.modals = new ModalManager(this);
+        this.chat = new ChatManager(this);
+        this.dice = new DiceManager(this);
 
         this.piecesA = [];
         this.piecesB = [];
@@ -83,36 +82,13 @@ export class Game {
         if (mode === 'bot') {
             this.ai = new AI(difficulty);
         }
-        this.startDicePhase();
+        this.dice.startPhase();
         this.initPieces();
         this.input.init();
         this.gameLoop();
     }
 
-    rollLocalDice() {
-        this.diceRolling = true;
-        this.diceRollAnimEndTime = Date.now() + 3000;
-        setTimeout(() => {
-            const a = Math.floor(Math.random() * 6) + 1;
-            const b = Math.floor(Math.random() * 6) + 1;
-            let first = a > b ? 'bottom' : b > a ? 'top' : null;
-            if (!first) {
-                // 平局重掷
-                this.diceTieResult = true;
-                this.diceRolling = false;
-                this.opponentRolling = false;
-                this.diceVal = a;
-                this.opDiceVal = b;
-                setTimeout(() => {
-                    this.diceTieResult = false;
-                    this.startDicePhase();
-                    this.rollLocalDice();
-                }, 2000);
-                return;
-            }
-            this.applyDiceResults({ a, b, first });
-        }, 1500);
-    }
+    get chatMessages() { return this.chat ? this.chat.chatMessages : []; }
 
     initOnlineGame(network, playerIndex, opponentName) {
         this.gameMode = 'online';
@@ -144,51 +120,50 @@ export class Game {
 
         this.network.onPlayerRolled = (playerIndex, val) => {
             if (this.perspective === 'bottom') {
-                if (playerIndex === 'A') { this.diceRolling = true; this.diceRollAnimEndTime = Date.now() + 2000; this.diceTargetVal = val; }
-                if (playerIndex === 'B') { this.opponentRolling = true; this.opDiceRollAnimEndTime = Date.now() + 2000; this.opDiceTargetVal = val; }
+                if (playerIndex === 'A') { this.dice.rolling = true; this.dice.rollAnimEndTime = Date.now() + 2000; this.dice.targetVal = val; }
+                if (playerIndex === 'B') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 2000; this.dice.opTargetVal = val; }
             } else {
-                if (playerIndex === 'B') { this.diceRolling = true; this.diceRollAnimEndTime = Date.now() + 2000; this.diceTargetVal = val; }
-                if (playerIndex === 'A') { this.opponentRolling = true; this.opDiceRollAnimEndTime = Date.now() + 2000; this.opDiceTargetVal = val; }
+                if (playerIndex === 'B') { this.dice.rolling = true; this.dice.rollAnimEndTime = Date.now() + 2000; this.dice.targetVal = val; }
+                if (playerIndex === 'A') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 2000; this.dice.opTargetVal = val; }
             }
         };
 
         this.network.onGameStartSync = () => {
-            this.dicePhase = false;
+            this.dice.phase = false;
             let myFirst = false;
             if (this.gameMode === 'online') {
-                myFirst = this.diceResults.first === this.network.playerIndex;
+                myFirst = this.dice.results.first === this.network.playerIndex;
                 this.perspective = myFirst ? 'bottom' : 'top'; // 赢家在下方(蓝色)
             }
             this.currentPlayer = 'A'; // 先手总是A(蓝色)
             this.roundNumber = 1;
             this.turnStartTime = Date.now();
-            this.turnTimeLeft = 60;
+            this.initPieces();
             this.input.sliderValue = 0.5;
             this.input.applySliderToPiece();
-            
+            this.dice.startPhase();
             if (this.gameMode === 'online') {
-                const chatEl = document.getElementById('ringRushChatContainer');
-                if (chatEl) chatEl.style.display = 'flex';
+                this.chat.initDOM();
             }
         };
 
         this.network.onDiceResult = (results) => {
-            this.applyDiceResults(results);
+            this.dice.applyResults(results);
         };
 
         this.network.onDiceTie = () => {
             const now = Date.now();
-            const myLeft = Math.max(0, (this.diceRollAnimEndTime || 0) - now);
-            const opLeft = Math.max(0, (this.opDiceRollAnimEndTime || 0) - now);
+            const myLeft = Math.max(0, (this.dice.rollAnimEndTime || 0) - now);
+            const opLeft = Math.max(0, (this.dice.opRollAnimEndTime || 0) - now);
             setTimeout(() => {
-                this.diceTieResult = true;
-                this.diceRolling = false;
-                this.opponentRolling = false;
-                this.diceVal = this.diceTargetVal;
-                this.opDiceVal = this.opDiceTargetVal;
+                this.dice.tieResult = true;
+                this.dice.rolling = false;
+                this.dice.opponentRolling = false;
+                this.dice.val = this.dice.targetVal;
+                this.dice.opVal = this.dice.opTargetVal;
                 setTimeout(() => {
-                    this.diceTieResult = false;
-                    this.startDicePhase();
+                    this.dice.tieResult = false;
+                    this.dice.startPhase();
                 }, 2000);
             }, Math.max(myLeft, opLeft));
         };
@@ -213,7 +188,7 @@ export class Game {
 
         this.network.onPlayerLeft = () => {
             this.opponentLeft = true;
-            this.dicePhase = false; // Abort dice phase
+            this.dice.phase = false; // Abort dice phase
             if (!this.gameOver) {
                 this.winner = this.perspective === 'bottom' ? 'A' : 'B';
                 this.gameOver = true;
@@ -223,9 +198,9 @@ export class Game {
 
         this.network.onPlayerRolling = (playerIndex) => {
             if (this.perspective === 'bottom') {
-                if (playerIndex === 'B') { this.opponentRolling = true; this.opDiceRollAnimEndTime = Date.now() + 1500; }
+                if (playerIndex === 'B') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 1500; }
             } else {
-                if (playerIndex === 'A') { this.opponentRolling = true; this.opDiceRollAnimEndTime = Date.now() + 1500; }
+                if (playerIndex === 'A') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 1500; }
             }
         };
 
@@ -253,15 +228,20 @@ export class Game {
             this.currentPlayer = state.currentPlayer;
             this.turnStartTime = state.turnStartTime;
             this.turnTimeLeft = state.turnTimeLeft;
-            this.dicePhase = state.dicePhase;
-            this.diceResults = state.diceResults;
-            this.diceTieResult = state.diceTieResult;
-            this.diceRolling = state.diceRolling;
-            this.opponentRolling = state.opponentRolling;
-            this.diceTargetVal = state.diceTargetVal;
-            this.opDiceTargetVal = state.opDiceTargetVal;
-            this.diceRollAnimEndTime = state.diceRollAnimEndTime;
-            this.opDiceRollAnimEndTime = state.opDiceRollAnimEndTime;
+            this.dice.phase = state.dicePhase;
+            this.dice.results = state.diceResults;
+            this.dice.tieResult = state.diceTieResult;
+            this.dice.rolling = state.diceRolling;
+            this.dice.opponentRolling = state.opponentRolling;
+            this.dice.targetVal = state.diceTargetVal;
+            this.dice.opTargetVal = state.opDiceTargetVal;
+            this.dice.rollAnimEndTime = state.diceRollAnimEndTime;
+            this.dice.opRollAnimEndTime = state.opDiceRollAnimEndTime;
+            
+            if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
+                const myFirst = this.dice.results.first === this.playerIndex;
+                this.perspective = myFirst ? 'bottom' : 'top';
+            }
             
             for (let i = 0; i < this.piecesA.length; i++) {
                 if (state.piecesA[i]) {
@@ -279,8 +259,7 @@ export class Game {
             }
             
             if (this.gameMode === 'online') {
-                const chatEl = document.getElementById('ringRushChatContainer');
-                if (chatEl) chatEl.style.display = this.dicePhase ? 'none' : 'flex';
+                this.chat.setVisibility(!this.dice.phase);
             }
             
             this.opponentTemporarilyDisconnected = false;
@@ -288,101 +267,13 @@ export class Game {
 
         this.network.onChat = (playerId, text) => {
             const senderIndex = (playerId === this.network.playerId) ? this.playerIndex : (this.playerIndex === 'A' ? 'B' : 'A');
-            this.chatMessages.push({ text, playerIndex: senderIndex, timestamp: Date.now() });
+            this.chat.addMessage(text, senderIndex);
         };
 
-        // 注入聊天UI
         if (this.gameMode === 'online') {
-            if (!document.getElementById('ringRushChatContainer')) {
-                const container = document.createElement('div');
-                container.id = 'ringRushChatContainer';
-                container.innerHTML = `
-                    <style>
-                        #ringRushChatContainer {
-                            position: absolute;
-                            bottom: 20px;
-                            right: 20px;
-                            z-index: 100;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: flex-end;
-                        }
-                        #chatMenu {
-                            display: none;
-                            flex-direction: column;
-                            background: rgba(0, 0, 0, 0.8);
-                            border-radius: 8px;
-                            padding: 8px;
-                            margin-bottom: 10px;
-                        }
-                        #chatMenu.active {
-                            display: flex;
-                        }
-                        .chat-btn {
-                        background: rgba(100, 100, 100, 0.8);
-                        color: white;
-                        border: 1px solid #777;
-                        border-radius: 20px;
-                            width: 50px;
-                            height: 50px;
-                            font-size: 24px;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-                            transition: all 0.2s;
-                        }
-                        .chat-btn:active {
-                            transform: scale(0.95);
-                        }
-                        .chat-option {
-                            background: transparent;
-                            color: #fff;
-                            border: none;
-                            padding: 8px 12px;
-                            text-align: right;
-                            font-size: 14px;
-                            cursor: pointer;
-                            white-space: nowrap;
-                        }
-                        .chat-option:hover {
-                            background: rgba(255, 255, 255, 0.2);
-                            border-radius: 4px;
-                        }
-                    </style>
-                    <div id="chatMenu">
-                        <button class="chat-option">你好，祝你好运！ 👋</button>
-                        <button class="chat-option">打得不错！ 👍</button>
-                        <button class="chat-option">漂亮的一击！ 🎯</button>
-                        <button class="chat-option">哎呀，失误了... 💦</button>
-                        <button class="chat-option">快点吧，我等得花儿都谢了！ ⏰</button>
-                        <button class="chat-option">谢谢指教，再来一局？ 🤝</button>
-                    </div>
-                    <button class="chat-btn">💬</button>
-                `;
-                document.getElementById('gameContainer').appendChild(container);
-                
-                const btn = container.querySelector('.chat-btn');
-                const menu = container.querySelector('#chatMenu');
-                const options = container.querySelectorAll('.chat-option');
-
-                btn.onclick = () => {
-                    menu.classList.toggle('active');
-                };
-
-                options.forEach(opt => {
-                    opt.onclick = () => {
-                        this.sendChat(opt.textContent.trim());
-                        menu.classList.remove('active');
-                    };
-                });
-            } else {
-                document.getElementById('ringRushChatContainer').style.display = 'flex';
-            }
+            this.chat.initDOM();
         } else {
-            const chatEl = document.getElementById('ringRushChatContainer');
-            if (chatEl) chatEl.style.display = 'none';
+            this.chat.setVisibility(false);
         }
 
         this.startDicePhase();
@@ -448,45 +339,8 @@ export class Game {
         if (this.gameOver) return;
         
         const now = Date.now();
-        if (this.dicePhase) {
-            if (!this.diceRolling && !this.diceResults && !this.diceTieResult) {
-                if (now >= this.diceCountdownEndTime) {
-                    this.handleDiceClick(0, 0, true);
-                }
-            }
-
-            if (this.diceRolling) {
-                const timeLeft = Math.max(0, this.diceRollAnimEndTime - now);
-                if (timeLeft > 0 || (this.gameMode === 'online' && !this.diceTargetVal)) {
-                    let progress = 0;
-                    if (this.gameMode !== 'online' || this.diceTargetVal) {
-                        progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
-                    }
-                    const interval = 50 + progress * progress * progress * 400; // 50ms 到 450ms
-                    if (!this.lastDiceUpdate || now - this.lastDiceUpdate > interval) {
-                        this.diceVal = Math.floor(Math.random() * 6) + 1;
-                        this.lastDiceUpdate = now;
-                    }
-                } else if (this.diceTargetVal || this.gameMode !== 'online') {
-                    if (this.diceTargetVal) this.diceVal = this.diceTargetVal;
-                }
-            }
-            if (this.opponentRolling) {
-                const timeLeft = Math.max(0, this.opDiceRollAnimEndTime - now);
-                if (timeLeft > 0 || (this.gameMode === 'online' && !this.opDiceTargetVal)) {
-                    let progress = 0;
-                    if (this.gameMode !== 'online' || this.opDiceTargetVal) {
-                        progress = timeLeft > 0 ? 1 - (timeLeft / 2000) : 1;
-                    }
-                    const interval = 50 + progress * progress * progress * 400;
-                    if (!this.lastOpDiceUpdate || now - this.lastOpDiceUpdate > interval) {
-                        this.opDiceVal = Math.floor(Math.random() * 6) + 1;
-                        this.lastOpDiceUpdate = now;
-                    }
-                } else if (this.opDiceTargetVal || this.gameMode !== 'online') {
-                    if (this.opDiceTargetVal) this.opDiceVal = this.opDiceTargetVal;
-                }
-            }
+        if (this.dice.phase) {
+            this.dice.update();
             return;
         }
 
@@ -515,12 +369,8 @@ export class Game {
             }
         }
 
-        // 清理过期的聊天消息
-        const now2 = Date.now();
-        this.chatMessages = this.chatMessages.filter(msg => now2 - msg.timestamp < 3500);
-
         // 如果在动画中，或者游戏结束，不更新倒计时逻辑
-        if (!this.isAnimating && !this.dicePhase && !this.gameOver) {
+        if (!this.isAnimating && !this.dice.phase && !this.gameOver) {
             const elapsed = Date.now() - this.turnStartTime;
             this.turnTimeLeft = Math.max(0, 60 - Math.floor(elapsed / 1000));
             
@@ -646,13 +496,13 @@ export class Game {
             currentPlayer: this.currentPlayer,
             turnStartTime: this.turnStartTime,
             turnTimeLeft: this.turnTimeLeft,
-            dicePhase: this.dicePhase,
-            diceResults: this.diceResults,
-            diceTieResult: this.diceTieResult,
-            diceRolling: this.opponentRolling,
-            opponentRolling: this.diceRolling,
-            diceTargetVal: this.opDiceTargetVal,
-            opDiceTargetVal: this.diceTargetVal,
+            dicePhase: this.dice.phase,
+            diceResults: this.dice.results,
+            diceTieResult: this.dice.tieResult,
+            diceRolling: this.dice.opponentRolling,
+            opponentRolling: this.dice.rolling,
+            diceTargetVal: this.dice.opTargetVal,
+            opDiceTargetVal: this.dice.targetVal,
             diceRollAnimEndTime: Date.now() + 2000,
             opDiceRollAnimEndTime: Date.now() + 2000,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
@@ -660,214 +510,7 @@ export class Game {
         };
     }
 
-    drawDiceScreen(ctx) {
-        // 背景
-        ctx.fillStyle = '#0f0f1a';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // 浮动粒子
-        const t = Date.now() * 0.001;
-        for (let i = 0; i < 20; i++) {
-            const x = (Math.sin(i * 0.7 + t) + 1) * CANVAS_WIDTH / 2;
-            const y = (Math.cos(i * 0.5 + t * 0.6) + 1) * CANVAS_HEIGHT / 2;
-            ctx.fillStyle = `rgba(74,144,217,${0.1 + Math.sin(i + t) * 0.1})`;
-            ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
-        }
-
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-
-        // 标题
-        ctx.save(); ctx.shadowColor = '#f0e68c'; ctx.shadowBlur = 15;
-        ctx.fillStyle = '#f0e68c'; ctx.font = 'bold 36px sans-serif';
-        ctx.fillText('掷骰子决定先手', CENTER_X, 135); ctx.restore();
-
-        // 提示文字
-        ctx.fillStyle = '#bbb'; ctx.font = '16px sans-serif';
-        ctx.fillText('点数大者先发球，先手为蓝色，后手为红色', CENTER_X, 175);
-
-        // 对手
-        ctx.fillStyle = '#aaa'; ctx.font = '16px sans-serif';
-        ctx.fillText(`对手: ${this.opponentName || '等待中'}`, CENTER_X, 215);
-
-        // 骰子区域
-        let myColor = '#666';
-        let opColor = '#666';
-        let myLabel = '你的点数';
-        let opLabel = '对手点数';
-        let myVal = null, opVal = null;
-        
-        // 骰子显示逻辑：一旦有结果（此时动画必定已结束），就显示
-        const now = Date.now();
-        
-        if (this.diceResults) {
-            const myOriginalId = this.gameMode === 'online' ? this.network.playerIndex : (this.perspective === 'bottom' ? 'A' : 'B');
-            myVal = this.perspective === 'bottom' ? this.diceResults.a : this.diceResults.b;
-            opVal = this.perspective === 'bottom' ? this.diceResults.b : this.diceResults.a;
-            
-            const myFirst = this.diceResults.first === myOriginalId;
-            myColor = myFirst ? '#4a90d9' : '#d94a4a';
-            opColor = myFirst ? '#d94a4a' : '#4a90d9';
-            myLabel = myFirst ? '你先手 (蓝)' : '你后手 (红)';
-            opLabel = myFirst ? '对手后手 (红)' : '对手先手 (蓝)';
-        } else {
-            myVal = this.diceVal;
-            opVal = this.opDiceVal;
-        }
-
-        this.drawDie(ctx, CENTER_X - 120, 320, myVal, myColor, myLabel);
-        this.drawDie(ctx, CENTER_X + 120, 320, opVal, opColor, opLabel);
-
-        // VS
-        ctx.fillStyle = '#f0e68c'; ctx.font = 'bold 28px sans-serif';
-        ctx.fillText('VS', CENTER_X, 340);
-
-        // 结果或按钮
-        if (this.diceResults) {
-            // ... wait 1s logic handled in update
-            const myOriginalId = this.gameMode === 'online' ? this.network.playerIndex : (this.perspective === 'bottom' ? 'A' : 'B');
-            const first = this.diceResults.first;
-            const firstLabel = first === myOriginalId ? '你先手！' : '对手先手';
-            ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
-            ctx.fillText(firstLabel, CENTER_X, 420);
-        } else if (this.diceTieResult) {
-            ctx.fillStyle = '#f44336'; ctx.font = 'bold 36px sans-serif';
-            ctx.fillText('平局，重掷！', CENTER_X, 420);
-        } else {
-            if (!this.diceRolling) {
-                ctx.fillStyle = '#ddd'; ctx.font = '16px sans-serif';
-                const left = Math.ceil(Math.max(0, this.diceCountdownEndTime - Date.now()) / 1000);
-                ctx.fillText(`${left}秒后自动摇号...`, CENTER_X, 580);
-                
-                const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
-                const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
-                grad.addColorStop(0, '#4CAF50'); grad.addColorStop(1, '#388E3C');
-                ctx.fillStyle = grad;
-                ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill();
-                ctx.strokeStyle = '#66BB6A'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
-                ctx.fillText('掷骰子', CENTER_X, by + 28);
-                this.diceBtn = { x: bx, y: by, w: bw, h: bh };
-
-                if (this.opponentRolling) {
-                    ctx.fillStyle = '#ff9800'; ctx.font = 'bold 20px sans-serif';
-                    ctx.fillText('对手已掷，请你掷骰子', CENTER_X, 450);
-                }
-            } else {
-                this.diceBtn = null;
-                if (!this.opponentRolling) {
-                    ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
-                    ctx.fillText('等待对手掷骰子...', CENTER_X, 500);
-                } else {
-                    ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
-                    ctx.fillText('双方掷骰子中...', CENTER_X, 500);
-                }
-            }
-        }
-    }
-
-    drawDie(ctx, x, y, value, color, label) {
-        const s = 80;
-        // 标签
-        ctx.fillStyle = color; ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(label, x, y - s / 2 - 20);
-
-        // 骰子底
-        const grad = ctx.createLinearGradient(x - s / 2, y - s / 2, x + s / 2, y + s / 2);
-        grad.addColorStop(0, '#2a2a4a'); grad.addColorStop(1, '#1a1a2e');
-        ctx.fillStyle = grad; ctx.strokeStyle = color; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.roundRect(x - s / 2, y - s / 2, s, s, 12); ctx.fill(); ctx.stroke();
-
-        if (value === null) {
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 40px sans-serif';
-            ctx.fillText('?', x, y);
-            return;
-        }
-        
-        // 点
-        ctx.fillStyle = '#fff';
-        const d = 8, p = s * 0.3;
-        const dots = {
-            1: [[0, 0]], 2: [[-p, -p], [p, p]], 3: [[-p, -p], [0, 0], [p, p]],
-            4: [[-p, -p], [p, -p], [-p, p], [p, p]],
-            5: [[-p, -p], [p, -p], [0, 0], [-p, p], [p, p]],
-            6: [[-p, -p], [p, -p], [-p, 0], [p, 0], [-p, p], [p, p]]
-        };
-        (dots[value] || []).forEach(([dx, dy]) => {
-            ctx.beginPath(); ctx.arc(x + dx, y + dy, d, 0, Math.PI * 2); ctx.fill();
-        });
-    }
-
-    startDicePhase() {
-        this.dicePhase = true;
-        this.diceRolling = false;
-        this.opponentRolling = false;
-        this.diceResults = null;
-        this.diceBtn = null;
-        this.diceStartTime = Date.now();
-        this.diceCountdownEndTime = Date.now() + 5000;
-        this.diceRollAnimEndTime = 0;
-        this.opDiceRollAnimEndTime = 0;
-        this.diceVal = null;
-        this.opDiceVal = null;
-        this.diceTargetVal = null;
-        this.opDiceTargetVal = null;
-        this.diceTieResult = false;
-
-        const chatEl = document.getElementById('ringRushChatContainer');
-        if (chatEl) chatEl.style.display = 'none';
-    }
-
-    handleDiceClick(mx, my, force = false) {
-        if (!this.dicePhase || this.diceRolling || this.diceResults) return false;
-        const btn = this.diceBtn;
-        if (force || (btn && mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h)) {
-            this.diceRolling = true;
-            this.diceRollAnimEndTime = Date.now() + 2000;
-            if (this.gameMode !== 'online') {
-                this.opponentRolling = true;
-                this.opDiceRollAnimEndTime = Date.now() + 2000;
-            }
-            if (this.gameMode === 'online') {
-                this.network.send({ type: 'dice_roll' });
-            } else {
-                setTimeout(() => this.rollLocalDice(), 0);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    applyDiceResults(results) {
-        const now = Date.now();
-        const myLeft = Math.max(0, (this.diceRollAnimEndTime || 0) - now);
-        const opLeft = Math.max(0, (this.opDiceRollAnimEndTime || 0) - now);
-        const timeLeft = Math.max(myLeft, opLeft);
-
-        setTimeout(() => {
-            this.diceResults = results;
-            this.diceRolling = false;
-            this.opponentRolling = false;
-            
-            if (this.gameMode === 'online') {
-                setTimeout(() => {
-                    this.network.send({ type: 'dice_ack' });
-                }, 2000); // 显示结果2秒后发送ACK
-            } else {
-                setTimeout(() => {
-                    this.dicePhase = false;
-                    this.currentPlayer = 'A'; // 先手总是A(蓝色)
-                    this.roundNumber = 1;
-                    this.turnStartTime = Date.now();
-                    this.turnTimeLeft = 60;
-                    this.input.sliderValue = 0.5;
-                    this.input.applySliderToPiece();
-                }, 2000);
-            }
-        }, timeLeft);
-    }
-
-    switchPlayer() {
         if (this.currentPlayer === 'A') this.piecesLeftA--;
         else this.piecesLeftB--;
 
@@ -879,12 +522,6 @@ export class Game {
         this.input.applySliderToPiece(); // 切换回合时重置到中心
         this.turnStartTime = Date.now();
         this.turnTimeLeft = 60;
-    }
-
-    sendChat(text) {
-        if (!this.isOnlineGame() || this.dicePhase) return;
-        this.network.send({ type: 'chat', text });
-        this.chatMessages.push({ text, playerIndex: this.playerIndex, timestamp: Date.now() });
     }
 
     isMyTurn() {
@@ -922,100 +559,12 @@ export class Game {
             return;
         }
         
-        if (!this.gameOver && !this.dicePhase && this.surrenderBtn) {
+        if (!this.gameOver && !this.dice.phase && this.surrenderBtn) {
             const btn = this.surrenderBtn;
             if (mouseX >= btn.x && mouseX <= btn.x + btn.w &&
                 mouseY >= btn.y && mouseY <= btn.y + btn.h) {
-                this.showSurrenderConfirm();
+                this.modals.showSurrenderConfirm();
             }
-        }
-    }
-
-    showSurrenderConfirm() {
-        let modal = document.getElementById('ringRushSurrenderModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'ringRushSurrenderModal';
-            modal.innerHTML = `
-                <style>
-                    #ringRushSurrenderModal {
-                        position: absolute;
-                        top: 0; left: 0; right: 0; bottom: 0;
-                        background: rgba(0,0,0,0.7);
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        z-index: 200;
-                    }
-                    #ringRushSurrenderModal .modal-content {
-                        background: #2a2a2a;
-                        padding: 24px;
-                        border-radius: 12px;
-                        text-align: center;
-                        color: white;
-                        border: 2px solid #f44336;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                        font-family: sans-serif;
-                        min-width: 250px;
-                    }
-                    #ringRushSurrenderModal .modal-title {
-                        font-size: 20px;
-                        font-weight: bold;
-                        margin-bottom: 12px;
-                        color: #f44336;
-                    }
-                    #ringRushSurrenderModal .modal-body {
-                        font-size: 16px;
-                        margin-bottom: 24px;
-                        color: #ccc;
-                    }
-                    #ringRushSurrenderModal .modal-buttons {
-                        display: flex;
-                        justify-content: space-around;
-                    }
-                    #ringRushSurrenderModal .btn {
-                        padding: 8px 24px;
-                        border: none;
-                        border-radius: 6px;
-                        font-size: 16px;
-                        cursor: pointer;
-                        font-weight: bold;
-                        transition: opacity 0.2s;
-                    }
-                    #ringRushSurrenderModal .btn-yes { background: #f44336; color: white; }
-                    #ringRushSurrenderModal .btn-no { background: #555; color: white; }
-                    #ringRushSurrenderModal .btn:hover { opacity: 0.8; }
-                </style>
-                <div class="modal-content">
-                    <div class="modal-title">确认投降</div>
-                    <div class="modal-body">投降后将被判负，确定要投降吗？</div>
-                    <div class="modal-buttons">
-                        <button class="btn btn-no" id="btnSurrenderNo">取消</button>
-                        <button class="btn btn-yes" id="btnSurrenderYes">确认投降</button>
-                    </div>
-                </div>
-            `;
-            document.getElementById('gameContainer').appendChild(modal);
-            
-            document.getElementById('btnSurrenderNo').onclick = () => {
-                modal.style.display = 'none';
-            };
-            document.getElementById('btnSurrenderYes').onclick = () => {
-                modal.style.display = 'none';
-                if (this.gameMode === 'local') {
-                    this.winner = this.currentPlayer === 'A' ? 'B' : 'A';
-                } else if (this.gameMode === 'online') {
-                    this.winner = this.playerIndex === 'A' ? 'B' : 'A';
-                } else {
-                    this.winner = 'B'; // Bot wins
-                }
-                this.gameOver = true;
-                if (this.isOnlineGame()) {
-                    this.network.send({ type: 'surrender' });
-                }
-            };
-        } else {
-            modal.style.display = 'flex';
         }
     }
 

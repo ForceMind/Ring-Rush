@@ -241,9 +241,21 @@ wss.on('connection', (ws) => {
                     
                     const room = rooms.get(player.roomId);
                     let opponentName = '对手';
+                    let opponentAlive = false;
                     if (room) {
                         if (player.playerIndex === 'A' && room.guest) opponentName = room.guest.name;
                         if (player.playerIndex === 'B' && room.host) opponentName = room.host.name;
+                        
+                        const opponent = room.getPlayers().find(p => p.id !== player.id);
+                        opponentAlive = opponent && opponent.ws && opponent.ws.readyState === 1; // OPEN
+
+                        // 如果在游戏初期(骰子阶段)双方都断线，状态丢失，降级为等待状态
+                        if (room.state === 'playing' && !room.lastGameState && !opponentAlive) {
+                            room.state = 'waiting';
+                            room.diceRolls = {};
+                            room.diceAcks = new Set();
+                            room.restartRequests = new Set();
+                        }
                     }
                     
                     player.send({ 
@@ -257,12 +269,20 @@ wss.on('connection', (ws) => {
                         type: 'opponent_reconnected',
                         playerId: player.id
                     }, player.id);
-                    
-                    // 请求留下的玩家发送全量状态
-                    broadcastToRoom(player.roomId, {
-                        type: 'request_sync',
-                        targetPlayerId: player.id
-                    }, player.id);
+
+                    if (room && room.state === 'playing') {
+                        if (room.lastGameState) {
+                            player.send({
+                                type: 'full_sync',
+                                state: room.lastGameState
+                            });
+                        } else if (opponentAlive) {
+                            broadcastToRoom(player.roomId, {
+                                type: 'request_sync',
+                                targetPlayerId: player.id
+                            }, player.id);
+                        }
+                    }
                     
                     return;
                 } else {
@@ -723,6 +743,11 @@ function startGame(room) {
 // 广播游戏状态
 function broadcastGameState(player, state) {
     if (!player.roomId) return;
+
+    const room = rooms.get(player.roomId);
+    if (room) {
+        room.lastGameState = state;
+    }
 
     broadcastToRoom(player.roomId, {
         type: 'game_state',
