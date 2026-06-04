@@ -66,9 +66,10 @@ export class Physics {
     /**
      * 检测并处理棋子与边界的碰撞
      * @param {Piece} piece
+     * @param {number} prevY
      * @returns {boolean} 是否发生了碰撞
      */
-    checkBoundaryCollision(piece) {
+    checkBoundaryCollision(piece, prevY) {
         // BOARD_X = 75, BOARD_WIDTH = 450. Center = 300.
         // LAUNCH_ZONE_WIDTH = 50. Box width = 200.
         const boardMinX = BOARD_X + piece.radius;
@@ -97,21 +98,23 @@ export class Physics {
         }
 
         // Y collision
-        const inOpening = piece.x >= zoneLeft && piece.x <= zoneRight;
-        
         if (piece.y < boardMinY) {
-            if (!inOpening) {
-                piece.y = boardMinY; piece.vy *= -RESTITUTION; bounced = true;
-            } else if (piece.y < absMinY) {
+            if (piece.y < absMinY) {
+                // Absolute top boundary
                 piece.y = absMinY; piece.vy *= -RESTITUTION; bounced = true;
+            } else if (prevY >= boardMinY) {
+                // Trying to leave the board, block it!
+                piece.y = boardMinY; piece.vy *= -RESTITUTION; bounced = true;
             }
         }
         
         if (piece.y > boardMaxY) {
-            if (!inOpening) {
-                piece.y = boardMaxY; piece.vy *= -RESTITUTION; bounced = true;
-            } else if (piece.y > absMaxY) {
+            if (piece.y > absMaxY) {
+                // Absolute bottom boundary
                 piece.y = absMaxY; piece.vy *= -RESTITUTION; bounced = true;
+            } else if (prevY <= boardMaxY) {
+                // Trying to leave the board, block it!
+                piece.y = boardMaxY; piece.vy *= -RESTITUTION; bounced = true;
             }
         }
 
