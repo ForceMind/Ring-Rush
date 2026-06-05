@@ -119,8 +119,8 @@ export class Game {
                     return;
                 }
                 console.log(`[v0.9.14] Moving piece ${player} from x=${piece.x}`);
-                const minX = BOARD_X + piece.radius;
-                const maxX = BOARD_X + BOARD_WIDTH - piece.radius;
+                const minX = (CANVAS_WIDTH / 2) - 100 + piece.radius;
+                const maxX = (CANVAS_WIDTH / 2) + 100 - piece.radius;
                 
                 const opPerspective = this.perspective === 'bottom' ? 'top' : 'bottom';
                 if (opPerspective === 'top') {
