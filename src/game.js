@@ -8,7 +8,7 @@ import {
     LAUNCH_ZONE_WIDTH, LAUNCH_ZONE_HEIGHT,
     MAX_SPEED, PIECES_PER_PLAYER, WIN_THRESHOLD,
     RUNNER_SMOOTH_FACTOR, RUNNER_SNAP_THRESHOLD, SCORING_ZONES,
-    VERSION
+    PIECE_RADIUS, VERSION
 } from './constants.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
@@ -560,19 +560,21 @@ export class Game {
         
         // 各分配 3 颗新棋子
         const PIECES_IN_OVERTIME = 3;
-        const spacing = (LAUNCH_ZONE_WIDTH - 2 * PIECE_RADIUS) / 2;
+        const spacing = 40; // 避免重叠
+        const startX = BOARD_X + BOARD_WIDTH/2 - spacing;
         
         for (let i = 0; i < PIECES_IN_OVERTIME; i++) {
             // A队（下方）
-            let ax = BOARD_X + BOARD_WIDTH/2 - spacing + (i % 3) * spacing;
-            let ay = BOARD_Y + BOARD_HEIGHT - LAUNCH_ZONE_HEIGHT/2;
+            let ax = startX + i * spacing;
+            // Y坐标必须和普通开局一样，才能被正常识别发球
+            let ay = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT/2;
             let pieceA = new Piece(ax, ay, 'A');
             this.piecesA.push(pieceA);
             this.physics.addPiece(pieceA);
 
             // B队（上方）
-            let bx = BOARD_X + BOARD_WIDTH/2 - spacing + (i % 3) * spacing;
-            let by = BOARD_Y + LAUNCH_ZONE_HEIGHT/2;
+            let bx = startX + i * spacing;
+            let by = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT/2;
             let pieceB = new Piece(bx, by, 'B');
             this.piecesB.push(pieceB);
             this.physics.addPiece(pieceB);
