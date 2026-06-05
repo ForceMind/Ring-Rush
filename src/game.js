@@ -8,7 +8,7 @@ import {
     LAUNCH_ZONE_WIDTH, LAUNCH_ZONE_HEIGHT,
     MAX_SPEED, PIECES_PER_PLAYER, WIN_THRESHOLD,
     RUNNER_SMOOTH_FACTOR, RUNNER_SNAP_THRESHOLD, SCORING_ZONES,
-    VERSION
+    VERSION, PIECE_RADIUS
 } from './constants.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
