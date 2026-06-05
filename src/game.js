@@ -403,6 +403,10 @@ export class Game {
     }
 
     initPieces() {
+        this.piecesA = [];
+        this.piecesB = [];
+        this.physics.clearPieces();
+        
         const zoneWidth = LAUNCH_ZONE_WIDTH * 4;
         const bottomZoneY = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT / 2;
         const topZoneY = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT / 2;
