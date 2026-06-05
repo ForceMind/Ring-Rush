@@ -197,6 +197,7 @@ export class Game {
 
         this.network.onPlayerLeft = () => {
             this.opponentLeft = true;
+            this.opponentTemporarilyDisconnected = false;
             this.dice.phase = false; // Abort dice phase
             if (!this.gameOver) {
                 this.winner = this.perspective === 'bottom' ? 'A' : 'B';
@@ -596,7 +597,7 @@ export class Game {
         this.input.applySliderToPiece();
         
         if (this.gameMode === 'online') {
-            this.network.syncGameState();
+            this.network.send({ type: 'game_state', state: this.getState() });
         }
     }
 

@@ -40,6 +40,7 @@ export class DiceManager {
         this.targetVal = null;
         this.opTargetVal = null;
         this.tieResult = false;
+        this.hasRolled = false;
         
         if (this.game.chat) {
             this.game.chat.setVisibility(false);
@@ -130,21 +131,25 @@ export class DiceManager {
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, 420);
         } else if (this.tieResult) {
+            ctx.fillStyle = 'rgba(244, 67, 54, 0.2)';
+            ctx.fillRect(0, 400 - 40, CANVAS_WIDTH, 80);
             ctx.fillStyle = '#f44336'; ctx.font = 'bold 36px sans-serif';
-            ctx.fillText('平局，重掷！', CENTER_X, 420);
+            ctx.fillText('双方点数相同，平局重掷！', CENTER_X, 415);
         } else {
-            if (!this.rolling) {
+            const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
+            if (!this.hasRolled) {
                 ctx.fillStyle = '#ddd'; ctx.font = '16px sans-serif';
+                ctx.fillText('点击按钮随机生成点数', CENTER_X, 390);
+
                 const left = Math.ceil(Math.max(0, this.countdownEndTime - Date.now()) / 1000);
                 ctx.fillText(`${left}秒后自动摇号...`, CENTER_X, 580);
-                
-                const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
+
                 const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
-                grad.addColorStop(0, '#4CAF50'); grad.addColorStop(1, '#388E3C');
+                grad.addColorStop(0, '#4CAF50'); grad.addColorStop(1, '#45a049');
                 ctx.fillStyle = grad;
-                ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill();
-                ctx.strokeStyle = '#66BB6A'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
+                ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 8); ctx.fill();
+                ctx.strokeStyle = '#81c784'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 24px sans-serif';
                 ctx.fillText('掷骰子', CENTER_X, by + 28);
                 this.btn = { x: bx, y: by, w: bw, h: bh };
 
@@ -159,7 +164,7 @@ export class DiceManager {
                     ctx.fillText('等待对手掷骰子...', CENTER_X, 500);
                 } else {
                     ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
-                    ctx.fillText('双方掷骰子中...', CENTER_X, 500);
+                    ctx.fillText('等待出结果...', CENTER_X, 500);
                 }
             }
         }
@@ -199,10 +204,11 @@ export class DiceManager {
     }
 
     handleClick(mx, my, force = false) {
-        if (!this.phase || this.rolling || this.results || this.tieResult) return false;
+        if (!this.phase || this.hasRolled || this.results || this.tieResult) return false;
         const btn = this.btn;
         if (force || (btn && mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h)) {
             this.rolling = true;
+            this.hasRolled = true;
             this.rollAnimEndTime = Date.now() + 2000;
             if (this.game.gameMode !== 'online') {
                 this.opponentRolling = true;

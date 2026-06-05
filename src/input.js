@@ -220,7 +220,7 @@ export class Input {
         const dy = this.dragStart.y - this.mouse.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > 5) {
+        if (distance > 25) {
             let speed = Math.min(distance * LAUNCH_MULTIPLIER, MAX_SPEED);
             speed *= 1 + (Math.random() * 2 - 1) * POWER_RANDOM_RANGE;
             speed = Math.min(speed, MAX_SPEED);
