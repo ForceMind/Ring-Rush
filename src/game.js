@@ -249,12 +249,36 @@ export class Game {
             this.dice.opTargetVal = state.opDiceTargetVal;
             this.dice.rollAnimEndTime = state.diceRollAnimEndTime;
             this.dice.opRollAnimEndTime = state.opDiceRollAnimEndTime;
+            this.piecesLeftA = state.piecesLeftA !== undefined ? state.piecesLeftA : this.piecesLeftA;
+            this.piecesLeftB = state.piecesLeftB !== undefined ? state.piecesLeftB : this.piecesLeftB;
             
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
                 const myFirst = this.dice.results.first === this.network.playerIndex;
                 this.perspective = myFirst ? 'bottom' : 'top';
             }
             
+            // Adjust pieces array length to match state (for overtime support)
+            if (state.piecesA.length !== this.piecesA.length) {
+                this.piecesA = [];
+                for (let i = 0; i < state.piecesA.length; i++) {
+                    const piece = new Piece(state.piecesA[i].x, state.piecesA[i].y, 'A');
+                    this.piecesA.push(piece);
+                }
+                this.physics.clearPieces();
+                this.piecesA.forEach(p => this.physics.addPiece(p));
+                this.piecesB.forEach(p => this.physics.addPiece(p));
+            }
+            if (state.piecesB.length !== this.piecesB.length) {
+                this.piecesB = [];
+                for (let i = 0; i < state.piecesB.length; i++) {
+                    const piece = new Piece(state.piecesB[i].x, state.piecesB[i].y, 'B');
+                    this.piecesB.push(piece);
+                }
+                this.physics.clearPieces();
+                this.piecesA.forEach(p => this.physics.addPiece(p));
+                this.piecesB.forEach(p => this.physics.addPiece(p));
+            }
+
             for (let i = 0; i < this.piecesA.length; i++) {
                 if (state.piecesA[i]) {
                     this.piecesA[i].x = state.piecesA[i].x;
@@ -315,11 +339,11 @@ export class Game {
 
     getCurrentPiece() {
         if (this.currentPlayer === 'A') {
-            const index = PIECES_PER_PLAYER - this.piecesLeftA;
-            return index < PIECES_PER_PLAYER ? this.piecesA[index] : null;
+            const index = this.piecesA.length - this.piecesLeftA;
+            return index < this.piecesA.length ? this.piecesA[index] : null;
         } else {
-            const index = PIECES_PER_PLAYER - this.piecesLeftB;
-            return index < PIECES_PER_PLAYER ? this.piecesB[index] : null;
+            const index = this.piecesB.length - this.piecesLeftB;
+            return index < this.piecesB.length ? this.piecesB[index] : null;
         }
     }
 
@@ -620,6 +644,8 @@ export class Game {
             opDiceTargetVal: this.dice.targetVal,
             diceRollAnimEndTime: Date.now() + 2000,
             opDiceRollAnimEndTime: Date.now() + 2000,
+            piecesLeftA: this.piecesLeftA,
+            piecesLeftB: this.piecesLeftB,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
             piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched }))
         };
