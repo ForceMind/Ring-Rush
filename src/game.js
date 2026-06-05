@@ -455,9 +455,6 @@ export class Game {
                     // 被动方等待网络同步，避免双端重复计算导致累计得分
                     this.checkRoundEnd();
                     this.network.updateGameState(this.getState());
-                } else {
-                    // 被动方：物理动画结束后，仅停止动画状态，等待网络同步
-                    this.isAnimating = false;
                 }
             } else {
                 // 本地模式：正常结算
@@ -812,8 +809,8 @@ export class Game {
             }
         });
         const cp = this.getCurrentPiece();
-        // 在线模式下，只在自己回合时显示待发球棋子，避免显示对手的待发球棋子
-        const shouldShowCurrentPiece = cp && !cp.isLaunched && (this.gameMode !== 'online' || this.isMyTurn());
+        // 当没有处于物理动画（处于瞄准状态）时，显示当前准备击发的棋子（不管是自己的还是对手的）
+        const shouldShowCurrentPiece = cp && !cp.isLaunched && !this.isAnimating;
         if (shouldShowCurrentPiece) {
             const sx = isTop ? this.tx(cp.x) : cp.x;
             const sy = isTop ? this.ty(cp.y) : cp.y;
@@ -826,11 +823,29 @@ export class Game {
         this.ui.draw(ctx);
     }
 
-    gameLoop() {
+    gameLoop(timestamp = performance.now()) {
         if (this.isDestroyed) return;
-        this.update();
+
+        if (!this.lastTime) this.lastTime = timestamp;
+        let dt = timestamp - this.lastTime;
+        this.lastTime = timestamp;
+
+        // Cap dt to prevent spiral of death if tab was inactive
+        if (dt > 100) dt = 100;
+
+        if (!this.accumulator) this.accumulator = 0;
+        this.accumulator += dt;
+
+        const fixedTimeStep = 1000 / 60; // 60Hz fixed update
+
+        // Update logic in fixed steps to ensure deterministic physics across different monitor refresh rates (e.g. 60Hz vs 144Hz)
+        while (this.accumulator >= fixedTimeStep) {
+            this.update();
+            this.accumulator -= fixedTimeStep;
+        }
+
         this.draw();
-        requestAnimationFrame(() => this.gameLoop());
+        requestAnimationFrame((ts) => this.gameLoop(ts));
     }
 
     exitGame() {
