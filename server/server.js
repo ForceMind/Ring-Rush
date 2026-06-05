@@ -105,7 +105,7 @@ let roomIdCounter = 1;
 const players = new Map();
 
 // 速率限制配置
-const RATE_LIMIT_MAX = 30;       // 每秒最大消息数
+const RATE_LIMIT_MAX = 100;       // 每秒最大消息数
 const RATE_LIMIT_WINDOW = 1000;  // 窗口大小（毫秒）
 
 // ===== 房间类 =====

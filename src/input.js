@@ -170,7 +170,7 @@ export class Input {
             
             if (this.game.isOnlineGame()) {
                 const now = Date.now();
-                if (!this.lastSliderSync || now - this.lastSliderSync > 50) {
+                if (!this.lastSliderSync || now - this.lastSliderSync > 100) {
                     this.lastSliderSync = now;
                     this.game.network.send({
                         type: 'slider_sync',

@@ -104,21 +104,26 @@ export class Game {
         this.opponentName = opponentName;
         this.perspective = playerIndex === 'A' ? 'bottom' : 'top';
 
+        // 屏幕调试日志
+        if (!window.debugLogs) window.debugLogs = [];
+        const addLog = (msg) => {
+            window.debugLogs.push(msg);
+            if (window.debugLogs.length > 5) window.debugLogs.shift();
+        };
+
         this.network.onPieceLaunch = (message) => {
             this.handleRemotePieceLaunch(message.piece);
         };
         
         this.network.onSliderSync = (value, player) => {
-            console.log(`[v0.9.14] onSliderSync received value=${value}, player=${player}`);
-            console.log(`[v0.9.14] currentPlayer=${this.currentPlayer}, isMyTurn=${this.isMyTurn()}`);
-            if (player !== this.currentPlayer) {
-                const pieceArray = player === 'A' ? this.piecesA : this.piecesB;
+            addLog(`v16 Sync: val=${value.toFixed(2)}, p=${player}`);
+            if (!this.isMyTurn()) {
+                const pieceArray = this.currentPlayer === 'A' ? this.piecesA : this.piecesB;
                 const piece = pieceArray.find(p => !p.isLaunched && !p.isDiscarded);
                 if (!piece || piece.isLaunched) {
-                    console.log(`[v0.9.14] No available piece to move.`);
+                    addLog(`v16 Err: No piece!`);
                     return;
                 }
-                console.log(`[v0.9.14] Moving piece ${player} from x=${piece.x}`);
                 const minX = (CANVAS_WIDTH / 2) - 100 + piece.radius;
                 const maxX = (CANVAS_WIDTH / 2) + 100 - piece.radius;
                 
@@ -128,7 +133,7 @@ export class Game {
                 } else {
                     piece.x = minX + value * (maxX - minX);
                 }
-                console.log(`[v0.9.14] Piece moved to x=${piece.x} (min=${minX}, max=${maxX}, opPers=${opPerspective})`);
+                addLog(`v16 Moved: x=${piece.x.toFixed(0)}`);
             }
         };
 
@@ -832,6 +837,19 @@ export class Game {
 
         this.input.drawAimingLine(ctx);
         this.input.drawSlider(ctx);
+        
+        // Draw debug logs
+        if (window.debugLogs && window.debugLogs.length > 0) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(10, 10, 300, 120);
+            ctx.fillStyle = '#0f0';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'left';
+            window.debugLogs.forEach((msg, i) => {
+                ctx.fillText(msg, 20, 30 + i * 20);
+            });
+        }
+
         this.particles.draw(ctx);
         this.ui.draw(ctx);
     }
