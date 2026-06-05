@@ -268,8 +268,25 @@ export class Game {
             // 注意：isAnimating 是本地物理状态，不应被远端覆盖
             
             if (state.runnerPosition !== undefined && this.runnerPosition !== state.runnerPosition) {
+                const diff = Math.abs(state.runnerPosition - this.runnerPosition);
                 this.runnerPosition = state.runnerPosition;
                 this.runnerAnimating = true; // 始终触发小人动画
+                
+                if (diff > 0 && this.gameMode === 'online') {
+                    const prevPlayer = state.currentPlayer === 'A' ? 'B' : 'A';
+                    const pieceArray = prevPlayer === 'A' ? state.piecesA : state.piecesB;
+                    if (pieceArray) {
+                        const pieceData = [...pieceArray].reverse().find(p => p.isLaunched);
+                        if (pieceData) {
+                            const isTop = this.perspective === 'top';
+                            const sx = isTop ? this.tx(pieceData.x) : pieceData.x;
+                            const sy = isTop ? this.ty(pieceData.y) : pieceData.y;
+                            this.ui.addScoreAnimation(sx, sy - 30, diff);
+                            this.particles.emitScore(sx, sy);
+                            this.audio.play('score');
+                        }
+                    }
+                }
             }
             
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
