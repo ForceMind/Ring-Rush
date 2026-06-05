@@ -269,14 +269,11 @@ export class Game {
             if (state.pendingWin !== undefined) this.pendingWin = state.pendingWin;
             if (state.pendingWinReason !== undefined) this.pendingWinReason = state.pendingWinReason;
             if (state.winner !== undefined) this.winner = state.winner;
-            if (state.isAnimating !== undefined) this.isAnimating = state.isAnimating;
+            // 注意：isAnimating 是本地物理状态，不应被远端覆盖
             
             if (state.runnerPosition !== undefined && this.runnerPosition !== state.runnerPosition) {
                 this.runnerPosition = state.runnerPosition;
-                // 只有在没有物理动画时，才触发视觉追逐动画，避免和本地结算冲突
-                if (!this.isAnimating) {
-                    this.runnerAnimating = true; 
-                }
+                this.runnerAnimating = true; // 始终触发小人动画
             }
             
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
@@ -457,13 +454,20 @@ export class Game {
         }
 
         if (this.isAnimating && this.physics.allStopped()) {
-            const wasMyTurn = this.isMyTurn();
-            this.checkRoundEnd();
-            
             if (this.gameMode === 'online') {
-                if (wasMyTurn || this.gameOver) {
+                const wasMyTurn = this.isMyTurn();
+                if (wasMyTurn) {
+                    // 只有主动方（出手的人）才进行回合结算和计分
+                    // 被动方等待网络同步，避免双端重复计算导致累计得分
+                    this.checkRoundEnd();
                     this.network.updateGameState(this.getState());
+                } else {
+                    // 被动方：物理动画结束后，仅停止动画状态，等待网络同步
+                    this.isAnimating = false;
                 }
+            } else {
+                // 本地模式：正常结算
+                this.checkRoundEnd();
             }
         }
 
@@ -674,14 +678,13 @@ export class Game {
             diceTargetVal: this.dice.opTargetVal,
             opDiceTargetVal: this.dice.targetVal,
             diceRollAnimEndTime: Date.now() + 2000,
-            opDiceRollAnimEndTime: this.opDiceRollAnimEndTime,
+            opDiceRollAnimEndTime: Date.now() + 2000,
             piecesLeftA: this.piecesLeftA,
             piecesLeftB: this.piecesLeftB,
             runnerPosition: this.runnerPosition,
             pendingWin: this.pendingWin,
             pendingWinReason: this.pendingWinReason,
             winner: this.winner,
-            isAnimating: this.isAnimating,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive })),
             piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive }))
         };

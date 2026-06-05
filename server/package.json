@@ -1,6 +1,6 @@
 {
   "name": "ring-rush-server",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "WebSocket server for Ring Rush game",
   "main": "server.js",
   "scripts": {

@@ -3,7 +3,7 @@
  * 游戏开局掷骰子阶段管理器
  */
 
-import { CENTER_X } from './constants.js';
+import { CENTER_X, CANVAS_WIDTH, CANVAS_HEIGHT } from './constants.js';
 
 export class DiceManager {
     constructor(game) {
