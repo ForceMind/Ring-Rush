@@ -132,8 +132,8 @@ export class AI {
         }
 
         // 4. 根据难度加入随机误差
-        const dx = targetX - piece.x;
-        const dy = targetY - piece.y;
+        const dx = bestTarget.x - piece.x;
+        const dy = bestTarget.y - piece.y;
         const baseAngle = Math.atan2(dy, dx);
         
         const angleError = (1 - this.config.accuracy) * Math.PI / 8;

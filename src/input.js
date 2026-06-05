@@ -51,7 +51,7 @@ export class Input {
      * 初始化事件监听器（鼠标 + 触摸）
      */
     getSliderMetrics() {
-        const isLocalRed = this.game.mode === 'local' && this.game.currentPlayer === 'B';
+        const isLocalRed = this.game.gameMode === 'local' && this.game.currentPlayer === 'B';
         return {
             x: 50,
             y: isLocalRed ? 70 : CANVAS_HEIGHT - 70,
@@ -351,11 +351,19 @@ export class Input {
         const hr = this.sliderHandleR;
 
         // 标签
+        ctx.save();
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.font = '12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText('发球位置', tx + tw / 2, ty - 8);
+        if (ty === 70) {
+            ctx.translate(tx + tw / 2, ty + 15);
+            ctx.rotate(Math.PI);
+            ctx.fillText('发球位置', 0, 0);
+        } else {
+            ctx.fillText('发球位置', tx + tw / 2, ty - 8);
+        }
+        ctx.restore();
 
         // 轨道背景
         ctx.fillStyle = 'rgba(255,255,255,0.1)';

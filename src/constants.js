@@ -2,7 +2,7 @@
  * Ring Rush - Constants
  * 游戏全局常量定义
  */
-export const VERSION = '0.9.0';
+export const VERSION = '0.9.1';
 // ===== 画布尺寸 =====
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 900;

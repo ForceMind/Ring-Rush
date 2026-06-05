@@ -220,8 +220,11 @@ export class UI {
             ctx.textAlign = 'right';
             ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800'; 
             ctx.font = 'bold 16px sans-serif';
-            // 思考时间固定在右侧上方
-            ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
+            if (this.game.gameMode === 'local') {
+                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, CANVAS_HEIGHT - 45);
+            } else {
+                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
+            }
         }
 
         // 对手在上方
@@ -231,17 +234,39 @@ export class UI {
         if (this.game.gameMode === 'online' && this.game.opponentName) opName = this.game.opponentName;
         const opIsTurn = !myIsTurn;
 
-        ctx.textAlign = 'left';
-        ctx.fillStyle = opColor; ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(opName, 30, BOARD_Y - 55);
-        ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
-        ctx.fillText(`剩余: ${opLeft}`, 30, BOARD_Y - 35);
-        
-        if (opIsTurn && !this.game.gameOver && !this.game.dice.phase) {
-            ctx.textAlign = 'right';
-            ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
+        if (this.game.gameMode === 'local') {
+            ctx.save();
+            ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.rotate(Math.PI);
+            
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = opColor; ctx.font = 'bold 16px sans-serif';
+            ctx.fillText('你 (B)', 30, CANVAS_HEIGHT - 45);
+            ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
+            ctx.fillText(`剩余: ${opLeft}`, 30, CANVAS_HEIGHT - 25);
+            
+            if (opIsTurn && !this.game.gameOver && !this.game.dice.phase) {
+                ctx.textAlign = 'right';
+                ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, CANVAS_HEIGHT - 45);
+            }
+            ctx.restore();
+        } else {
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = opColor; ctx.font = 'bold 16px sans-serif';
+            ctx.fillText(opName, 30, BOARD_Y - 55);
+            ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
+            ctx.fillText(`剩余: ${opLeft}`, 30, BOARD_Y - 35);
+            
+            if (opIsTurn && !this.game.gameOver && !this.game.dice.phase) {
+                ctx.textAlign = 'right';
+                ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
+            }
         }
     }
 
@@ -273,12 +298,15 @@ export class UI {
     drawSurrenderButton(ctx) {
         if (this.game.gameOver || this.game.dice.phase) return;
         
-        let isTop = false;
-        if (this.game.gameMode === 'local' && this.game.currentPlayer === 'B') {
-            isTop = true;
+        if (this.game.gameMode === 'local') {
+            this.game.surrenderBtn = null;
+            return; // Hide surrender in local mode
         } else if (this.game.gameMode === 'bot' && this.game.currentPlayer === 'B') {
+            this.game.surrenderBtn = null;
             return; // Bot doesn't surrender
         }
+        
+        let isTop = false;
         
         const btnW = 60;
         const btnH = 28;
@@ -479,18 +507,18 @@ export class UI {
         if (this.game.winner) {
             if (this.game.gameMode === 'local') {
                 const isBlueWin = this.game.winner === 'A';
-                ctx.shadowColor = isBlueWin ? '#4a90d9' : '#f44336';
-                ctx.shadowBlur = 20;
-                ctx.fillStyle = isBlueWin ? '#4a90d9' : '#f44336';
-                ctx.font = 'bold 64px sans-serif';
-                ctx.fillText(isBlueWin ? '蓝方胜利！' : '红方胜利！', CENTER_X, CENTER_Y - 80);
                 
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#fff';
-                ctx.font = '24px sans-serif';
-                const sa = this.game.scoreA || 0;
-                const sb = this.game.scoreB || 0;
-                ctx.fillText(`得分比 ${sa} : ${sb}`, CENTER_X, CENTER_Y - 20);
+                // Bottom Half (A's perspective)
+                ctx.save();
+                this.drawGameOverTextHalf(ctx, isBlueWin, false);
+                ctx.restore();
+
+                // Top Half (B's perspective)
+                ctx.save();
+                ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.rotate(Math.PI);
+                this.drawGameOverTextHalf(ctx, isBlueWin, true);
+                ctx.restore();
             } else {
                 const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
                 ctx.shadowColor = isWinner ? '#ffd700' : '#f44336';
@@ -505,14 +533,27 @@ export class UI {
                 ctx.fillText(isWinner ? '恭喜！你赢得了比赛！' : '很遗憾，你输了比赛。', CENTER_X, CENTER_Y - 20);
             }
         } else {
-            ctx.shadowColor = '#fff';
-            ctx.shadowBlur = 20;
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 64px sans-serif';
-            ctx.fillText('DRAW', CENTER_X, CENTER_Y - 80);
-            ctx.shadowBlur = 0;
-            ctx.font = '24px sans-serif';
-            ctx.fillText('平局！', CENTER_X, CENTER_Y - 20);
+            if (this.game.gameMode === 'local') {
+                // Bottom Half
+                ctx.save();
+                this.drawGameOverTieHalf(ctx);
+                ctx.restore();
+                // Top Half
+                ctx.save();
+                ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
+                ctx.rotate(Math.PI);
+                this.drawGameOverTieHalf(ctx);
+                ctx.restore();
+            } else {
+                ctx.shadowColor = '#fff';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 64px sans-serif';
+                ctx.fillText('DRAW', CENTER_X, CENTER_Y - 80);
+                ctx.shadowBlur = 0;
+                ctx.font = '24px sans-serif';
+                ctx.fillText('平局！', CENTER_X, CENTER_Y - 20);
+            }
         }
         ctx.restore();
 
@@ -594,6 +635,32 @@ export class UI {
         ctx.fillText('退出游戏', CENTER_X, exitBtnY + 20);
 
         this.game.exitBtn = { x: btnX, y: exitBtnY, w: btnW, h: 40 };
+    }
+
+    drawGameOverTextHalf(ctx, isBlueWin, isTop) {
+        ctx.shadowColor = isBlueWin ? '#4a90d9' : '#f44336';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = isBlueWin ? '#4a90d9' : '#f44336';
+        ctx.font = 'bold 64px sans-serif';
+        ctx.fillText(isBlueWin ? '蓝方胜利！' : '红方胜利！', CENTER_X, CANVAS_HEIGHT - 350);
+        
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px sans-serif';
+        const sa = this.game.scoreA || 0;
+        const sb = this.game.scoreB || 0;
+        ctx.fillText(`得分比 ${sa} : ${sb}`, CENTER_X, CANVAS_HEIGHT - 290);
+    }
+
+    drawGameOverTieHalf(ctx) {
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 64px sans-serif';
+        ctx.fillText('DRAW', CENTER_X, CANVAS_HEIGHT - 350);
+        ctx.shadowBlur = 0;
+        ctx.font = '24px sans-serif';
+        ctx.fillText('平局！', CENTER_X, CANVAS_HEIGHT - 290);
     }
 
     /**
