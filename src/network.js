@@ -14,6 +14,7 @@ export class NetworkManager {
         this.onMessage = null;
         this.onRoomList = null;
         this.onGameStart = null;
+        this.onGameState = null;
         this.onPieceLaunch = null;
         this.onError = null;
     }
@@ -259,7 +260,8 @@ export class NetworkManager {
                 if (this.onRestartGame) this.onRestartGame();
                 break;
             case 'game_state':
-                if (this.onMessage) this.onMessage(message);
+                if (this.onGameState) this.onGameState(message.state);
+                else if (this.onMessage) this.onMessage(message);
                 break;
             case 'error':
                 if (this.onError) this.onError(message.message);
