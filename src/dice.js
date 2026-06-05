@@ -199,7 +199,7 @@ export class DiceManager {
     }
 
     handleClick(mx, my, force = false) {
-        if (!this.phase || this.rolling || this.results) return false;
+        if (!this.phase || this.rolling || this.results || this.tieResult) return false;
         const btn = this.btn;
         if (force || (btn && mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h)) {
             this.rolling = true;

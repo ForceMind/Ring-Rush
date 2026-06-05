@@ -92,16 +92,9 @@ export class Physics {
             }
         }
 
-        // X collision
-        if (piece.y < boardMinY || piece.y > boardMaxY) {
-            // In launch zone or gap, restrict to zone width
-            if (piece.x < zoneLeft) { piece.x = zoneLeft; piece.vx *= -RESTITUTION; bounced = true; }
-            if (piece.x > zoneRight) { piece.x = zoneRight; piece.vx *= -RESTITUTION; bounced = true; }
-        } else {
-            // In main board, restrict to board width
-            if (piece.x < boardMinX) { piece.x = boardMinX; piece.vx *= -RESTITUTION; bounced = true; }
-            if (piece.x > boardMaxX) { piece.x = boardMaxX; piece.vx *= -RESTITUTION; bounced = true; }
-        }
+        // X collision (全开，不再限制为发球区宽度)
+        if (piece.x < boardMinX) { piece.x = boardMinX; piece.vx *= -RESTITUTION; bounced = true; }
+        if (piece.x > boardMaxX) { piece.x = boardMaxX; piece.vx *= -RESTITUTION; bounced = true; }
 
         // Y collision
         if (piece.y < boardMinY) {

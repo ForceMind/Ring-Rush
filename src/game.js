@@ -134,10 +134,13 @@ export class Game {
         };
 
         this.network.onGameStartSync = () => {
-            this.dice.phase = false;
-            let myFirst = false;
             if (this.gameMode === 'online') {
-                myFirst = this.dice.results.first === this.network.playerIndex;
+                this.dice.phase = false;
+                if (!this.dice.results) {
+                    console.error('Missing dice results! Fallback applied.');
+                    this.dice.results = { first: 'A' }; // fallback
+                }
+                const myFirst = this.dice.results.first === this.network.playerIndex;
                 this.perspective = myFirst ? 'bottom' : 'top'; // 赢家在下方(蓝色)
             }
             this.currentPlayer = 'A'; // 先手总是A(蓝色)
@@ -453,28 +456,29 @@ export class Game {
         const piece = this.getCurrentPiece();
         if (piece && piece.isLaunched) {
             if (!piece.hasEnteredBoard) {
-                piece.isLaunched = false;
+                piece.isLaunched = true;
                 piece.isActive = false;
+                piece.isDiscarded = true;
                 piece.vx = 0;
                 piece.vy = 0;
                 
-                // Reset Y coordinate — 必须和 initPieces 中的初始位置完全一致
-                if (piece.player === 'A') {
-                    piece.y = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT / 2;
-                } else {
-                    piece.y = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT / 2;
-                }
-                
-                this.input.sliderValue = 0.5;
-                this.input.applySliderToPiece();
-                
-                const msg = '未进入棋盘，重新发球';
+                const msg = '无效发球，棋子报废';
                 if (this.ui.showTemporaryMessage) {
                     this.ui.showTemporaryMessage(msg, 1500);
                 } else {
                     this.scorePopup = { text: msg, color: '#f44336', timer: 60, x: piece.x, y: piece.y };
                 }
                 this.isAnimating = false;
+                
+                // 扣除棋子并换人
+                this.switchPlayer();
+
+                const postWinReason = this.checkWinner();
+                if (postWinReason) {
+                    this.pendingWin = true;
+                    this.pendingWinReason = postWinReason;
+                    this.pendingWinTime = 0;
+                }
                 return;
             }
 
