@@ -62,6 +62,7 @@ export class Game {
 
         this.piecesA = [];
         this.piecesB = [];
+        this.piecesN = [];
         
         this.timeoutsA = 0;
         this.timeoutsB = 0;
@@ -296,6 +297,21 @@ export class Game {
                 this.physics.clearPieces();
                 this.piecesA.forEach(p => this.physics.addPiece(p));
                 this.piecesB.forEach(p => this.physics.addPiece(p));
+                this.piecesN.forEach(p => this.physics.addPiece(p));
+            }
+            if (state.piecesN && state.piecesN.length !== this.piecesN.length) {
+                this.piecesN = [];
+                for (let i = 0; i < state.piecesN.length; i++) {
+                    const piece = new Piece(state.piecesN[i].x, state.piecesN[i].y, 'N');
+                    piece.isActive = true;
+                    piece.isLaunched = true;
+                    piece.hasEnteredBoard = true;
+                    this.piecesN.push(piece);
+                }
+                this.physics.clearPieces();
+                this.piecesA.forEach(p => this.physics.addPiece(p));
+                this.piecesB.forEach(p => this.physics.addPiece(p));
+                this.piecesN.forEach(p => this.physics.addPiece(p));
             }
 
             for (let i = 0; i < this.piecesA.length; i++) {
@@ -320,6 +336,14 @@ export class Game {
                     if (state.piecesB[i].isDiscarded !== undefined) this.piecesB[i].isDiscarded = state.piecesB[i].isDiscarded;
                     if (state.piecesB[i].isActive !== undefined) this.piecesB[i].isActive = state.piecesB[i].isActive;
                     if (state.piecesB[i].hasEnteredBoard !== undefined) this.piecesB[i].hasEnteredBoard = state.piecesB[i].hasEnteredBoard;
+                }
+            }
+            for (let i = 0; i < this.piecesN.length; i++) {
+                if (state.piecesN && state.piecesN[i]) {
+                    this.piecesN[i].x = state.piecesN[i].x;
+                    this.piecesN[i].y = state.piecesN[i].y;
+                    this.piecesN[i].vx = 0;
+                    this.piecesN[i].vy = 0;
                 }
             }
             
@@ -354,6 +378,30 @@ export class Game {
     gx(x) { return this.perspective === 'top' ? BOARD_X + BOARD_WIDTH - (x - BOARD_X) : x; }
     gy(y) { return this.perspective === 'top' ? BOARD_Y + BOARD_HEIGHT - (y - BOARD_Y) : y; }
 
+    initNeutralPieces() {
+        this.piecesN = [];
+        const r = PIECE_RADIUS;
+        const spacing = r * 2 + 2; 
+        const h = spacing * 0.866;
+        const coords = [
+            { x: CENTER_X - spacing/2, y: CENTER_Y - h },
+            { x: CENTER_X + spacing/2, y: CENTER_Y - h },
+            { x: CENTER_X - spacing, y: CENTER_Y },
+            { x: CENTER_X, y: CENTER_Y },
+            { x: CENTER_X + spacing, y: CENTER_Y },
+            { x: CENTER_X - spacing/2, y: CENTER_Y + h },
+            { x: CENTER_X + spacing/2, y: CENTER_Y + h }
+        ];
+        
+        coords.forEach(c => {
+            let p = new Piece(c.x, c.y, 'N');
+            p.isActive = true;
+            p.isLaunched = true;
+            p.hasEnteredBoard = true;
+            this.piecesN.push(p);
+        });
+    }
+
     initPieces() {
         const zoneWidth = LAUNCH_ZONE_WIDTH * 4;
         const bottomZoneY = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT / 2;
@@ -363,7 +411,8 @@ export class Game {
             this.piecesA.push(new Piece(x, bottomZoneY, 'A'));
             this.piecesB.push(new Piece(x, topZoneY, 'B'));
         }
-        this.piecesA.concat(this.piecesB).forEach(p => this.physics.addPiece(p));
+        this.initNeutralPieces();
+        this.piecesA.concat(this.piecesB).concat(this.piecesN).forEach(p => this.physics.addPiece(p));
     }
 
     getCurrentPiece() {
@@ -613,10 +662,11 @@ export class Game {
         this.pendingWinTime = null;
         this.winner = null;
 
-        // 清空当前棋盘上的所有棋子
+        // 清空当前棋盘上的所有双方棋子，保留中立球
         this.piecesA = [];
         this.piecesB = [];
         this.physics.clearPieces();
+        this.piecesN.forEach(p => this.physics.addPiece(p));
         
         // 各分配 3 颗新棋子
         const PIECES_IN_OVERTIME = 3;
@@ -684,7 +734,8 @@ export class Game {
             pendingWinReason: this.pendingWinReason,
             winner: this.winner,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
-            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard }))
+            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
+            piecesN: this.piecesN.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard }))
         };
     }
 
@@ -764,6 +815,13 @@ export class Game {
         this.opponentWantsRestart = false;
         this.opponentLeft = false;
 
+        // 清空上一局继承的AB（红蓝/上下）状态，恢复初始身份
+        if (this.isOnlineGame()) {
+            this.perspective = this.network.playerIndex === 'A' ? 'bottom' : 'top';
+        } else {
+            this.perspective = 'bottom';
+        }
+
         this.currentPlayer = 'A';
         this.piecesLeftA = PIECES_PER_PLAYER;
         this.piecesLeftB = PIECES_PER_PLAYER;
@@ -786,6 +844,7 @@ export class Game {
         this.physics.reset();
         this.piecesA = [];
         this.piecesB = [];
+        this.piecesN = [];
         this.dice.startPhase();
         this.initPieces();
     }

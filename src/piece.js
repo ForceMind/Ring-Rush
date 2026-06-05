@@ -20,8 +20,8 @@ export class Piece {
         this.isLaunched = false;
         this.isActive = false;
         this.hasEnteredBoard = false;
-        this.color = player === 'A' ? '#4a90d9' : '#d94a4a';
-        this.innerColor = player === 'A' ? '#3a7bc8' : '#c83a3a';
+        this.color = player === 'A' ? '#4a90d9' : (player === 'B' ? '#d94a4a' : '#888888');
+        this.innerColor = player === 'A' ? '#3a7bc8' : (player === 'B' ? '#c83a3a' : '#aaaaaa');
         this.glowIntensity = 0;
     }
 
