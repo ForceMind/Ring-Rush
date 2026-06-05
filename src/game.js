@@ -382,15 +382,10 @@ export class Game {
         this.piecesN = [];
         const r = PIECE_RADIUS;
         const spacing = r * 2 + 2; 
-        const h = spacing * 0.866;
         const coords = [
-            { x: CENTER_X - spacing/2, y: CENTER_Y - h },
-            { x: CENTER_X + spacing/2, y: CENTER_Y - h },
-            { x: CENTER_X - spacing, y: CENTER_Y },
+            { x: CENTER_X, y: CENTER_Y - spacing },
             { x: CENTER_X, y: CENTER_Y },
-            { x: CENTER_X + spacing, y: CENTER_Y },
-            { x: CENTER_X - spacing/2, y: CENTER_Y + h },
-            { x: CENTER_X + spacing/2, y: CENTER_Y + h }
+            { x: CENTER_X, y: CENTER_Y + spacing }
         ];
         
         coords.forEach(c => {

@@ -64,7 +64,7 @@ export class Board {
      * @returns {number} 得分值 (0, 2, 3, 4, 5)
      */
     calculateScore(piece) {
-        if (!piece || !piece.isActive || piece.player === 'N') return 0;
+        if (!piece || piece.isDiscarded || piece.player === 'N') return 0;
         const dx = piece.x - CENTER_X;
         const dy = piece.y - CENTER_Y;
         const distance = Math.sqrt(dx * dx + dy * dy);
