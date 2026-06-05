@@ -8,7 +8,7 @@ import {
     LAUNCH_ZONE_WIDTH, LAUNCH_ZONE_HEIGHT,
     MAX_SPEED, PIECES_PER_PLAYER, WIN_THRESHOLD,
     RUNNER_SMOOTH_FACTOR, RUNNER_SNAP_THRESHOLD, SCORING_ZONES,
-    PIECE_RADIUS, VERSION
+    VERSION
 } from './constants.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
@@ -82,6 +82,7 @@ export class Game {
     }
 
     init(mode, difficulty) {
+        this.isDestroyed = false;
         this.gameMode = mode;
         this.perspective = 'bottom';
         if (mode === 'bot') {
@@ -96,6 +97,7 @@ export class Game {
     get chatMessages() { return this.chat ? this.chat.chatMessages : []; }
 
     initOnlineGame(network, playerIndex, opponentName) {
+        this.isDestroyed = false;
         this.gameMode = 'online';
         this.network = network;
         this.currentPlayer = playerIndex;

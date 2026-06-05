@@ -51,101 +51,84 @@ export class AI {
 
     calculateLaunch(piece, game) {
         const PIECE_RADIUS = 18; // constants 中定义的值
-        let targetX = CENTER_X;
-        let targetY = CENTER_Y;
         let requiredSpeed = 0;
-        let tactic = 'occupy'; // 'knockout', 'assist', 'occupy'
+        let bestTarget = null;
+        let bestScore = -1;
+        let bestTactic = 'occupy';
         
         const enemies = game.physics.pieces.filter(p => p.color !== piece.color && p.isLaunched && !p.isDiscarded);
         const friends = game.physics.pieces.filter(p => p.color === piece.color && p !== piece && p.isLaunched && !p.isDiscarded);
-        
-        // 1. 尝试寻找可以击杀的高分敌军
-        let bestEnemy = null;
-        let maxEnemyScore = -1;
-        for (const enemy of enemies) {
-            const dCenter = Math.sqrt((enemy.x - CENTER_X)**2 + (enemy.y - CENTER_Y)**2);
-            let scoreValue = 0;
-            if (dCenter < 40) scoreValue = 3;
-            else if (dCenter < 90) scoreValue = 2;
-            else if (dCenter < 150) scoreValue = 1;
+        const allPieces = [...enemies, ...friends];
 
-            if (scoreValue > maxEnemyScore) {
-                // 确保路线上没有自己的棋子
-                if (this.checkPathClear(piece.x, piece.y, enemy.x, enemy.y, friends, PIECE_RADIUS)) {
-                    bestEnemy = enemy;
-                    maxEnemyScore = scoreValue;
+        // 1. 优先寻找最高得分的空位占领
+        const candidateTargets = [];
+        // 5分点 (中心)
+        candidateTargets.push({ x: CENTER_X, y: CENTER_Y, score: 5 });
+        // 4分点 (半径36的圆环上取8个点)
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 36, y: CENTER_Y + Math.sin(angle) * 36, score: 4 });
+        }
+        // 3分点 (半径85的圆环上取8个点)
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 85, y: CENTER_Y + Math.sin(angle) * 85, score: 3 });
+        }
+        // 2分点 (半径135的圆环上取8个点)
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 135, y: CENTER_Y + Math.sin(angle) * 135, score: 2 });
+        }
+
+        // 遍历所有候选点，找到最高分且路线畅通的点
+        for (const target of candidateTargets) {
+            // 检查目标点本身是否被其他棋子占据（为了确保能停进去，预留一点安全距离）
+            const isOccupied = allPieces.some(p => Math.sqrt((p.x - target.x)**2 + (p.y - target.y)**2) < PIECE_RADIUS * 1.5);
+            if (isOccupied) continue;
+
+            // 检查从发射点到该目标的直线路径是否被任何棋子挡住
+            if (this.checkPathClear(piece.x, piece.y, target.x, target.y, allPieces, PIECE_RADIUS)) {
+                if (target.score > bestScore) {
+                    bestScore = target.score;
+                    bestTarget = target;
+                    bestTactic = 'occupy';
                 }
             }
         }
 
-        // 2. 尝试寻找可以助攻的低分友军（如果没有高价值敌军）
-        let bestFriend = null;
-        let bestFriendScore = -1;
-        let friendAimX, friendAimY;
-        if (maxEnemyScore < 2) { // 只有在没有3分/2分敌军时，才考虑助攻
-            for (const friend of friends) {
-                const dCenter = Math.sqrt((friend.x - CENTER_X)**2 + (friend.y - CENTER_Y)**2);
-                let scoreValue = 0;
-                if (dCenter < 40) scoreValue = 3;
-                else if (dCenter < 90) scoreValue = 2;
-                else if (dCenter < 150) scoreValue = 1;
-                
-                // 只有1分或0分的友军值得助攻
-                if (scoreValue < 2 && scoreValue > bestFriendScore) {
-                    const angleToCenter = Math.atan2(CENTER_Y - friend.y, CENTER_X - friend.x);
-                    // 瞄准友军背对靶心的一侧
-                    const aimX = friend.x - Math.cos(angleToCenter) * PIECE_RADIUS * 2;
-                    const aimY = friend.y - Math.sin(angleToCenter) * PIECE_RADIUS * 2;
-
-                    if (this.checkPathClear(piece.x, piece.y, aimX, aimY, friends.filter(f => f !== friend), PIECE_RADIUS)) {
-                        bestFriend = friend;
-                        bestFriendScore = scoreValue;
-                        friendAimX = aimX;
-                        friendAimY = aimY;
+        // 2. 如果找不到任何好位置（全被挡住了），或者最好也只能得不到3分，尝试强行撞开高分敌军
+        if (!bestTarget || bestScore < 3) {
+            let bestEnemy = null;
+            let minEnemyDist = 9999;
+            for (const enemy of enemies) {
+                const distToCenter = Math.sqrt((enemy.x - CENTER_X)**2 + (enemy.y - CENTER_Y)**2);
+                if (distToCenter < minEnemyDist) {
+                    // 确保撞击路线没有友军挡路
+                    if (this.checkPathClear(piece.x, piece.y, enemy.x, enemy.y, friends, PIECE_RADIUS)) {
+                        bestEnemy = enemy;
+                        minEnemyDist = distToCenter;
                     }
                 }
             }
+
+            if (bestEnemy && minEnemyDist < 115) { // 如果敌军在得分区内，撞飞它！
+                bestTarget = { x: bestEnemy.x, y: bestEnemy.y };
+                bestTactic = 'knockout';
+            }
         }
 
-        // 3. 决定最终战术
-        // 如果靶心没有友军，直接占点永远是一个好选择
-        const centerClearOfFriends = !friends.some(f => Math.sqrt((f.x - CENTER_X)**2 + (f.y - CENTER_Y)**2) < PIECE_RADIUS * 2);
-        
-        if (bestEnemy && maxEnemyScore >= 2) {
-            tactic = 'knockout';
-            targetX = bestEnemy.x;
-            targetY = bestEnemy.y;
-            const dist = Math.sqrt((targetX - piece.x)**2 + (targetY - piece.y)**2);
-            // 撞击敌军需要使用“过剩力度”把他们弹飞，但要考虑距离不能太大导致脱靶
-            requiredSpeed = this.getRequiredSpeed(dist) + MAX_SPEED * 0.4;
-        } else if (centerClearOfFriends && this.checkPathClear(piece.x, piece.y, CENTER_X, CENTER_Y, friends, PIECE_RADIUS)) {
-            tactic = 'occupy';
-            targetX = CENTER_X;
-            targetY = CENTER_Y;
-            const dist = Math.sqrt((targetX - piece.x)**2 + (targetY - piece.y)**2);
-            // 占点需要非常精准的力度，刚好停在那里
+        // 如果连撞击目标都没有（比如完全被自己人挡死了），随便打个安全距离避免违规出界
+        if (!bestTarget) {
+            bestTarget = { x: CENTER_X, y: CENTER_Y + (piece.player === 'A' ? -100 : 100) };
+            bestTactic = 'occupy';
+        }
+
+        // 3. 计算所需力度
+        const dist = Math.sqrt((bestTarget.x - piece.x)**2 + (bestTarget.y - piece.y)**2);
+        if (bestTactic === 'occupy') {
             requiredSpeed = this.getRequiredSpeed(dist);
-        } else if (bestFriend) {
-            tactic = 'assist';
-            targetX = friendAimX;
-            targetY = friendAimY;
-            const dist = Math.sqrt((targetX - piece.x)**2 + (targetY - piece.y)**2);
-            // 助攻需要把友军往里推，力度需要刚好能推动两颗棋子
-            requiredSpeed = this.getRequiredSpeed(dist) + MAX_SPEED * 0.2;
-        } else if (bestEnemy) {
-            // 如果连靶心都被自己人挡了，那只能去撞任意敌军了
-            tactic = 'knockout';
-            targetX = bestEnemy.x;
-            targetY = bestEnemy.y;
-            const dist = Math.sqrt((targetX - piece.x)**2 + (targetY - piece.y)**2);
+        } else if (bestTactic === 'knockout') {
             requiredSpeed = this.getRequiredSpeed(dist) + MAX_SPEED * 0.4;
-        } else {
-            // 最无奈的情况，随便打个安全的地方（比如稍微偏离中心）
-            tactic = 'occupy';
-            targetX = CENTER_X + 50;
-            targetY = CENTER_Y;
-            const dist = Math.sqrt((targetX - piece.x)**2 + (targetY - piece.y)**2);
-            requiredSpeed = this.getRequiredSpeed(dist);
         }
 
         // 4. 根据难度加入随机误差

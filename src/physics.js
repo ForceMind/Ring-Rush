@@ -127,7 +127,7 @@ export class Physics {
      */
     checkPieceCollisions(currentPiece) {
         for (let other of this.pieces) {
-            if (other === currentPiece || !other.isLaunched) continue;
+            if (other === currentPiece || !other.isLaunched || other.isDiscarded) continue;
 
             const dx = other.x - currentPiece.x;
             const dy = other.y - currentPiece.y;
