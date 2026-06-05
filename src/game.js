@@ -229,7 +229,21 @@ export class Game {
         };
 
         this.network.onGameState = (state) => {
-            this.isAnimating = false;
+            // 防抖：丢弃延迟的旧网络包
+            if (state.piecesLeftA !== undefined && state.piecesLeftB !== undefined) {
+                const currentTotal = this.piecesLeftA + this.piecesLeftB;
+                const stateTotal = state.piecesLeftA + state.piecesLeftB;
+                if (stateTotal > currentTotal) {
+                    console.log('Dropped stale network packet');
+                    return; 
+                }
+            }
+
+            // 只在对手回合结束时，强行停止本地物理动画以同步状态
+            // 避免在自己的回合因网络延迟包导致回合被强行打断
+            if (!this.isMyTurn()) {
+                this.isAnimating = false;
+            }
             this.network.onFullSync(state);
         };
 
@@ -252,9 +266,17 @@ export class Game {
             this.piecesLeftA = state.piecesLeftA !== undefined ? state.piecesLeftA : this.piecesLeftA;
             this.piecesLeftB = state.piecesLeftB !== undefined ? state.piecesLeftB : this.piecesLeftB;
             
+            if (state.pendingWin !== undefined) this.pendingWin = state.pendingWin;
+            if (state.pendingWinReason !== undefined) this.pendingWinReason = state.pendingWinReason;
+            if (state.winner !== undefined) this.winner = state.winner;
+            if (state.isAnimating !== undefined) this.isAnimating = state.isAnimating;
+            
             if (state.runnerPosition !== undefined && this.runnerPosition !== state.runnerPosition) {
                 this.runnerPosition = state.runnerPosition;
-                this.runnerAnimating = true; // Animate to new position
+                // 只有在没有物理动画时，才触发视觉追逐动画，避免和本地结算冲突
+                if (!this.isAnimating) {
+                    this.runnerAnimating = true; 
+                }
             }
             
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
@@ -652,10 +674,14 @@ export class Game {
             diceTargetVal: this.dice.opTargetVal,
             opDiceTargetVal: this.dice.targetVal,
             diceRollAnimEndTime: Date.now() + 2000,
-            opDiceRollAnimEndTime: Date.now() + 2000,
+            opDiceRollAnimEndTime: this.opDiceRollAnimEndTime,
             piecesLeftA: this.piecesLeftA,
             piecesLeftB: this.piecesLeftB,
             runnerPosition: this.runnerPosition,
+            pendingWin: this.pendingWin,
+            pendingWinReason: this.pendingWinReason,
+            winner: this.winner,
+            isAnimating: this.isAnimating,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive })),
             piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive }))
         };
