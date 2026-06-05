@@ -182,6 +182,7 @@ export class NetworkManager {
                 break;
             case 'reconnect_success':
                 this.playerId = sessionStorage.getItem('ringRushPlayerId');
+                this.playerIndex = message.playerIndex;
                 if (this.onMessage) this.onMessage(message);
                 break;
             case 'reconnect_failed':

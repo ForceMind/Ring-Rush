@@ -301,18 +301,24 @@ export class Game {
                 if (state.piecesA[i]) {
                     this.piecesA[i].x = state.piecesA[i].x;
                     this.piecesA[i].y = state.piecesA[i].y;
+                    this.piecesA[i].vx = 0;
+                    this.piecesA[i].vy = 0;
                     this.piecesA[i].isLaunched = state.piecesA[i].isLaunched;
                     if (state.piecesA[i].isDiscarded !== undefined) this.piecesA[i].isDiscarded = state.piecesA[i].isDiscarded;
                     if (state.piecesA[i].isActive !== undefined) this.piecesA[i].isActive = state.piecesA[i].isActive;
+                    if (state.piecesA[i].hasEnteredBoard !== undefined) this.piecesA[i].hasEnteredBoard = state.piecesA[i].hasEnteredBoard;
                 }
             }
             for (let i = 0; i < this.piecesB.length; i++) {
                 if (state.piecesB[i]) {
                     this.piecesB[i].x = state.piecesB[i].x;
                     this.piecesB[i].y = state.piecesB[i].y;
+                    this.piecesB[i].vx = 0;
+                    this.piecesB[i].vy = 0;
                     this.piecesB[i].isLaunched = state.piecesB[i].isLaunched;
                     if (state.piecesB[i].isDiscarded !== undefined) this.piecesB[i].isDiscarded = state.piecesB[i].isDiscarded;
                     if (state.piecesB[i].isActive !== undefined) this.piecesB[i].isActive = state.piecesB[i].isActive;
+                    if (state.piecesB[i].hasEnteredBoard !== undefined) this.piecesB[i].hasEnteredBoard = state.piecesB[i].hasEnteredBoard;
                 }
             }
             
@@ -676,8 +682,8 @@ export class Game {
             pendingWin: this.pendingWin,
             pendingWinReason: this.pendingWinReason,
             winner: this.winner,
-            piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive })),
-            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive }))
+            piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
+            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard }))
         };
     }
 

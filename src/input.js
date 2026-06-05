@@ -169,14 +169,15 @@ export class Input {
             this.applySliderToPiece();
             
             if (this.game.isOnlineGame()) {
-                if (this.sliderSyncTimer) clearTimeout(this.sliderSyncTimer);
-                this.sliderSyncTimer = setTimeout(() => {
+                const now = Date.now();
+                if (!this.lastSliderSync || now - this.lastSliderSync > 50) {
+                    this.lastSliderSync = now;
                     this.game.network.send({
                         type: 'slider_sync',
                         value: this.sliderValue,
                         player: this.game.currentPlayer
                     });
-                }, 2000);
+                }
             }
             return;
         }
