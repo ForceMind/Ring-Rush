@@ -192,8 +192,8 @@ export class Input {
         if (!piece || piece.isLaunched) return;
         
         // 发球区范围限制
-        const minX = (CANVAS_WIDTH / 2) - 100 + piece.radius;
-        const maxX = (CANVAS_WIDTH / 2) + 100 - piece.radius;
+        const minX = BOARD_X + piece.radius;
+        const maxX = BOARD_X + BOARD_WIDTH - piece.radius;
         
         if (this.game.perspective === 'top') {
             piece.x = maxX - this.sliderValue * (maxX - minX);
