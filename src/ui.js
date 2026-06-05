@@ -138,8 +138,8 @@ export class UI {
         const isBottom = this.game.perspective === 'bottom';
         const halfSteps = (TRACK_STEPS - 1) / 2; // 6
         const labels = isBottom
-            ? ['A胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'B胜']
-            : ['B胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'A胜'];
+            ? ['B胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'A胜']
+            : ['A胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'B胜'];
 
         ctx.fillStyle = '#f0e68c';
         ctx.font = 'bold 14px sans-serif';
