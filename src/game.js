@@ -252,6 +252,11 @@ export class Game {
             this.piecesLeftA = state.piecesLeftA !== undefined ? state.piecesLeftA : this.piecesLeftA;
             this.piecesLeftB = state.piecesLeftB !== undefined ? state.piecesLeftB : this.piecesLeftB;
             
+            if (state.runnerPosition !== undefined && this.runnerPosition !== state.runnerPosition) {
+                this.runnerPosition = state.runnerPosition;
+                this.runnerAnimating = true; // Animate to new position
+            }
+            
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
                 const myFirst = this.dice.results.first === this.network.playerIndex;
                 this.perspective = myFirst ? 'bottom' : 'top';
@@ -284,6 +289,8 @@ export class Game {
                     this.piecesA[i].x = state.piecesA[i].x;
                     this.piecesA[i].y = state.piecesA[i].y;
                     this.piecesA[i].isLaunched = state.piecesA[i].isLaunched;
+                    if (state.piecesA[i].isDiscarded !== undefined) this.piecesA[i].isDiscarded = state.piecesA[i].isDiscarded;
+                    if (state.piecesA[i].isActive !== undefined) this.piecesA[i].isActive = state.piecesA[i].isActive;
                 }
             }
             for (let i = 0; i < this.piecesB.length; i++) {
@@ -291,6 +298,8 @@ export class Game {
                     this.piecesB[i].x = state.piecesB[i].x;
                     this.piecesB[i].y = state.piecesB[i].y;
                     this.piecesB[i].isLaunched = state.piecesB[i].isLaunched;
+                    if (state.piecesB[i].isDiscarded !== undefined) this.piecesB[i].isDiscarded = state.piecesB[i].isDiscarded;
+                    if (state.piecesB[i].isActive !== undefined) this.piecesB[i].isActive = state.piecesB[i].isActive;
                 }
             }
             
@@ -646,8 +655,9 @@ export class Game {
             opDiceRollAnimEndTime: Date.now() + 2000,
             piecesLeftA: this.piecesLeftA,
             piecesLeftB: this.piecesLeftB,
-            piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched })),
-            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched }))
+            runnerPosition: this.runnerPosition,
+            piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive })),
+            piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive }))
         };
     }
 
