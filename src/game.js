@@ -125,16 +125,6 @@ export class Game {
             }
         };
 
-        this.network.onPlayerRolled = (playerIndex, val) => {
-            if (this.perspective === 'bottom') {
-                if (playerIndex === 'A') { this.dice.rolling = true; this.dice.rollAnimEndTime = Date.now() + 2000; this.dice.targetVal = val; }
-                if (playerIndex === 'B') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 2000; this.dice.opTargetVal = val; }
-            } else {
-                if (playerIndex === 'B') { this.dice.rolling = true; this.dice.rollAnimEndTime = Date.now() + 2000; this.dice.targetVal = val; }
-                if (playerIndex === 'A') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 2000; this.dice.opTargetVal = val; }
-            }
-        };
-
         this.network.onGameStartSync = () => {
             if (this.gameMode === 'online') {
                 this.dice.phase = false;
@@ -179,7 +169,7 @@ export class Game {
         };
         
         this.network.onSurrender = () => {
-            this.winner = this.perspective === 'bottom' ? 'A' : 'B';
+            this.winner = this.gameMode === 'online' ? this.network.playerIndex : (this.perspective === 'bottom' ? 'A' : 'B');
             this.pendingWin = true;
             this.pendingWinReason = 'surrender';
             this.pendingWinTime = Date.now();
@@ -202,17 +192,21 @@ export class Game {
             this.opponentTemporarilyDisconnected = false;
             this.dice.phase = false; // Abort dice phase
             if (!this.gameOver) {
-                this.winner = this.perspective === 'bottom' ? 'A' : 'B';
+                this.winner = this.gameMode === 'online' ? this.network.playerIndex : (this.perspective === 'bottom' ? 'A' : 'B');
                 this.gameOver = true;
                 this.audio.play('win');
             }
         };
 
-        this.network.onPlayerRolling = (playerIndex) => {
-            if (this.perspective === 'bottom') {
-                if (playerIndex === 'B') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 1500; }
+        this.network.onPlayerRolled = (playerIndex, val) => {
+            if (playerIndex === this.network.playerIndex) {
+                this.dice.rolling = true;
+                this.dice.rollAnimEndTime = Date.now() + 2000;
+                this.dice.targetVal = val;
             } else {
-                if (playerIndex === 'A') { this.dice.opponentRolling = true; this.dice.opRollAnimEndTime = Date.now() + 1500; }
+                this.dice.opponentRolling = true;
+                this.dice.opRollAnimEndTime = Date.now() + 2000;
+                this.dice.opTargetVal = val;
             }
         };
 
@@ -818,7 +812,9 @@ export class Game {
             }
         });
         const cp = this.getCurrentPiece();
-        if (cp && !cp.isLaunched) {
+        // 在线模式下，只在自己回合时显示待发球棋子，避免显示对手的待发球棋子
+        const shouldShowCurrentPiece = cp && !cp.isLaunched && (this.gameMode !== 'online' || this.isMyTurn());
+        if (shouldShowCurrentPiece) {
             const sx = isTop ? this.tx(cp.x) : cp.x;
             const sy = isTop ? this.ty(cp.y) : cp.y;
             cp.drawAt(ctx, sx, sy, true, p);

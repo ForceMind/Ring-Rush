@@ -1,6 +1,6 @@
 {
   "name": "ring-rush-server",
-  "version": "0.9.7",
+  "version": "0.9.9",
   "description": "WebSocket server for Ring Rush game",
   "main": "server.js",
   "scripts": {
@@ -10,7 +10,11 @@
   "dependencies": {
     "ws": "^8.16.0"
   },
-  "keywords": ["game", "websocket", "multiplayer"],
+  "keywords": [
+    "game",
+    "websocket",
+    "multiplayer"
+  ],
   "author": "ForceMind",
   "license": "MIT"
 }

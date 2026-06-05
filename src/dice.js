@@ -352,6 +352,16 @@ export class DiceManager {
             this.opponentRolling = false;
             
             if (this.game.gameMode === 'online') {
+                const myId = this.game.network.playerIndex.toLowerCase();
+                const opId = myId === 'a' ? 'b' : 'a';
+                this.val = results[myId];
+                this.opVal = results[opId];
+            } else {
+                this.val = this.game.perspective === 'bottom' ? results.a : results.b;
+                this.opVal = this.game.perspective === 'bottom' ? results.b : results.a;
+            }
+            
+            if (this.game.gameMode === 'online') {
                 setTimeout(() => {
                     this.game.network.send({ type: 'dice_ack' });
                 }, 2000);

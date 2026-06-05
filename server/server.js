@@ -375,7 +375,8 @@ function handleMessage(player, message) {
         case 'slider_sync':
             broadcastToRoom(player.roomId, {
                 type: 'slider_sync',
-                value: message.value
+                value: message.value,
+                player: message.player
             }, player.id);
             break;
 
