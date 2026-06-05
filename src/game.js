@@ -109,12 +109,12 @@ export class Game {
         };
         
         this.network.onSliderSync = (value, player) => {
-            if (!this.isMyTurn()) {
+            if (this.currentPlayer === player && !this.isMyTurn()) {
                 const pieceArray = player === 'A' ? this.piecesA : this.piecesB;
                 const piece = pieceArray.find(p => !p.isLaunched && !p.isDiscarded);
                 if (!piece || piece.isLaunched) return;
-                const minX = (this.canvas.width / 2) - 100 + piece.radius;
-                const maxX = (this.canvas.width / 2) + 100 - piece.radius;
+                const minX = BOARD_X + piece.radius;
+                const maxX = BOARD_X + BOARD_WIDTH - piece.radius;
                 
                 const opPerspective = this.perspective === 'bottom' ? 'top' : 'bottom';
                 if (opPerspective === 'top') {
