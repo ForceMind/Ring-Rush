@@ -111,7 +111,7 @@ export class Game {
         this.network.onSliderSync = (value, player) => {
             console.log(`[v0.9.14] onSliderSync received value=${value}, player=${player}`);
             console.log(`[v0.9.14] currentPlayer=${this.currentPlayer}, isMyTurn=${this.isMyTurn()}`);
-            if (this.currentPlayer === player && !this.isMyTurn()) {
+            if (player !== this.currentPlayer) {
                 const pieceArray = player === 'A' ? this.piecesA : this.piecesB;
                 const piece = pieceArray.find(p => !p.isLaunched && !p.isDiscarded);
                 if (!piece || piece.isLaunched) {
