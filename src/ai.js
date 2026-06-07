@@ -56,71 +56,81 @@ export class AI {
         let bestScore = -1;
         let bestTactic = 'occupy';
         
-        const enemies = game.physics.pieces.filter(p => p.color !== piece.color && p.isLaunched && !p.isDiscarded);
-        const friends = game.physics.pieces.filter(p => p.color === piece.color && p !== piece && p.isLaunched && !p.isDiscarded);
-        const allPieces = [...enemies, ...friends];
+        const enemies = game.physics.pieces.filter(p => p.player !== piece.player && p.player !== 'N' && p.isLaunched && !p.isDiscarded);
+        const neutral = game.physics.pieces.filter(p => p.player === 'N' && p.isLaunched && !p.isDiscarded);
+        const friends = game.physics.pieces.filter(p => p.player === piece.player && p !== piece && p.isLaunched && !p.isDiscarded);
+        const avoidPieces = [...enemies, ...neutral, ...friends];
 
-        // 1. 优先寻找最高得分的空位占领
-        const candidateTargets = [];
-        // 5分点 (中心)
-        candidateTargets.push({ x: CENTER_X, y: CENTER_Y, score: 5 });
-        // 4分点 (半径36的圆环上取8个点)
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 36, y: CENTER_Y + Math.sin(angle) * 36, score: 4 });
-        }
-        // 3分点 (半径85的圆环上取8个点)
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 85, y: CENTER_Y + Math.sin(angle) * 85, score: 3 });
-        }
-        // 2分点 (半径135的圆环上取8个点)
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 135, y: CENTER_Y + Math.sin(angle) * 135, score: 2 });
-        }
-
-        // 遍历所有候选点，找到最高分且路线畅通的点
-        for (const target of candidateTargets) {
-            // 检查目标点本身是否被其他棋子占据（为了确保能停进去，预留一点安全距离）
-            const isOccupied = allPieces.some(p => Math.sqrt((p.x - target.x)**2 + (p.y - target.y)**2) < PIECE_RADIUS * 1.5);
-            if (isOccupied) continue;
-
-            // 检查从发射点到该目标的直线路径是否被任何棋子挡住
-            if (this.checkPathClear(piece.x, piece.y, target.x, target.y, allPieces, PIECE_RADIUS)) {
-                if (target.score > bestScore) {
-                    bestScore = target.score;
-                    bestTarget = target;
-                    bestTactic = 'occupy';
+        // 1. 检查是否有高分敌军值得优先撞击（防守策略）
+        let bestEnemyToKnock = null;
+        let maxEnemyScore = 0;
+        for (const enemy of enemies) {
+            const score = game.board.calculateScore(enemy);
+            if (score >= 3 && score > maxEnemyScore) {
+                // 确保撞击路线没有友军或中立球挡路（适当放宽判定到1.5倍半径，允许擦边）
+                if (this.checkPathClear(piece.x, piece.y, enemy.x, enemy.y, [...friends, ...neutral], PIECE_RADIUS * 1.5)) {
+                    bestEnemyToKnock = enemy;
+                    maxEnemyScore = score;
                 }
             }
         }
 
-        // 2. 如果找不到任何好位置（全被挡住了），或者最好也只能得不到3分，尝试强行撞开高分敌军
-        if (!bestTarget || bestScore < 3) {
-            let bestEnemy = null;
-            let minEnemyDist = 9999;
-            for (const enemy of enemies) {
-                const distToCenter = Math.sqrt((enemy.x - CENTER_X)**2 + (enemy.y - CENTER_Y)**2);
-                if (distToCenter < minEnemyDist) {
-                    // 确保撞击路线没有友军挡路
-                    if (this.checkPathClear(piece.x, piece.y, enemy.x, enemy.y, friends, PIECE_RADIUS)) {
-                        bestEnemy = enemy;
-                        minEnemyDist = distToCenter;
+        // 如果敌军分数极高（4或5分）且AI难度允许，触发绝对防守
+        const shouldDefend = Math.random() < this.config.accuracy && bestEnemyToKnock && maxEnemyScore >= 4;
+
+        if (shouldDefend) {
+            bestTarget = { x: bestEnemyToKnock.x, y: bestEnemyToKnock.y };
+            bestTactic = 'knockout';
+            bestScore = maxEnemyScore;
+        } else {
+            // 2. 寻找最高得分的空位占领
+            const candidateTargets = [];
+            candidateTargets.push({ x: CENTER_X, y: CENTER_Y, score: 5 }); // 5分点
+            
+            for (let i = 0; i < 8; i++) { // 4分点
+                const angle = (i / 8) * Math.PI * 2;
+                candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 36, y: CENTER_Y + Math.sin(angle) * 36, score: 4 });
+            }
+            for (let i = 0; i < 12; i++) { // 3分点
+                const angle = (i / 12) * Math.PI * 2;
+                candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 85, y: CENTER_Y + Math.sin(angle) * 85, score: 3 });
+            }
+            for (let i = 0; i < 16; i++) { // 2分点
+                const angle = (i / 16) * Math.PI * 2;
+                candidateTargets.push({ x: CENTER_X + Math.cos(angle) * 135, y: CENTER_Y + Math.sin(angle) * 135, score: 2 });
+            }
+
+            for (const target of candidateTargets) {
+                const isOccupied = avoidPieces.some(p => Math.sqrt((p.x - target.x)**2 + (p.y - target.y)**2) < PIECE_RADIUS * 1.5);
+                if (isOccupied) continue;
+
+                if (this.checkPathClear(piece.x, piece.y, target.x, target.y, avoidPieces, PIECE_RADIUS * 1.8)) {
+                    if (target.score > bestScore) {
+                        bestScore = target.score;
+                        bestTarget = target;
+                        bestTactic = 'occupy';
                     }
                 }
             }
 
-            if (bestEnemy && minEnemyDist < 115) { // 如果敌军在得分区内，撞飞它！
-                bestTarget = { x: bestEnemy.x, y: bestEnemy.y };
-                bestTactic = 'knockout';
+            // 3. 如果找不到任何安全位置（全被挡住了），退而求其次撞击敌人
+            if (!bestTarget) {
+                if (bestEnemyToKnock) {
+                    bestTarget = { x: bestEnemyToKnock.x, y: bestEnemyToKnock.y };
+                    bestTactic = 'knockout';
+                } else if (enemies.length > 0) {
+                    // 随便撞一个最近的敌人
+                    let minD = 9999;
+                    for (const e of enemies) {
+                        const d = Math.sqrt((e.x - piece.x)**2 + (e.y - piece.y)**2);
+                        if (d < minD) { minD = d; bestTarget = { x: e.x, y: e.y }; }
+                    }
+                    bestTactic = 'knockout';
+                } else {
+                    bestTarget = { x: CENTER_X, y: CENTER_Y + (piece.player === 'A' ? -100 : 100) };
+                    bestTactic = 'occupy';
+                }
             }
-        }
-
-        // 如果连撞击目标都没有（比如完全被自己人挡死了），随便打个安全距离避免违规出界
-        if (!bestTarget) {
-            bestTarget = { x: CENTER_X, y: CENTER_Y + (piece.player === 'A' ? -100 : 100) };
-            bestTactic = 'occupy';
         }
 
         // 3. 计算所需力度

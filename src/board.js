@@ -71,7 +71,7 @@ export class Board {
 
         if (distance <= SCORING_ZONES.center.radius) return SCORING_ZONES.center.score;
         if (this.isInsidePolygon(dx, dy, this.hexagonVertices)) return SCORING_ZONES.hexagon.score;
-        if (this.isInsidePolygon(dx, dy, this.pentagonVertices)) return SCORING_ZONES.pentagon.score;
+        if (distance <= SCORING_ZONES.pentagon.radius) return SCORING_ZONES.pentagon.score;
         if (this.isInsidePolygon(dx, dy, this.squareVertices)) return SCORING_ZONES.square.score;
         return 0;
     }

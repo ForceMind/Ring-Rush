@@ -16,7 +16,7 @@ import { Board } from './board.js';
 import { Physics } from './physics.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
-import { AI } from './ai.js';
+
 import { ModalManager } from './modals.js';
 import { ChatManager } from './chat.js';
 import { DiceManager } from './dice.js';
@@ -28,7 +28,6 @@ export class Game {
         this.ctx = canvas.getContext('2d');
 
         this.gameMode = null;
-        this.ai = null;
         this.network = null;
         this.opponentName = null;
 
@@ -80,19 +79,6 @@ export class Game {
         // 保存绑定引用，方便后续移除（修复内存泄漏）
         this._boundHandleClick = this.handleClick.bind(this);
         this.canvas.addEventListener('click', this._boundHandleClick);
-    }
-
-    init(mode, difficulty) {
-        this.isDestroyed = false;
-        this.gameMode = mode;
-        this.perspective = 'bottom';
-        if (mode === 'bot') {
-            this.ai = new AI(difficulty);
-        }
-        this.dice.startPhase();
-        this.initPieces();
-        this.input.init();
-        this.gameLoop();
     }
 
     get chatMessages() { return this.chat ? this.chat.chatMessages : []; }
@@ -441,9 +427,6 @@ export class Game {
         }
     }
 
-    isBotTurn() {
-        return this.gameMode === 'bot' && this.currentPlayer === 'B';
-    }
 
     isOnlineGame() {
         return this.gameMode === 'online';
@@ -572,9 +555,15 @@ export class Game {
             }
         }
 
-        if (this.isBotTurn() && !this.isAnimating && !this.ai.isThinking) {
-            this.ai.executeTurn(this);
-        }
+        this.postUpdate();
+    }
+
+    isBotTurn() {
+        return false;
+    }
+
+    postUpdate() {
+        // 子类可重写
     }
 
     checkRoundEnd() {

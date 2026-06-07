@@ -4,11 +4,13 @@
  */
 import { CANVAS_WIDTH, CANVAS_HEIGHT, VERSION } from './constants.js';
 import { Game } from './game.js';
+import { LocalGame } from './game-local.js';
+import { BotGame } from './game-bot.js';
 import { StartScreen } from './startscreen.js';
 
 window.onload = function() {
     const canvas = document.getElementById('gameCanvas');
-    const game = new Game(canvas);
+    let game = null;
 
     // 显示版本号
     document.getElementById('version').textContent = `v${VERSION}`;
@@ -38,7 +40,12 @@ window.onload = function() {
 
     function createStartScreen(existingNetwork = null) {
         const screen = new StartScreen(canvas, (mode, difficulty) => {
+            if (game) {
+                game.cleanup();
+            }
+            
             if (mode === 'online') {
+                game = new Game(canvas);
                 const network = screen.network;
                 screen.cleanup();
 
@@ -53,7 +60,7 @@ window.onload = function() {
                 }
                 
                 game.onExit = () => {
-                    game.cleanup();
+                    if (game) game.cleanup();
                     network.leaveRoom();
                     startScreen = createStartScreen(network);
                     startScreen.currentScreen = 'online_lobby';
@@ -61,11 +68,17 @@ window.onload = function() {
                     startScreen.draw();
                 };
             } else {
+                if (mode === 'local') {
+                    game = new LocalGame(canvas);
+                } else {
+                    game = new BotGame(canvas);
+                }
+                
                 screen.cleanup();
-                game.init(mode, difficulty);
+                game.init(difficulty);
                 
                 game.onExit = () => {
-                    game.cleanup();
+                    if (game) game.cleanup();
                     startScreen = createStartScreen();
                     startScreen.draw();
                 };

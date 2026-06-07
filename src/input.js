@@ -161,10 +161,7 @@ export class Input {
         if (this.sliderDragging) {
             const metrics = this.getSliderMetrics();
             let newValue = (mouseX - metrics.x) / metrics.w;
-            // Mirror logic for top player: if dragging from their perspective, left/right is inverted physically.
-            if (metrics.y === 70) {
-                newValue = 1 - newValue;
-            }
+            // Removed buggy inversion for ty=70 so slider exactly matches finger and piece screen X
             this.sliderValue = Math.max(0, Math.min(1, newValue));
             this.applySliderToPiece();
             
@@ -373,20 +370,24 @@ export class Input {
         ctx.fill();
 
         const isBottom = this.game.perspective === 'bottom';
-        const myColorRGB = isBottom ? '74, 144, 217' : '217, 74, 74';
-        const myColorHex = isBottom ? '#4a90d9' : '#d94a4a';
-        const myColorDrag = isBottom ? '#6ab0ff' : '#ff6b6b';
-
-        // 已选范围
-        const drawValue = ty === 70 ? 1 - this.sliderValue : this.sliderValue;
+        const myColorHex = this.game.currentPlayer === 'A' ? '#4a90d9' : '#d94a4a';
+        const myColorDrag = this.game.currentPlayer === 'A' ? '#6ab0ff' : '#ff6b6b';
         
         ctx.fillStyle = this.game.currentPlayer === 'A' ? 'rgba(52, 152, 219, 0.5)' : 'rgba(231, 76, 60, 0.5)';
         ctx.beginPath();
-        ctx.roundRect(tx, ty - 3, tw * drawValue, 6, 3);
+        if (ty === 70) {
+            // For top player, fill from their left (screen-right) to handle
+            const handleX = tx + this.sliderValue * tw;
+            const fillWidth = (tx + tw) - handleX;
+            ctx.roundRect(handleX, ty - 3, fillWidth, 6, 3);
+        } else {
+            // For bottom player, fill from their left (screen-left) to handle
+            ctx.roundRect(tx, ty - 3, tw * this.sliderValue, 6, 3);
+        }
         ctx.fill();
 
         // 绘制滑块把手
-        const hx = tx + drawValue * tw;
+        const hx = tx + this.sliderValue * tw;
         const hy = ty;
         const handleWidth = 24;
         const handleHeight = 32;
