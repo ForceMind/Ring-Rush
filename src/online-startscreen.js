@@ -206,6 +206,10 @@ export class OnlineStartScreen {
         } else if (this.currentScreen === 'in_room') {
             this.drawInRoom(ctx);
         }
+
+        if (this.showTutorial) {
+            this.drawTutorial(ctx);
+        }
     }
 
     drawMainMenu(ctx) {
@@ -217,7 +221,7 @@ export class OnlineStartScreen {
         ctx.font = 'bold 52px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('RING RUSH', CENTER_X, 200);
+        ctx.fillText('PELLO', CENTER_X, 200);
         ctx.restore();
 
         ctx.fillStyle = '#aaa';
@@ -260,6 +264,66 @@ export class OnlineStartScreen {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('拖拽棋子发射 | 力度含随机偏移 | 得分推进小人', CENTER_X, CANVAS_HEIGHT - 50);
+
+        // 玩法介绍按钮 (右上角)
+        this.drawButton(ctx, CANVAS_WIDTH - 110, 20, 90, 36, '❓ 玩法介绍', '#3266a8', 'tutorial');
+    }
+
+    drawTutorial(ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        const cx = CANVAS_WIDTH / 2;
+        const cy = CANVAS_HEIGHT / 2;
+        
+        ctx.fillStyle = '#1a1a2e';
+        ctx.beginPath();
+        ctx.roundRect(cx - 160, cy - 220, 320, 440, 12);
+        ctx.fill();
+        ctx.strokeStyle = '#4a90d9';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#f0e68c';
+        ctx.font = 'bold 26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('玩法介绍', cx, cy - 170);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'left';
+        
+        const lines = [
+            "🎯 基础操作",
+            "  按住己方棋子向后拖拽，松手发射。",
+            "",
+            "⭕ 得分机制",
+            "  棋子停留在中心的不同圆环内，",
+            "  即可获得对应分数 (2、3、4、5分)。",
+            "",
+            "⚔️ 策略对抗",
+            "  可以利用撞击把对方棋子击飞出",
+            "  得分区，或者阻挡对方路线。",
+            "",
+            "🏆 获胜条件",
+            "  率先积满 6 分的一方即可获胜！"
+        ];
+        
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes('🎯') || lines[i].includes('⭕') || lines[i].includes('⚔️') || lines[i].includes('🏆')) {
+                ctx.fillStyle = '#f0e68c';
+                ctx.font = 'bold 18px sans-serif';
+            } else {
+                ctx.fillStyle = '#ddd';
+                ctx.font = '15px sans-serif';
+            }
+            ctx.fillText(lines[i], cx - 130, cy - 120 + i * 22);
+        }
+
+        // 清空其他按钮，只保留关闭按钮
+        this.buttons = [];
+        this.drawButton(ctx, cx - 60, cy + 150, 120, 45, '明白了', '#4CAF50', 'close_tutorial');
     }
 
     drawOnlineLobby(ctx) {
@@ -566,6 +630,20 @@ export class OnlineStartScreen {
         const scaleY = CANVAS_HEIGHT / rect.height;
         const mouseX = (e.clientX - rect.left) * scaleX;
         const mouseY = (e.clientY - rect.top) * scaleY;
+
+        if (this.showTutorial) {
+            let clickedClose = false;
+            for (const btn of this.buttons) {
+                if (btn.id === 'close_tutorial' && mouseX >= btn.x && mouseX <= btn.x + btn.w &&
+                    mouseY >= btn.y && mouseY <= btn.y + btn.h) {
+                    clickedClose = true;
+                }
+            }
+            // 无论点按钮还是点背景都关掉
+            this.showTutorial = false;
+            this.draw();
+            return;
+        }
 
         for (const btn of this.buttons) {
             if (mouseX >= btn.x && mouseX <= btn.x + btn.w &&

@@ -107,7 +107,7 @@ export class UI {
         ctx.textBaseline = 'top';
         ctx.fillStyle = '#f0e68c';
         ctx.font = 'bold 18px sans-serif';
-        ctx.fillText('RING RUSH', 15, 10);
+        ctx.fillText('PELLO', 15, 10);
         ctx.fillStyle = '#555';
         ctx.font = '11px sans-serif';
         ctx.fillText(`弹棋 ${VERSION}`, 15, 32);
@@ -127,6 +127,13 @@ export class UI {
         ctx.fillStyle = '#f0e68c';
         ctx.font = 'bold 14px sans-serif';
         ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, 35);
+        if (this.game.gameMode === 'local') {
+            ctx.save();
+            ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.rotate(Math.PI);
+            ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, 35);
+            ctx.restore();
+        }
     }
 
     /**
