@@ -442,6 +442,7 @@ export class DiceManager {
                     this.game.roundNumber = 1;
                     this.game.turnStartTime = Date.now();
                     this.game.turnTimeLeft = 60;
+                    this.game.initPieces(); // 重新生成棋子，使其能正确获取到先手玩家对应的颜色
                     this.game.input.sliderValue = 0.5;
                     this.game.input.applySliderToPiece();
                     if (this.game.chat) this.game.chat.setVisibility(true);
