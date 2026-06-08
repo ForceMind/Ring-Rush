@@ -649,6 +649,12 @@ export class OnlineStartScreen {
             if (mouseX >= btn.x && mouseX <= btn.x + btn.w &&
                 mouseY >= btn.y && mouseY <= btn.y + btn.h) {
 
+                if (btn.id === 'tutorial') {
+                    this.showTutorial = true;
+                    this.draw();
+                    return;
+                }
+
                 // 主菜单按钮
                 if (btn.id === 'local') {
                     this.canvas.removeEventListener('click', this.handleClick);
