@@ -120,10 +120,8 @@ export class Game {
                     console.error('Missing dice results! Fallback applied.');
                     this.dice.results = { first: 'A' }; // fallback
                 }
-                const myFirst = this.dice.results.first === this.network.playerIndex;
-                this.perspective = myFirst ? 'bottom' : 'top'; // 赢家在下方(蓝色)
             }
-            this.currentPlayer = 'A'; // 先手总是A(蓝色)
+            this.currentPlayer = this.dice.results ? this.dice.results.first : 'A';
             this.roundNumber = 1;
             this.turnStartTime = Date.now();
             this.turnTimeLeft = 60;
@@ -276,8 +274,7 @@ export class Game {
             }
             
             if (this.gameMode === 'online' && this.dice.results && this.dice.results.first) {
-                const myFirst = this.dice.results.first === this.network.playerIndex;
-                this.perspective = myFirst ? 'bottom' : 'top';
+                // Keep perspective fixed in online mode.
             }
             
             // Adjust pieces array length to match state (for overtime support)
@@ -559,7 +556,9 @@ export class Game {
     }
 
     isBotTurn() {
-        return false;
+        if (this.gameMode !== 'bot') return false;
+        const botPlayer = this.perspective === 'bottom' ? 'B' : 'A';
+        return this.currentPlayer === botPlayer;
     }
 
     postUpdate() {
@@ -758,6 +757,16 @@ export class Game {
         this.turnTimeLeft = 60;
     }
 
+    getPlayerColor(player) {
+        const firstPlayer = (this.dice && this.dice.results) ? this.dice.results.first : 'A';
+        return player === firstPlayer ? '#4a90d9' : '#d94a4a';
+    }
+
+    getPlayerInnerColor(player) {
+        const firstPlayer = (this.dice && this.dice.results) ? this.dice.results.first : 'A';
+        return player === firstPlayer ? '#3a7bc8' : '#c83a3a';
+    }
+
     isMyTurn() {
         if (!this.isOnlineGame()) return true;
         return this.currentPlayer === (this.perspective === 'bottom' ? 'A' : 'B');
@@ -827,7 +836,7 @@ export class Game {
             this.perspective = 'bottom';
         }
 
-        this.currentPlayer = 'A';
+        this.currentPlayer = 'A'; // This will be overwritten by dice phase
         this.piecesLeftA = PIECES_PER_PLAYER;
         this.piecesLeftB = PIECES_PER_PLAYER;
         this.runnerPosition = 0;

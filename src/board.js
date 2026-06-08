@@ -232,10 +232,15 @@ export class Board {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawLaunchZones(ctx, isTop = false) {
-        const topColor = isTop ? '74, 144, 217' : '217, 74, 74';     // 翻转时上方为蓝
-        const bottomColor = isTop ? '217, 74, 74' : '74, 144, 217';  // 翻转时下方为红
-        const topStroke = isTop ? '#4a90d9' : '#d94a4a';
-        const bottomStroke = isTop ? '#d94a4a' : '#4a90d9';
+        const topStroke = this.game.getPlayerColor('B');
+        const bottomStroke = this.game.getPlayerColor('A');
+
+        const hexToRgbStr = (hex) => {
+            return `${parseInt(hex.slice(1,3),16)}, ${parseInt(hex.slice(3,5),16)}, ${parseInt(hex.slice(5,7),16)}`;
+        };
+
+        const topColor = hexToRgbStr(topStroke);
+        const bottomColor = hexToRgbStr(bottomStroke);
 
         // 对手发射区（顶部）
         const topZoneY = BOARD_Y - LAUNCH_ZONE_HEIGHT - 25;

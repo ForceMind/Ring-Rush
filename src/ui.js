@@ -212,7 +212,7 @@ export class UI {
         const myIsTurn = this.game.isMyTurn();
         
         // 自己在下方
-        const myColor = isBottom ? '#4a90d9' : '#d94a4a';
+        const myColor = this.game.getPlayerColor(isBottom ? 'A' : 'B');
         const myLeft = isBottom ? this.game.piecesLeftA : this.game.piecesLeftB;
         const myName = isBottom ? '你 (A)' : '你 (B)';
 
@@ -235,7 +235,7 @@ export class UI {
         }
 
         // 对手在上方
-        const opColor = isBottom ? '#d94a4a' : '#4a90d9';
+        const opColor = this.game.getPlayerColor(isBottom ? 'B' : 'A');
         const opLeft = isBottom ? this.game.piecesLeftB : this.game.piecesLeftA;
         let opName = isBottom ? '对手 (B)' : '对手 (A)';
         if (this.game.gameMode === 'online' && this.game.opponentName) opName = this.game.opponentName;
@@ -571,9 +571,7 @@ export class UI {
         const btnH = 60;
 
         if (this.game.showRestartAgreed) {
-            ctx.fillStyle = '#4CAF50';
-            ctx.textAlign = 'center';
-            ctx.font = 'bold 24px sans-serif';
+            ctx.fillStyle = this.game.getPlayerColor(this.game.currentPlayer);    ctx.font = 'bold 24px sans-serif';
             ctx.fillText('双方已同意，即将开始...', CENTER_X, btnY + 30);
             this.game.restartBtn = null;
         } else if (this.game.waitingForRestart) {
@@ -609,8 +607,8 @@ export class UI {
             }
 
             const grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
-            grad.addColorStop(0, '#4a90d9');
-            grad.addColorStop(1, '#3266a8');
+            grad.addColorStop(0, this.game.getPlayerColor('A'));
+            grad.addColorStop(1, this.game.getPlayerColor('B'));
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.roundRect(btnX, btnY, btnW, btnH, 12);
@@ -645,9 +643,9 @@ export class UI {
     }
 
     drawGameOverTextHalf(ctx, isBlueWin, isTop) {
-        ctx.shadowColor = isBlueWin ? '#4a90d9' : '#f44336';
+        ctx.shadowColor = isBlueWin ? this.game.getPlayerColor('A') : this.game.getPlayerColor('B');
         ctx.shadowBlur = 20;
-        ctx.fillStyle = isBlueWin ? '#4a90d9' : '#f44336';
+        ctx.fillStyle = isBlueWin ? this.game.getPlayerColor('A') : this.game.getPlayerColor('B');
         ctx.font = 'bold 64px sans-serif';
         ctx.fillText(isBlueWin ? '蓝方胜利！' : '红方胜利！', CENTER_X, CANVAS_HEIGHT - 350);
         

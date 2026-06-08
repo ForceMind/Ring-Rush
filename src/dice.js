@@ -88,42 +88,49 @@ export class DiceManager {
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         let myVal = this.val, opVal = this.opVal;
-        let myColor = '#4a90d9';
-        let opColor = '#d94a4a';
-        let myLabel = '蓝方 (A)';
-        let opLabel = '红方 (B)';
+        let myColor = '#888';
+        let opColor = '#888';
+        let myLabel = '你';
+        let opLabel = '对手';
         
-        if (this.game.gameMode === 'online') {
-            myLabel = '你';
-            opLabel = '对手';
+        if (this.game.gameMode === 'local') {
+            myLabel = '玩家 1';
+            opLabel = '玩家 2';
         } else if (this.game.gameMode === 'bot') {
-            myLabel = '你 (蓝方)';
-            opLabel = 'Bot (红方)';
+            myLabel = '你';
+            opLabel = 'Bot';
         }
-        
+
         if (this.results) {
-            const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
-            myVal = this.game.perspective === 'bottom' ? this.results.a : this.results.b;
-            opVal = this.game.perspective === 'bottom' ? this.results.b : this.results.a;
-            
-            const myFirst = this.results.first === myOriginalId;
-            
-            myColor = myOriginalId === 'A' ? '#4a90d9' : '#d94a4a';
-            opColor = myOriginalId === 'A' ? '#d94a4a' : '#4a90d9';
+            let myFirst;
             
             if (this.game.gameMode === 'online') {
-                myLabel = myFirst ? '你先手' : '你后手';
-                opLabel = myFirst ? '对手后手' : '对手先手';
+                myFirst = this.results.first === this.game.network.playerIndex;
+                myVal = this.game.network.playerIndex === 'A' ? this.results.a : this.results.b;
+                opVal = this.game.network.playerIndex === 'A' ? this.results.b : this.results.a;
+            } else {
+                myFirst = this.results.first === (this.game.perspective === 'bottom' ? 'A' : 'B');
+                myVal = this.game.perspective === 'bottom' ? this.results.a : this.results.b;
+                opVal = this.game.perspective === 'bottom' ? this.results.b : this.results.a;
+            }
+            
+            myColor = myFirst ? '#4a90d9' : '#d94a4a';
+            opColor = myFirst ? '#d94a4a' : '#4a90d9';
+            
+            if (this.game.gameMode === 'online') {
+                myLabel = myFirst ? '你先手 (蓝方)' : '你后手 (红方)';
+                opLabel = myFirst ? '对手后手 (红方)' : '对手先手 (蓝方)';
             } else if (this.game.gameMode === 'bot') {
-                myLabel = myFirst ? '你先手 (蓝)' : '你后手 (蓝)';
-                opLabel = myFirst ? 'Bot后手 (红)' : 'Bot先手 (红)';
+                myLabel = myFirst ? '你先手 (蓝方)' : '你后手 (红方)';
+                opLabel = myFirst ? 'Bot后手 (红方)' : 'Bot先手 (蓝方)';
             } else if (this.game.gameMode === 'local') {
-                if (myOriginalId === 'A') {
-                    myLabel = myFirst ? '蓝方先手' : '蓝方后手';
-                    opLabel = myFirst ? '红方后手' : '红方先手';
+                const bottomIsFirst = (this.game.perspective === 'bottom' && myFirst) || (this.game.perspective === 'top' && !myFirst);
+                if (this.game.perspective === 'bottom') {
+                    myLabel = myFirst ? '下方先手 (蓝方)' : '下方后手 (红方)';
+                    opLabel = myFirst ? '上方后手 (红方)' : '上方先手 (蓝方)';
                 } else {
-                    myLabel = myFirst ? '红方先手' : '红方后手';
-                    opLabel = myFirst ? '蓝方后手' : '蓝方先手';
+                    myLabel = myFirst ? '上方先手 (蓝方)' : '上方后手 (红方)';
+                    opLabel = myFirst ? '下方后手 (红方)' : '下方先手 (蓝方)';
                 }
             }
         } else {
@@ -156,11 +163,11 @@ export class DiceManager {
         if (this.results) {
             const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
             const first = this.results.first;
-            let firstLabel = first === myOriginalId ? '你先手！' : '对手先手！';
+            let firstLabel = first === myOriginalId ? '你先手 (蓝方)！' : '对手先手 (蓝方)！';
             if (this.game.gameMode === 'local') {
-                firstLabel = first === 'A' ? '蓝方先手！' : '红方先手！';
+                firstLabel = first === 'A' ? '下方先手 (蓝方)！' : '上方先手 (蓝方)！';
             } else if (this.game.gameMode === 'bot') {
-                firstLabel = first === 'A' ? '你先手 (蓝)！' : 'Bot先手 (红)！';
+                firstLabel = first === 'A' ? '你先手 (蓝方)！' : 'Bot先手 (蓝方)！';
             }
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, 420);
@@ -233,7 +240,7 @@ export class DiceManager {
 
         if (this.results) {
             const first = this.results.first;
-            const firstLabel = first === 'A' ? '蓝方先手！' : '红方先手！';
+            const firstLabel = first === 'A' ? '下方先手 (蓝方)！' : '上方先手 (蓝方)！';
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 28px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, CANVAS_HEIGHT - 350);
         } else if (this.tieResult) {
