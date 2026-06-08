@@ -19,124 +19,147 @@ export class AI {
         let bestLaunch = { vx: 0, vy: 0, sliderValue: 0.5 };
 
         // Define search space
-        let svSteps, angleSteps, speedSteps;
+        let svSteps, speedSteps;
         if (this.difficulty === 'hard') {
             svSteps = 11;
-            angleSteps = 30;
-            speedSteps = 5;
+            speedSteps = 3;
         } else if (this.difficulty === 'medium') {
             svSteps = 5;
-            angleSteps = 15;
-            speedSteps = 3;
+            speedSteps = 2;
         } else {
             svSteps = 3;
-            angleSteps = 7;
-            speedSteps = 2;
+            speedSteps = 1;
         }
 
         const PIECE_RADIUS = 18;
-        const minX = (600 / 2) - 100 + PIECE_RADIUS;
-        const maxX = (600 / 2) + 100 - PIECE_RADIUS;
+        const minX = CENTER_X - 100 + PIECE_RADIUS;
+        const maxX = CENTER_X + 100 - PIECE_RADIUS;
         const startY = piece.y; 
 
         const isShootingDown = startY < CENTER_Y;
-        const angleStart = isShootingDown ? 0 : Math.PI;
         
         const originalPieces = game.physics.pieces;
+        const candidates = [];
 
-        for (let svIdx = 0; svIdx < svSteps; svIdx++) {
-            const sv = svSteps === 1 ? 0.5 : svIdx / (svSteps - 1);
-            
-            let startX;
-            if (game.perspective === 'top') {
-                startX = maxX - sv * (maxX - minX);
-            } else {
-                startX = minX + sv * (maxX - minX);
+        const addTarget = (tx, ty) => {
+            for (let svIdx = 0; svIdx < svSteps; svIdx++) {
+                const sv = svSteps === 1 ? 0.5 : svIdx / (svSteps - 1);
+                let startX = game.perspective === 'top' ? maxX - sv * (maxX - minX) : minX + sv * (maxX - minX);
+
+                const dx = tx - startX;
+                const dy = ty - startY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx);
+                
+                // 停止在此处所需的精确速度 = (位移 + 阈值截断带来的提前量) * (1 - 摩擦力)
+                // 剩余滑行距离约为 SPEED_THRESHOLD / 0.015 = 0.1 / 0.015 = 6.66
+                const exactSpeed = (dist + 6.66) * 0.015;
+                if (exactSpeed <= MAX_SPEED) {
+                    candidates.push({ sv, angle, speed: exactSpeed, startX });
+                    if (speedSteps > 1 && exactSpeed + 3 <= MAX_SPEED) {
+                        candidates.push({ sv, angle, speed: exactSpeed + 3, startX });
+                    }
+                    if (speedSteps > 2) {
+                        candidates.push({ sv, angle, speed: MAX_SPEED, startX });
+                    }
+                }
             }
+        };
 
-            for (let aIdx = 0; aIdx < angleSteps; aIdx++) {
-                const angle = angleStart + (aIdx / Math.max(1, angleSteps - 1)) * Math.PI;
-
-                for (let sIdx = 0; sIdx < speedSteps; sIdx++) {
-                    const speed = (sIdx + 1) / speedSteps * MAX_SPEED;
-
-                    const vx = Math.cos(angle) * speed;
-                    const vy = Math.sin(angle) * speed;
-
-                    // Setup simulation sandbox
-                    const simPieces = originalPieces.map(p => {
-                        return {
-                            x: p.x,
-                            y: p.y,
-                            vx: p.vx,
-                            vy: p.vy,
-                            radius: p.radius,
-                            player: p.player,
-                            isActive: p.isActive,
-                            isLaunched: p.isLaunched,
-                            isDiscarded: p.isDiscarded,
-                            hasEnteredBoard: p.hasEnteredBoard,
-                            originalRef: p
-                        };
-                    });
-
-                    const simShooter = simPieces.find(p => p.originalRef === piece);
-                    if (!simShooter) continue;
+        for (let tx = CENTER_X - 115; tx <= CENTER_X + 115; tx += 15) {
+            for (let ty = CENTER_Y - 115; ty <= CENTER_Y + 115; ty += 15) {
+                const distToCenter = Math.sqrt((tx - CENTER_X)**2 + (ty - CENTER_Y)**2);
+                if (distToCenter <= 115) {
+                    // Direct shot
+                    addTarget(tx, ty);
                     
-                    simShooter.x = startX;
-                    simShooter.y = startY;
-                    simShooter.vx = vx;
-                    simShooter.vy = vy;
-                    simShooter.isActive = true;
-                    simShooter.isLaunched = true;
+                    // Bank shots for hard difficulty
+                    if (this.difficulty === 'hard') {
+                        const boardLeft = BOARD_X + PIECE_RADIUS;
+                        const vLeftX = boardLeft - (tx - boardLeft);
+                        addTarget(vLeftX, ty);
 
-                    // Run simulation
-                    let steps = 0;
-                    while (Physics.simulateStep(simPieces) && steps < 300) {
-                        steps++;
-                    }
-
-                    // Evaluate board state
-                    let myScore = 0;
-                    let opScore = 0;
-
-                    for (const p of simPieces) {
-                        let isDiscardedSim = p.isDiscarded || (!p.hasEnteredBoard && p.isLaunched && !p.isActive);
-                        if (isDiscardedSim || p.player === 'N') continue;
-                        
-                        const s = game.board.calculateScore(p);
-                        
-                        if (p.player === piece.player) {
-                            myScore += s;
-                            // Add a tiny penalty if our piece is too close to opponent's launch zone
-                            if (isShootingDown && p.y > BOARD_Y + BOARD_HEIGHT - 100) {
-                                myScore -= 0.5;
-                            } else if (!isShootingDown && p.y < BOARD_Y + 100) {
-                                myScore -= 0.5;
-                            }
-                        } else {
-                            opScore += s;
-                        }
-                    }
-
-                    const sliderBias = -Math.abs(sv - 0.5) * 0.1;
-                    const netScore = myScore - opScore * 1.5 + sliderBias;
-
-                    if (netScore > bestScore) {
-                        bestScore = netScore;
-                        bestLaunch = { vx, vy, sliderValue: sv };
+                        const boardRight = BOARD_X + BOARD_WIDTH - PIECE_RADIUS;
+                        const vRightX = boardRight + (boardRight - tx);
+                        addTarget(vRightX, ty);
                     }
                 }
             }
         }
 
+        for (const cand of candidates) {
+            const vx = Math.cos(cand.angle) * cand.speed;
+            const vy = Math.sin(cand.angle) * cand.speed;
+
+            // Setup simulation sandbox
+            const simPieces = originalPieces.map(p => {
+                return {
+                    x: p.x,
+                    y: p.y,
+                    vx: p.vx,
+                    vy: p.vy,
+                    radius: p.radius,
+                    player: p.player,
+                    isActive: p.isActive,
+                    isLaunched: p.isLaunched,
+                    isDiscarded: p.isDiscarded,
+                    hasEnteredBoard: p.hasEnteredBoard,
+                    originalRef: p
+                };
+            });
+
+            const simShooter = simPieces.find(p => p.originalRef === piece);
+            if (!simShooter) continue;
+            
+            simShooter.x = cand.startX;
+            simShooter.y = startY;
+            simShooter.vx = vx;
+            simShooter.vy = vy;
+            simShooter.isActive = true;
+            simShooter.isLaunched = true;
+
+            // Run simulation
+            let steps = 0;
+            while (Physics.simulateStep(simPieces) && steps < 300) {
+                steps++;
+            }
+
+            // Evaluate board state
+            let myScore = 0;
+            let opScore = 0;
+
+            for (const p of simPieces) {
+                let isDiscardedSim = p.isDiscarded || (!p.hasEnteredBoard && p.isLaunched && !p.isActive);
+                if (isDiscardedSim || p.player === 'N') continue;
+                
+                const s = game.board.calculateScore(p);
+                
+                if (p.player === piece.player) {
+                    myScore += s;
+                    // Add a tiny penalty if our piece is too close to opponent's launch zone
+                    if (isShootingDown && p.y > BOARD_Y + BOARD_HEIGHT - 100) {
+                        myScore -= 0.5;
+                    } else if (!isShootingDown && p.y < BOARD_Y + 100) {
+                        myScore -= 0.5;
+                    }
+                } else {
+                    opScore += s;
+                }
+            }
+
+            const sliderBias = -Math.abs(cand.sv - 0.5) * 0.1;
+            const netScore = myScore - opScore * 1.5 + sliderBias;
+
+            if (netScore > bestScore) {
+                bestScore = netScore;
+                bestLaunch = { vx, vy, sliderValue: cand.sv };
+            }
+        }
+
         // Add some noise for lower difficulties
         if (this.difficulty === 'easy') {
-            bestLaunch.vx += (Math.random() - 0.5) * 5;
-            bestLaunch.vy += (Math.random() - 0.5) * 5;
-        } else if (this.difficulty === 'medium') {
-            bestLaunch.vx += (Math.random() - 0.5) * 2;
-            bestLaunch.vy += (Math.random() - 0.5) * 2;
+            bestLaunch.vx += (Math.random() - 0.5) * 1.5;
+            bestLaunch.vy += (Math.random() - 0.5) * 1.5;
         }
 
         return bestLaunch;

@@ -53,10 +53,10 @@ export class Input {
      * 初始化事件监听器（鼠标 + 触摸）
      */
     getSliderMetrics() {
-        const isLocalRed = this.game.gameMode === 'local' && this.game.currentPlayer === 'B';
+        const isCurrentPlayerAtTop = this.game.currentPlayer !== (this.game.perspective === 'bottom' ? 'A' : 'B');
         return {
             x: 50,
-            y: isLocalRed ? 70 : CANVAS_HEIGHT - 70,
+            y: isCurrentPlayerAtTop ? 70 : CANVAS_HEIGHT - 70,
             w: CANVAS_WIDTH - 100
         };
     }
