@@ -181,4 +181,105 @@ export class Physics {
     reset() {
         this.pieces = [];
     }
+
+    /**
+     * 无头物理模拟（用于 AI 预判）
+     * @param {Array} pieces - 需要模拟的棋子数组拷贝
+     * @returns {boolean} - 是否还有棋子在运动
+     */
+    static simulateStep(pieces) {
+        let activeCount = 0;
+        for (let piece of pieces) {
+            if (!piece.isActive) continue;
+            activeCount++;
+
+            piece.x += piece.vx;
+            piece.y += piece.vy;
+            piece.vx *= FRICTION;
+            piece.vy *= FRICTION;
+
+            Physics.checkBoundaryCollisionSim(piece);
+            Physics.checkPieceCollisionsSim(piece, pieces);
+
+            const speed = Math.sqrt(piece.vx * piece.vx + piece.vy * piece.vy);
+            if (speed < SPEED_THRESHOLD) {
+                piece.vx = 0;
+                piece.vy = 0;
+                piece.isActive = false;
+            }
+        }
+        return activeCount > 0;
+    }
+
+    static checkBoundaryCollisionSim(piece) {
+        const boardMinX = BOARD_X + piece.radius;
+        const boardMaxX = BOARD_X + BOARD_WIDTH - piece.radius;
+        const boardMinY = BOARD_Y + piece.radius;
+        const boardMaxY = BOARD_Y + BOARD_HEIGHT - piece.radius;
+        const absMinY = BOARD_Y - 85 + piece.radius;
+        const absMaxY = BOARD_Y + BOARD_HEIGHT + 85 - piece.radius;
+
+        if (!piece.hasEnteredBoard && piece.isLaunched) {
+            if (piece.y >= boardMinY && piece.y <= boardMaxY) {
+                piece.hasEnteredBoard = true;
+            }
+        }
+
+        if (piece.x < boardMinX) { piece.x = boardMinX; piece.vx *= -RESTITUTION; }
+        if (piece.x > boardMaxX) { piece.x = boardMaxX; piece.vx *= -RESTITUTION; }
+
+        if (piece.y < boardMinY) {
+            if (piece.hasEnteredBoard || piece.player === 'A') {
+                piece.y = boardMinY; piece.vy *= -RESTITUTION;
+            } else {
+                if (piece.y < absMinY) {
+                    piece.y = absMinY; piece.vy *= -RESTITUTION;
+                }
+            }
+        }
+        
+        if (piece.y > boardMaxY) {
+            if (piece.hasEnteredBoard || piece.player === 'B') {
+                piece.y = boardMaxY; piece.vy *= -RESTITUTION;
+            } else {
+                if (piece.y > absMaxY) {
+                    piece.y = absMaxY; piece.vy *= -RESTITUTION;
+                }
+            }
+        }
+    }
+
+    static checkPieceCollisionsSim(currentPiece, allPieces) {
+        for (let other of allPieces) {
+            if (other === currentPiece || !other.isLaunched || other.isDiscarded) continue;
+
+            const dx = other.x - currentPiece.x;
+            const dy = other.y - currentPiece.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDist = currentPiece.radius + other.radius;
+
+            if (distance < minDist && distance > 0) {
+                const nx = dx / distance;
+                const ny = dy / distance;
+                const dvx = currentPiece.vx - other.vx;
+                const dvy = currentPiece.vy - other.vy;
+                const dvDotN = dvx * nx + dvy * ny;
+
+                if (dvDotN > 0) {
+                    const impulse = dvDotN * (1 + RESTITUTION) / 2;
+                    currentPiece.vx -= impulse * nx;
+                    currentPiece.vy -= impulse * ny;
+                    other.vx += impulse * nx;
+                    other.vy += impulse * ny;
+                    other.isActive = true;
+
+                    const overlap = minDist - distance;
+                    currentPiece.x -= (overlap / 2) * nx;
+                    currentPiece.y -= (overlap / 2) * ny;
+                    other.x += (overlap / 2) * nx;
+                    other.y += (overlap / 2) * ny;
+                }
+            }
+        }
+    }
 }
