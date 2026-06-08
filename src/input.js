@@ -374,10 +374,10 @@ export class Input {
         ctx.fill();
 
         const isBottom = this.game.perspective === 'bottom';
-        const myColorHex = this.game.currentPlayer === 'A' ? '#4a90d9' : '#d94a4a';
-        const myColorDrag = this.game.currentPlayer === 'A' ? '#6ab0ff' : '#ff6b6b';
+        const myColorHex = this.game.getPlayerColor(this.game.currentPlayer);
+        const myColorDrag = this.game.getPlayerInnerColor(this.game.currentPlayer);
         
-        ctx.fillStyle = this.game.currentPlayer === 'A' ? 'rgba(52, 152, 219, 0.5)' : 'rgba(231, 76, 60, 0.5)';
+        ctx.fillStyle = myColorHex;
         ctx.beginPath();
         if (ty === 70) {
             // For top player, fill from their left (screen-right) to handle

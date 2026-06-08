@@ -240,8 +240,16 @@ export class Board {
             return `${parseInt(hex.slice(1,3),16)}, ${parseInt(hex.slice(3,5),16)}, ${parseInt(hex.slice(5,7),16)}`;
         };
 
-        const topColor = hexToRgbStr(topStroke);
-        const bottomColor = hexToRgbStr(bottomStroke);
+        let topColor = hexToRgbStr(topStroke);
+        let bottomColor = hexToRgbStr(bottomStroke);
+
+        if (isTop) {
+            // If the user is B (isTop), they are playing from the bottom of the screen.
+            // So the bottom of the screen should be B's color (topColor), and top should be A's color (bottomColor).
+            const temp = topColor;
+            topColor = bottomColor;
+            bottomColor = temp;
+        }
 
         // 对手发射区（顶部）
         const topZoneY = BOARD_Y - LAUNCH_ZONE_HEIGHT - 25;

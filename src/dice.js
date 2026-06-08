@@ -118,19 +118,19 @@ export class DiceManager {
             opColor = myFirst ? '#d94a4a' : '#4a90d9';
             
             if (this.game.gameMode === 'online') {
-                myLabel = myFirst ? '你先手 (蓝方)' : '你后手 (红方)';
-                opLabel = myFirst ? '对手后手 (红方)' : '对手先手 (蓝方)';
+                myLabel = myFirst ? '你先手' : '你后手';
+                opLabel = myFirst ? '对手后手' : '对手先手';
             } else if (this.game.gameMode === 'bot') {
-                myLabel = myFirst ? '你先手 (蓝方)' : '你后手 (红方)';
-                opLabel = myFirst ? 'Bot后手 (红方)' : 'Bot先手 (蓝方)';
+                myLabel = myFirst ? '你先手' : '你后手';
+                opLabel = myFirst ? 'Bot后手' : 'Bot先手';
             } else if (this.game.gameMode === 'local') {
                 const bottomIsFirst = (this.game.perspective === 'bottom' && myFirst) || (this.game.perspective === 'top' && !myFirst);
                 if (this.game.perspective === 'bottom') {
-                    myLabel = myFirst ? '下方先手 (蓝方)' : '下方后手 (红方)';
-                    opLabel = myFirst ? '上方后手 (红方)' : '上方先手 (蓝方)';
+                    myLabel = myFirst ? '下方先手' : '下方后手';
+                    opLabel = myFirst ? '上方后手' : '上方先手';
                 } else {
-                    myLabel = myFirst ? '上方先手 (蓝方)' : '上方后手 (红方)';
-                    opLabel = myFirst ? '下方后手 (红方)' : '下方先手 (蓝方)';
+                    myLabel = myFirst ? '上方先手' : '上方后手';
+                    opLabel = myFirst ? '下方后手' : '下方先手';
                 }
             }
         } else {
