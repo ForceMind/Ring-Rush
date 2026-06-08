@@ -13,6 +13,8 @@ import {
     MAX_SPEED,
     MAX_DRAG_DISTANCE,
     POWER_RANDOM_RANGE,
+    MIN_POWER_JITTER,
+    MAX_POWER_JITTER,
     PIECE_RADIUS,
     TRACK_STEPS
 } from './constants.js';
@@ -220,8 +222,10 @@ export class Input {
 
         if (distance > 25) {
             let speed = Math.min(distance * LAUNCH_MULTIPLIER, MAX_SPEED);
-            speed *= 1 + (Math.random() * 2 - 1) * POWER_RANDOM_RANGE;
-            speed = Math.min(speed, MAX_SPEED);
+            const rawJitter = speed * POWER_RANDOM_RANGE;
+            const appliedJitter = Math.max(MIN_POWER_JITTER, Math.min(MAX_POWER_JITTER, rawJitter));
+            speed += (Math.random() * 2 - 1) * appliedJitter;
+            speed = Math.max(0.5, Math.min(speed, MAX_SPEED));
 
             // 屏幕方向（瞄准线用的同一个 dx/dy，所以视觉一致）
             // 如果视角是顶部（红方），游戏坐标系和屏幕坐标系是180度反转的，所以要取反

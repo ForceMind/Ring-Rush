@@ -30,7 +30,9 @@ export const MAX_SPEED = 22;
 export const SPEED_THRESHOLD = 0.1;
 export const LAUNCH_MULTIPLIER = 0.12;
 export const MAX_DRAG_DISTANCE = 250;
-export const POWER_RANDOM_RANGE = 0.15;
+export const POWER_RANDOM_RANGE = 0.10;
+export const MIN_POWER_JITTER = 0.5;
+export const MAX_POWER_JITTER = 1.5;
 
 // ===== 交互参数 =====
 export const CLICK_RADIUS = 40;
