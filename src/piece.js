@@ -6,7 +6,8 @@
 import { PIECE_RADIUS } from './constants.js';
 
 export class Piece {
-    constructor(x, y, player) {
+    constructor(game, x, y, player) {
+        this.game = game;
         this.reset(x, y, player);
     }
 

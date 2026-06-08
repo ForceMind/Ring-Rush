@@ -281,7 +281,7 @@ export class Game {
             if (state.piecesA.length !== this.piecesA.length) {
                 this.piecesA = [];
                 for (let i = 0; i < state.piecesA.length; i++) {
-                    const piece = new Piece(state.piecesA[i].x, state.piecesA[i].y, 'A');
+                    const piece = new Piece(this, state.piecesA[i].x, state.piecesA[i].y, 'A');
                     this.piecesA.push(piece);
                 }
                 this.physics.clearPieces();
@@ -291,7 +291,7 @@ export class Game {
             if (state.piecesB.length !== this.piecesB.length) {
                 this.piecesB = [];
                 for (let i = 0; i < state.piecesB.length; i++) {
-                    const piece = new Piece(state.piecesB[i].x, state.piecesB[i].y, 'B');
+                    const piece = new Piece(this, state.piecesB[i].x, state.piecesB[i].y, 'B');
                     this.piecesB.push(piece);
                 }
                 this.physics.clearPieces();
@@ -302,7 +302,7 @@ export class Game {
             if (state.piecesN && state.piecesN.length !== this.piecesN.length) {
                 this.piecesN = [];
                 for (let i = 0; i < state.piecesN.length; i++) {
-                    const piece = new Piece(state.piecesN[i].x, state.piecesN[i].y, 'N');
+                    const piece = new Piece(this, state.piecesN[i].x, state.piecesN[i].y, 'N');
                     piece.isActive = true;
                     piece.isLaunched = true;
                     piece.hasEnteredBoard = true;
@@ -389,7 +389,7 @@ export class Game {
         ];
         
         coords.forEach(c => {
-            let p = new Piece(c.x, c.y, 'N');
+            let p = new Piece(this, c.x, c.y, 'N');
             p.isActive = true;
             p.isLaunched = true;
             p.hasEnteredBoard = true;
@@ -407,8 +407,8 @@ export class Game {
         const topZoneY = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT / 2;
         for (let i = 0; i < PIECES_PER_PLAYER; i++) {
             const x = CENTER_X - zoneWidth / 2 + (i + 0.5) * zoneWidth / PIECES_PER_PLAYER;
-            this.piecesA.push(new Piece(x, bottomZoneY, 'A'));
-            this.piecesB.push(new Piece(x, topZoneY, 'B'));
+            this.piecesA.push(new Piece(this, x, bottomZoneY, 'A'));
+            this.piecesB.push(new Piece(this, x, topZoneY, 'B'));
         }
         this.initNeutralPieces();
         this.piecesA.concat(this.piecesB).concat(this.piecesN).forEach(p => this.physics.addPiece(p));
@@ -682,14 +682,14 @@ export class Game {
             let ax = startX + i * spacing;
             // Y坐标必须和普通开局一样，才能被正常识别发球
             let ay = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT/2;
-            let pieceA = new Piece(ax, ay, 'A');
+            let pieceA = new Piece(this, ax, ay, 'A');
             this.piecesA.push(pieceA);
             this.physics.addPiece(pieceA);
 
             // B队（上方）
             let bx = startX + i * spacing;
             let by = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT/2;
-            let pieceB = new Piece(bx, by, 'B');
+            let pieceB = new Piece(this, bx, by, 'B');
             this.piecesB.push(pieceB);
             this.physics.addPiece(pieceB);
         }
