@@ -154,15 +154,35 @@ export class UI {
         ctx.fillText('跑', TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 30);
         ctx.fillText('道', TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 15);
 
+        let topStroke = this.game.getPlayerColor('B');
+        let bottomStroke = this.game.getPlayerColor('A');
+        if (!isBottom) {
+            const temp = topStroke;
+            topStroke = bottomStroke;
+            bottomStroke = temp;
+        }
+
+        const hexToRgba = (hex, alpha) => {
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            return `rgba(${r},${g},${b},${alpha})`;
+        };
+
+        const topColor = hexToRgba(topStroke, 0.4);
+        const bottomColor = hexToRgba(bottomStroke, 0.4);
+
         for (let i = 0; i < TRACK_STEPS; i++) {
             const y = TRACK_Y + i * stepHeight;
             const position = halfSteps - i; // 3, 2, 1, 0, -1, -2, -3
 
             let fillColor;
-            if (isBottom) {
-                fillColor = position > 0 ? 'rgba(217,74,74,0.4)' : position < 0 ? 'rgba(74,144,217,0.4)' : 'rgba(200,200,200,0.3)';
+            if (position > 0) {
+                fillColor = topColor;
+            } else if (position < 0) {
+                fillColor = bottomColor;
             } else {
-                fillColor = position > 0 ? 'rgba(74,144,217,0.4)' : position < 0 ? 'rgba(217,74,74,0.4)' : 'rgba(200,200,200,0.3)';
+                fillColor = 'rgba(200,200,200,0.3)';
             }
 
             ctx.fillStyle = fillColor;
@@ -607,8 +627,8 @@ export class UI {
             }
 
             const grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
-            grad.addColorStop(0, '#4CAF50');
-            grad.addColorStop(1, '#45a049');
+            grad.addColorStop(0, '#4a90d9');
+            grad.addColorStop(1, '#3a7bc8');
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.roundRect(btnX, btnY, btnW, btnH, 12);
