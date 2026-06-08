@@ -144,18 +144,9 @@ export class UI {
         const stepHeight = TRACK_HEIGHT / TRACK_STEPS;
         const isBottom = this.game.perspective === 'bottom';
         const halfSteps = (TRACK_STEPS - 1) / 2; // 6
-        let topLabel, bottomLabel;
-        if (this.game.gameMode === 'local') {
-            topLabel = '上方胜';
-            bottomLabel = '下方胜';
-        } else {
-            topLabel = '对手胜';
-            bottomLabel = '你胜';
-        }
-
         const labels = isBottom
-            ? [topLabel, '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', bottomLabel]
-            : [bottomLabel, '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', topLabel];
+            ? ['B胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'A胜']
+            : ['A胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'B胜'];
 
         ctx.fillStyle = '#f0e68c';
         ctx.font = 'bold 14px sans-serif';
@@ -223,7 +214,7 @@ export class UI {
         // 自己在下方
         const myColor = this.game.getPlayerColor(isBottom ? 'A' : 'B');
         const myLeft = isBottom ? this.game.piecesLeftA : this.game.piecesLeftB;
-        const myName = '你';
+        const myName = isBottom ? '你 (A)' : '你 (B)';
 
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
@@ -246,7 +237,7 @@ export class UI {
         // 对手在上方
         const opColor = this.game.getPlayerColor(isBottom ? 'B' : 'A');
         const opLeft = isBottom ? this.game.piecesLeftB : this.game.piecesLeftA;
-        let opName = '对手';
+        let opName = isBottom ? '对手 (B)' : '对手 (A)';
         if (this.game.gameMode === 'online' && this.game.opponentName) opName = this.game.opponentName;
         const opIsTurn = !myIsTurn;
 
@@ -616,8 +607,8 @@ export class UI {
             }
 
             const grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
-            grad.addColorStop(0, this.game.getPlayerColor('A'));
-            grad.addColorStop(1, this.game.getPlayerColor('B'));
+            grad.addColorStop(0, '#4CAF50');
+            grad.addColorStop(1, '#45a049');
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.roundRect(btnX, btnY, btnW, btnH, 12);

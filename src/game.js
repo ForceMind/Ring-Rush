@@ -758,11 +758,13 @@ export class Game {
     }
 
     getPlayerColor(player) {
+        if (player === 'N') return '#ffd700'; // Gold for neutral
         const firstPlayer = (this.dice && this.dice.results) ? this.dice.results.first : 'A';
         return player === firstPlayer ? '#4a90d9' : '#d94a4a';
     }
 
     getPlayerInnerColor(player) {
+        if (player === 'N') return '#e6c200'; // Darker gold for neutral
         const firstPlayer = (this.dice && this.dice.results) ? this.dice.results.first : 'A';
         return player === firstPlayer ? '#3a7bc8' : '#c83a3a';
     }

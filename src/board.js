@@ -233,8 +233,8 @@ export class Board {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawLaunchZones(ctx, isTop = false) {
-        const topStroke = this.game.getPlayerColor('B');
-        const bottomStroke = this.game.getPlayerColor('A');
+        let topStroke = this.game.getPlayerColor('B');
+        let bottomStroke = this.game.getPlayerColor('A');
 
         const hexToRgbStr = (hex) => {
             return `${parseInt(hex.slice(1,3),16)}, ${parseInt(hex.slice(3,5),16)}, ${parseInt(hex.slice(5,7),16)}`;
@@ -246,9 +246,13 @@ export class Board {
         if (isTop) {
             // If the user is B (isTop), they are playing from the bottom of the screen.
             // So the bottom of the screen should be B's color (topColor), and top should be A's color (bottomColor).
-            const temp = topColor;
+            const tempColor = topColor;
             topColor = bottomColor;
-            bottomColor = temp;
+            bottomColor = tempColor;
+
+            const tempStroke = topStroke;
+            topStroke = bottomStroke;
+            bottomStroke = tempStroke;
         }
 
         // 对手发射区（顶部）

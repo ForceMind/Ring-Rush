@@ -163,11 +163,11 @@ export class DiceManager {
         if (this.results) {
             const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
             const first = this.results.first;
-            let firstLabel = first === myOriginalId ? '你先手 (蓝方)！' : '对手先手 (蓝方)！';
+            let firstLabel = first === myOriginalId ? '你先手！' : '对手先手！';
             if (this.game.gameMode === 'local') {
-                firstLabel = first === 'A' ? '下方先手 (蓝方)！' : '上方先手 (蓝方)！';
+                firstLabel = first === 'A' ? '下方先手！' : '上方先手！';
             } else if (this.game.gameMode === 'bot') {
-                firstLabel = first === 'A' ? '你先手 (蓝方)！' : 'Bot先手 (蓝方)！';
+                firstLabel = first === 'A' ? '你先手！' : 'Bot先手！';
             }
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, 420);
@@ -240,7 +240,7 @@ export class DiceManager {
 
         if (this.results) {
             const first = this.results.first;
-            const firstLabel = first === 'A' ? '下方先手 (蓝方)！' : '上方先手 (蓝方)！';
+            const firstLabel = first === 'A' ? '下方先手！' : '上方先手！';
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 28px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, CANVAS_HEIGHT - 350);
         } else if (this.tieResult) {

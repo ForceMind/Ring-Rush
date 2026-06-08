@@ -1,6 +1,6 @@
 {
   "name": "pello",
-  "version": "0.9.27",
+  "version": "0.9.29",
   "private": true,
   "scripts": {
     "dev": "vite",
