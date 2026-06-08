@@ -360,22 +360,27 @@ export class DiceManager {
             this.opRollAnimEndTime = Date.now() + 2500;
         }
         
+        const a = Math.floor(Math.random() * 6) + 1;
+        const b = Math.floor(Math.random() * 6) + 1;
+        
+        this.targetVal = this.game.perspective === 'bottom' ? a : b;
+        this.opTargetVal = this.game.perspective === 'bottom' ? b : a;
+        
         setTimeout(() => {
-            const a = Math.floor(Math.random() * 6) + 1;
-            const b = Math.floor(Math.random() * 6) + 1;
-            
             if (a === b) {
                 this.tieResult = true;
                 this.rolling = false;
                 this.opponentRolling = false;
-                this.val = a;
-                this.opVal = b;
+                this.val = this.targetVal;
+                this.opVal = this.opTargetVal;
                 setTimeout(() => {
                     this.tieResult = false;
                     this.localRolledA = false;
                     this.localRolledB = false;
                     this.localBothRolled = false;
                     this.hasRolled = false;
+                    this.targetVal = null;
+                    this.opTargetVal = null;
                     this.startPhase();
                 }, 2000);
             } else {
@@ -413,7 +418,7 @@ export class DiceManager {
             } else {
                 setTimeout(() => {
                     this.phase = false;
-                    this.game.currentPlayer = 'A'; // 先手总是A(蓝色)
+                    this.game.currentPlayer = results.first; // 根据摇号结果决定先手
                     this.game.roundNumber = 1;
                     this.game.turnStartTime = Date.now();
                     this.game.turnTimeLeft = 60;
