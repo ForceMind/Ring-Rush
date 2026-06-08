@@ -88,7 +88,8 @@ export class DiceManager {
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         let myVal = this.val, opVal = this.opVal;
-        let myColor = '#fff', opColor = '#fff';
+        let myColor = '#4a90d9';
+        let opColor = '#d94a4a';
         let myLabel = '蓝方 (A)';
         let opLabel = '红方 (B)';
         
@@ -106,14 +107,24 @@ export class DiceManager {
             opVal = this.game.perspective === 'bottom' ? this.results.b : this.results.a;
             
             const myFirst = this.results.first === myOriginalId;
-            myColor = myFirst ? '#4a90d9' : '#d94a4a';
-            opColor = myFirst ? '#d94a4a' : '#4a90d9';
-            myLabel = myFirst ? '你先手 (蓝)' : '你后手 (红)';
-            opLabel = myFirst ? '对手后手 (红)' : '对手先手 (蓝)';
             
-            if (this.game.gameMode !== 'online') {
-                myLabel = myFirst ? '蓝方先手' : '红方先手';
-                opLabel = myFirst ? '红方后手' : '蓝方后手';
+            myColor = myOriginalId === 'A' ? '#4a90d9' : '#d94a4a';
+            opColor = myOriginalId === 'A' ? '#d94a4a' : '#4a90d9';
+            
+            if (this.game.gameMode === 'online') {
+                myLabel = myFirst ? '你先手' : '你后手';
+                opLabel = myFirst ? '对手后手' : '对手先手';
+            } else if (this.game.gameMode === 'bot') {
+                myLabel = myFirst ? '你先手 (蓝)' : '你后手 (蓝)';
+                opLabel = myFirst ? 'Bot后手 (红)' : 'Bot先手 (红)';
+            } else if (this.game.gameMode === 'local') {
+                if (myOriginalId === 'A') {
+                    myLabel = myFirst ? '蓝方先手' : '蓝方后手';
+                    opLabel = myFirst ? '红方后手' : '红方先手';
+                } else {
+                    myLabel = myFirst ? '红方先手' : '红方后手';
+                    opLabel = myFirst ? '蓝方后手' : '蓝方先手';
+                }
             }
         } else {
             myVal = this.val;
@@ -145,9 +156,11 @@ export class DiceManager {
         if (this.results) {
             const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
             const first = this.results.first;
-            let firstLabel = first === myOriginalId ? '你先手！' : '对手先手';
-            if (this.game.gameMode !== 'online') {
+            let firstLabel = first === myOriginalId ? '你先手！' : '对手先手！';
+            if (this.game.gameMode === 'local') {
                 firstLabel = first === 'A' ? '蓝方先手！' : '红方先手！';
+            } else if (this.game.gameMode === 'bot') {
+                firstLabel = first === 'A' ? '你先手 (蓝)！' : 'Bot先手 (红)！';
             }
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, 420);
