@@ -50,92 +50,95 @@ export class AI {
     }
 
     calculateLaunch(piece, game) {
-        const PIECE_RADIUS = 18; // constants 中定义的值
-        let requiredSpeed = 0;
+        const PIECE_RADIUS = 18;
         let bestTarget = null;
         let bestTactic = 'occupy';
         let bestOverallValue = -999;
+        let bestSliderValue = 0.5;
 
         const enemies = game.physics.pieces.filter(p => p.player !== piece.player && p.player !== 'N' && p.isLaunched && !p.isDiscarded);
         const neutral = game.physics.pieces.filter(p => p.player === 'N' && p.isLaunched && !p.isDiscarded);
         const friends = game.physics.pieces.filter(p => p.player === piece.player && p !== piece && p.isLaunched && !p.isDiscarded);
         const avoidPieces = [...enemies, ...neutral, ...friends];
 
-        // 1. 评估“击飞敌军”的收益
-        let bestEnemyToKnock = null;
-        let maxEnemyValue = 0;
-        for (const enemy of enemies) {
-            const score = game.board.calculateScore(enemy);
-            if (score >= 3) {
-                // 放宽到1.2倍半径判定，允许擦边撞击
-                if (this.checkPathClear(piece.x, piece.y, enemy.x, enemy.y, [...friends, ...neutral], PIECE_RADIUS * 1.2)) {
-                    // 击飞敌军的收益 = 敌军分数*10 + 5分击杀奖励
-                    let knockValue = score * 10 + 5;
-                    if (knockValue > maxEnemyValue) {
-                        bestEnemyToKnock = enemy;
-                        maxEnemyValue = knockValue;
+        const getStartX = (sv) => {
+            const minX = (600 / 2) - 100 + piece.radius;
+            const maxX = (600 / 2) + 100 - piece.radius;
+            if (game.perspective === 'top') {
+                return maxX - sv * (maxX - minX);
+            } else {
+                return minX + sv * (maxX - minX);
+            }
+        };
+
+        const startY = piece.y;
+
+        let step = 0.1;
+        if (this.difficulty === 'hard') step = 0.05;
+        if (this.difficulty === 'easy') step = 0.2;
+
+        for (let sv = 0; sv <= 1.0; sv += step) {
+            const startX = getStartX(sv);
+
+            for (const enemy of enemies) {
+                const score = game.board.calculateScore(enemy);
+                if (score >= 3) {
+                    if (this.checkPathClear(startX, startY, enemy.x, enemy.y, [...friends, ...neutral], PIECE_RADIUS * 1.2)) {
+                        let knockValue = score * 10 + 5;
+                        if (knockValue > bestOverallValue) {
+                            bestOverallValue = knockValue;
+                            bestTarget = { x: enemy.x, y: enemy.y };
+                            bestTactic = 'knockout';
+                            bestSliderValue = sv;
+                        }
+                    }
+                }
+            }
+
+            for (let x = CENTER_X - 115; x <= CENTER_X + 115; x += 15) {
+                for (let y = CENTER_Y - 115; y <= CENTER_Y + 115; y += 15) {
+                    const distToCenter = Math.sqrt((x - CENTER_X)**2 + (y - CENTER_Y)**2);
+                    if (distToCenter <= 115) {
+                        const targetScore = game.board.calculateScore({ x, y });
+                        if (targetScore >= 2) {
+                            const isOccupied = avoidPieces.some(p => Math.sqrt((p.x - x)**2 + (p.y - y)**2) < PIECE_RADIUS * 1.2);
+                            if (!isOccupied) {
+                                if (this.checkPathClear(startX, startY, x, y, avoidPieces, PIECE_RADIUS * 1.5)) {
+                                    let cellValue = targetScore * 10;
+                                    
+                                    let minEnemyDist = 9999;
+                                    for (const e of enemies) {
+                                        const d = Math.sqrt((e.x - x)**2 + (e.y - y)**2);
+                                        if (d < minEnemyDist) minEnemyDist = d;
+                                    }
+
+                                    if (minEnemyDist < PIECE_RADIUS * 2.5) {
+                                        cellValue -= 18; 
+                                    } else if (minEnemyDist < PIECE_RADIUS * 4) {
+                                        cellValue -= 5;
+                                    }
+
+                                    if (cellValue > bestOverallValue) {
+                                        bestOverallValue = cellValue;
+                                        bestTarget = { x, y };
+                                        bestTactic = 'occupy';
+                                        bestSliderValue = sv;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // 根据难度决定是否能发现这个击杀机会
-        if (bestEnemyToKnock && Math.random() < this.config.accuracy) {
-            bestOverallValue = maxEnemyValue;
-            bestTarget = { x: bestEnemyToKnock.x, y: bestEnemyToKnock.y };
-            bestTactic = 'knockout';
-        }
-
-        // 2. 划分网格并全盘评估“占位收益”
-        const candidateTargets = [];
-        // 以步长 15 遍历整个得分圆区 (半径 115 的区域)
-        for (let x = CENTER_X - 115; x <= CENTER_X + 115; x += 15) {
-            for (let y = CENTER_Y - 115; y <= CENTER_Y + 115; y += 15) {
-                const distToCenter = Math.sqrt((x - CENTER_X)**2 + (y - CENTER_Y)**2);
-                if (distToCenter <= 115) {
-                    const score = game.board.calculateScore({ x, y });
-                    if (score >= 2) candidateTargets.push({ x, y, score });
-                }
-            }
-        }
-
-        for (const target of candidateTargets) {
-            // 如果该网格点太靠近任何其他棋子，说明已经被占据
-            const isOccupied = avoidPieces.some(p => Math.sqrt((p.x - target.x)**2 + (p.y - target.y)**2) < PIECE_RADIUS * 1.2);
-            if (isOccupied) continue;
-
-            // 检查路径是否畅通
-            if (this.checkPathClear(piece.x, piece.y, target.x, target.y, avoidPieces, PIECE_RADIUS * 1.5)) {
-                let cellValue = target.score * 10; // 基础分数收益
-
-                // 安全性评估：离敌军多远
-                let minEnemyDist = 9999;
-                for (const e of enemies) {
-                    const d = Math.sqrt((e.x - target.x)**2 + (e.y - target.y)**2);
-                    if (d < minEnemyDist) minEnemyDist = d;
-                }
-
-                // 如果离敌军太近，极易被撞飞，大幅扣分
-                if (minEnemyDist < PIECE_RADIUS * 2.5) {
-                    cellValue -= 18; 
-                } else if (minEnemyDist < PIECE_RADIUS * 4) {
-                    cellValue -= 5;
-                }
-
-                if (cellValue > bestOverallValue) {
-                    bestOverallValue = cellValue;
-                    bestTarget = target;
-                    bestTactic = 'occupy';
-                }
-            }
-        }
-
-        // 3. 如果找不到任何好位置（路径全被挡死），随便撞个最近的敌人
         if (!bestTarget) {
+            bestSliderValue = 0.5;
+            const startX = getStartX(0.5);
             if (enemies.length > 0) {
                 let minD = 9999;
                 for (const e of enemies) {
-                    const d = Math.sqrt((e.x - piece.x)**2 + (e.y - piece.y)**2);
+                    const d = Math.sqrt((e.x - startX)**2 + (e.y - startY)**2);
                     if (d < minD) { minD = d; bestTarget = { x: e.x, y: e.y }; }
                 }
                 bestTactic = 'knockout';
@@ -145,17 +148,18 @@ export class AI {
             }
         }
 
-        // 3. 计算所需力度
-        const dist = Math.sqrt((bestTarget.x - piece.x)**2 + (bestTarget.y - piece.y)**2);
+        const startX = getStartX(bestSliderValue);
+        const dist = Math.sqrt((bestTarget.x - startX)**2 + (bestTarget.y - startY)**2);
+        
+        let requiredSpeed = 0;
         if (bestTactic === 'occupy') {
             requiredSpeed = this.getRequiredSpeed(dist);
         } else if (bestTactic === 'knockout') {
             requiredSpeed = this.getRequiredSpeed(dist) + MAX_SPEED * 0.4;
         }
 
-        // 4. 根据难度加入随机误差
-        const dx = bestTarget.x - piece.x;
-        const dy = bestTarget.y - piece.y;
+        const dx = bestTarget.x - startX;
+        const dy = bestTarget.y - startY;
         const baseAngle = Math.atan2(dy, dx);
         
         const angleError = (1 - this.config.accuracy) * Math.PI / 8;
@@ -164,16 +168,64 @@ export class AI {
         const powerError = (1 - this.config.powerControl) * 0.2 * MAX_SPEED;
         const actualSpeed = Math.min(MAX_SPEED, Math.max(0.5, requiredSpeed + (Math.random() * 2 - 1) * powerError));
 
-        return { vx: Math.cos(actualAngle) * actualSpeed, vy: Math.sin(actualAngle) * actualSpeed };
+        return { vx: Math.cos(actualAngle) * actualSpeed, vy: Math.sin(actualAngle) * actualSpeed, sliderValue: bestSliderValue };
+    }
+
+    async animateSlider(game, targetValue) {
+        return new Promise(resolve => {
+            const startValue = game.input.sliderValue;
+            const distance = targetValue - startValue;
+            if (Math.abs(distance) < 0.01) {
+                game.input.sliderValue = targetValue;
+                game.input.applySliderToPiece();
+                resolve();
+                return;
+            }
+
+            let progress = 0;
+            const duration = 500;
+            const startTime = performance.now();
+
+            const step = (currentTime) => {
+                if (!this.isThinking || game.state !== 'playing' || game.currentPlayer !== game.getCurrentPiece()?.player) {
+                    resolve();
+                    return;
+                }
+
+                progress = (currentTime - startTime) / duration;
+                if (progress >= 1) {
+                    game.input.sliderValue = targetValue;
+                    game.input.applySliderToPiece();
+                    resolve();
+                } else {
+                    const ease = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                    game.input.sliderValue = startValue + distance * ease;
+                    game.input.applySliderToPiece();
+                    requestAnimationFrame(step);
+                }
+            };
+            requestAnimationFrame(step);
+        });
     }
 
     async executeTurn(game) {
         this.isThinking = true;
-        await this.think();
+        
+        await this.think(this.config.thinkTime / 2);
+        
         const piece = game.getCurrentPiece();
-        if (!piece) return;
+        if (!piece || !this.isThinking) return;
 
         const launch = this.calculateLaunch(piece, game);
+
+        await this.animateSlider(game, launch.sliderValue);
+
+        if (!this.isThinking) return;
+
+        await this.think(this.config.thinkTime / 2);
+
+        if (!this.isThinking) return;
+
         piece.vx = launch.vx;
         piece.vy = launch.vy;
         piece.isLaunched = true;
@@ -183,10 +235,10 @@ export class AI {
         this.isThinking = false;
     }
 
-    think() {
+    think(time = this.config.thinkTime) {
         return new Promise(resolve => {
-            const jitter = Math.random() * 500 - 250;
-            this.thinkTimer = setTimeout(resolve, this.config.thinkTime + jitter);
+            const jitter = Math.random() * 200 - 100;
+            this.thinkTimer = setTimeout(resolve, time + jitter);
         });
     }
 
