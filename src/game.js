@@ -51,7 +51,7 @@ export class Game {
         this.turnTimeLeft = 60;
         this.audio = new AudioManager();
         this.particles = new ParticleSystem();
-        this.board = new Board();
+        this.board = new Board(this);
         this.physics = new Physics(this);
         this.input = new Input(this);
         this.ui = new UI(this);

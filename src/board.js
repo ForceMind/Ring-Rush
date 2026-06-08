@@ -20,7 +20,8 @@ import {
  * 棋盘类，负责棋盘和得分区域的绘制与计分逻辑
  */
 export class Board {
-    constructor() {
+    constructor(game) {
+        this.game = game;
         this.hexagonVertices = this.generatePolygon(6, SCORING_ZONES.hexagon.radius);
         this.pentagonVertices = this.generatePolygon(5, SCORING_ZONES.pentagon.radius);
         this.squareVertices = this.generateSquareAligned(SCORING_ZONES.square.radius);
