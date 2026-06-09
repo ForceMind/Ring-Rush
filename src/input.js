@@ -342,6 +342,7 @@ export class Input {
     drawSlider(ctx) {
         if (this.game.gameOver || this.game.isAnimating) return;
         if (this.game.isOnlineGame && this.game.isOnlineGame() && !this.game.isMyTurn()) return;
+        if (this.game.isBotTurn && this.game.isBotTurn()) return;
         const currentPiece = this.game.getCurrentPiece();
         if (!currentPiece || currentPiece.isLaunched) return;
 
