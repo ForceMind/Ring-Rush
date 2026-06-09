@@ -3,7 +3,7 @@
  * AI 对手逻辑 - 支持多难度等级的电脑玩家
  */
 
-import { AI_DIFFICULTY, MAX_SPEED, CENTER_X, CENTER_Y, BOARD_Y, BOARD_HEIGHT } from './constants.js';
+import { AI_DIFFICULTY, MAX_SPEED, CENTER_X, CENTER_Y, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT } from './constants.js';
 import { Physics } from './physics.js';
 
 export class AI {
