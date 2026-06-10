@@ -14,20 +14,20 @@ export class AI {
         this.thinkTimer = null;
     }
 
-    calculateLaunch(piece, game) {
+    async calculateLaunch(piece, game) {
         let bestScore = -9999;
         let bestLaunch = { vx: 0, vy: 0, sliderValue: 0.5 };
 
         // Define search space
         let svSteps, speedSteps;
         if (this.difficulty === 'hard') {
-            svSteps = 11;
+            svSteps = 21; // 10px spacing
             speedSteps = 3;
         } else if (this.difficulty === 'medium') {
-            svSteps = 5;
+            svSteps = 11; // 20px spacing
             speedSteps = 2;
         } else {
-            svSteps = 3;
+            svSteps = 5;  // 50px spacing
             speedSteps = 1;
         }
 
@@ -87,7 +87,28 @@ export class AI {
             }
         }
 
+        // Add explicit targets for all pieces currently on the board
+        for (const p of originalPieces) {
+            if (p.isLaunched && !p.isDiscarded && p.isActive === false && p.player !== 'N') {
+                addTarget(p.x, p.y);
+                if (this.difficulty === 'hard') {
+                    const boardLeft = BOARD_X + PIECE_RADIUS;
+                    addTarget(boardLeft - (p.x - boardLeft), p.y);
+                    const boardRight = BOARD_X + BOARD_WIDTH - PIECE_RADIUS;
+                    addTarget(boardRight + (boardRight - p.x), p.y);
+                }
+            }
+        }
+
+        let loopCount = 0;
         for (const cand of candidates) {
+            if (!this.isThinking) return bestLaunch; // Break if turn cancelled
+            
+            loopCount++;
+            if (loopCount % 500 === 0) {
+                // Yield to event loop to keep animations smooth
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
             const vx = Math.cos(cand.angle) * cand.speed;
             const vy = Math.sin(cand.angle) * cand.speed;
 
@@ -148,7 +169,9 @@ export class AI {
             }
 
             const sliderBias = -Math.abs(cand.sv - 0.5) * 0.1;
-            const netScore = myScore - opScore * 1.5 + sliderBias;
+            // 增加最多 0.4 的随机分数（小于最小的分差步长 0.5），用来在同等收益的选项中随机挑一个，避免每次开局完全一致
+            const noiseScore = Math.random() * 0.4;
+            const netScore = myScore - opScore * 1.5 + sliderBias + noiseScore;
 
             if (netScore > bestScore) {
                 bestScore = netScore;
@@ -210,7 +233,7 @@ export class AI {
         const piece = game.getCurrentPiece();
         if (!piece || !this.isThinking) return;
 
-        const launch = this.calculateLaunch(piece, game);
+        const launch = await this.calculateLaunch(piece, game);
 
         await this.animateSlider(game, launch.sliderValue);
 
