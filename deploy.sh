@@ -24,7 +24,21 @@ fi
 
 SERVICE_NAME="ring-rush"
 
-# 2. 清理旧的 Systemd 和 PM2 进程
+# 2. 自动更新代码 (Git)
+if command -v git > /dev/null && [ -d ".git" ]; then
+  echo "🔄 检测到 Git 仓库，正在尝试自动拉取最新代码..."
+  # 暂存本地可能的临时修改
+  git stash >/dev/null 2>&1 || true
+  # 拉取最新代码
+  if git pull --rebase; then
+    echo "✅ 代码库已同步至最新版本"
+  else
+    echo "⚠️ Git 拉取失败或存在冲突，将继续使用当前代码。"
+    git stash pop >/dev/null 2>&1 || true
+  fi
+fi
+
+# 3. 清理旧的 Systemd 和 PM2 进程
 echo "🧹 准备清理旧的部署实例并释放端口..."
 systemctl stop $SERVICE_NAME >/dev/null 2>&1 || true
 
@@ -40,7 +54,7 @@ fi
 # 等待2秒确保端口完全释放
 sleep 2
 
-# 3. 检查并安装 Node.js
+# 4. 检查并安装 Node.js
 if ! command -v node > /dev/null; then
   echo "📦 未检测到 Node.js，准备开始安装..."
   if command -v apt-get > /dev/null; then
@@ -56,18 +70,18 @@ if ! command -v node > /dev/null; then
   echo "✅ Node.js 安装完成: $(node -v)"
 fi
 
-# 4. 安装服务器依赖
+# 5. 安装服务器依赖
 echo "📦 正在安装服务器端依赖..."
 cd "$SERVER_DIR"
 npm install --production
 
-# 4.5 混淆打包前端产物
+# 5.5 混淆打包前端产物
 echo "📦 正在构建并混淆前端代码 (Vite)..."
 cd "$PROJECT_DIR"
 npm install
 npm run build
 
-# 5. 自动分配不冲突的端口
+# 6. 自动分配不冲突的端口
 echo "🔍 正在扫描可用端口..."
 PORT=3000
 while true; do
@@ -83,7 +97,7 @@ while true; do
 done
 echo "✅ 自动分配空闲端口: $PORT"
 
-# 6. 配置 Systemd
+# 7. 配置 Systemd
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 echo "⚙️  生成底层服务配置..."
@@ -106,14 +120,14 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# 7. 重启并拉起服务
+# 8. 重启并拉起服务
 echo "🚀 启动系统原生服务..."
 systemctl daemon-reload
 systemctl stop $SERVICE_NAME >/dev/null 2>&1 || true
 systemctl enable $SERVICE_NAME
 systemctl restart $SERVICE_NAME
 
-# 8. 配置 Nginx 域名反向代理
+# 9. 配置 Nginx 域名反向代理
 echo ""
 read -p "🌐 是否需要配置域名访问？(如果需要，脚本将自动配置 Nginx 反向代理) [y/N]: " NEED_DOMAIN
 if [[ "$NEED_DOMAIN" =~ ^[Yy]$ ]]; then
