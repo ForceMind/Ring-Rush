@@ -1,7 +1,7 @@
 {
-  "name": "ring-rush-server",
-  "version": "0.9.24",
-  "description": "WebSocket server for Ring Rush game",
+  "name": "pello-server",
+  "version": "0.10.1",
+  "description": "WebSocket Server for Ring Rush",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

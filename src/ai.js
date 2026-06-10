@@ -100,14 +100,15 @@ export class AI {
             }
         }
 
-        let loopCount = 0;
+        let lastYieldTime = performance.now();
         for (const cand of candidates) {
             if (!this.isThinking) return bestLaunch; // Break if turn cancelled
             
-            loopCount++;
-            if (loopCount % 500 === 0) {
-                // Yield to event loop to keep animations smooth
+            const now = performance.now();
+            if (now - lastYieldTime > 16) {
+                // Yield to event loop to keep animations smooth (60 FPS)
                 await new Promise(resolve => setTimeout(resolve, 0));
+                lastYieldTime = performance.now();
             }
             const vx = Math.cos(cand.angle) * cand.speed;
             const vy = Math.sin(cand.angle) * cand.speed;
