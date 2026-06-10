@@ -142,7 +142,7 @@ export class AI {
 
             // Run simulation
             let steps = 0;
-            while (Physics.simulateStep(simPieces) && steps < 300) {
+            while (Physics.simulateStep(simPieces) && steps < 450) {
                 steps++;
             }
 
@@ -170,9 +170,11 @@ export class AI {
             }
 
             const sliderBias = -Math.abs(cand.sv - 0.5) * 0.1;
+            // 降低破坏欲，提升得分欲。如果是困难模式，略微增加破坏欲
+            const opWeight = this.difficulty === 'hard' ? 0.9 : 0.6;
             // 增加最多 0.4 的随机分数（小于最小的分差步长 0.5），用来在同等收益的选项中随机挑一个，避免每次开局完全一致
             const noiseScore = Math.random() * 0.4;
-            const netScore = myScore - opScore * 1.5 + sliderBias + noiseScore;
+            const netScore = myScore * 1.2 - opScore * opWeight + sliderBias + noiseScore;
 
             if (netScore > bestScore) {
                 bestScore = netScore;
