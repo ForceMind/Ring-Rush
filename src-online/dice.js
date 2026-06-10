@@ -175,7 +175,7 @@ export class DiceManager {
             ctx.fillStyle = 'rgba(244, 67, 54, 0.2)';
             ctx.fillRect(0, 400 - 40, CANVAS_WIDTH, 80);
             ctx.fillStyle = '#f44336'; ctx.font = 'bold 36px sans-serif';
-            ctx.fillText('双方点数相同，平局重掷！', CENTER_X, 415);
+            ctx.fillText('双方点数相同，平局重掷！', CENTER_X, 400);
         } else {
             const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
             if (!this.hasRolled) {

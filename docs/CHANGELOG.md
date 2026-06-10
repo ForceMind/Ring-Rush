@@ -14,6 +14,41 @@
 
 ---
 
+## [0.10.5] - 2026-06-10
+### Fixed
+- Tightened Hard Bot score-pressure logic so it locks the best high-score shot when trailing, in late turns, or when the opponent can win on the next shot.
+- Prevented Hard Bot variety selection from intentionally dropping from available 5/4-point near-optimal shots to 3/2-point shots.
+- Removed Hard Bot execution error; Hard difficulty now varies tactically only in safe positions rather than missing mechanically.
+
+---
+
+## [0.10.4] - 2026-06-10
+### Changed
+- Bot difficulty now combines search depth, near-optimal move selection, score-variety weighting, and execution error instead of only changing search density.
+- Hard Bot keeps deterministic best-play behavior for critical shots, immediate wins, and comeback situations, but uses weighted near-optimal choices in ordinary positions so scoring is less mechanical.
+
+---
+
+## [0.10.3] - 2026-06-10
+### Fixed
+- Centered the dice-tie message vertically inside its red banner in both normal and isolated online source trees.
+
+### Notes
+- Local and Bot dice rolls remain two independent `Math.random()` rolls from 1 to 6, so the expected tie rate is 1/6 per opening roll.
+
+---
+
+## [0.10.2] - 2026-06-10
+### Changed
+- Bot AI decision scoring now predicts the current shot score, runner-position impact, immediate win opportunities, opponent counterplay risk, endgame value, and friendly-collision risk before choosing a launch.
+- Replaced the previous whole-board score heuristic with a shot-focused tactical evaluator while keeping the existing physics simulation search.
+
+### Fixed
+- Fixed the AI candidate loop crash caused by `noiseScore` being swallowed by a malformed comment.
+- Fixed Bot slider animation cancellation caused by checking a non-existent `game.state` field.
+
+---
+
 ## [0.7.4] - 2026-06-04 ✅
 
 ### 修复与优化
