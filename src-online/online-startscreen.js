@@ -350,14 +350,68 @@ export class OnlineStartScreen {
         ctx.textAlign = 'left';
         ctx.fillText('PELLO', 24, 54);
 
-        if (!drawUIAsset(ctx, 'coinPill', 202, 22, 238, 50)) {
-            this.drawPill(ctx, 202, 22, 238, 50, '#fff7cc', '#ffffff');
-        }
-        ctx.fillStyle = '#8a5a00';
-        ctx.font = 'bold 18px sans-serif';
-        ctx.textAlign = 'right';
         const balance = this.wallet ? this.wallet.available : '--';
-        ctx.fillText(t('coins', { value: balance }), 420, 54);
+        this.drawCoinBalance(ctx, CANVAS_WIDTH - 178, 24, 158, 46, t('coins', { value: balance }));
+    }
+
+    drawCoinBalance(ctx, x, y, w, h, label) {
+        ctx.save();
+        const radius = h / 2;
+        const gradient = ctx.createLinearGradient(x, y, x, y + h);
+        gradient.addColorStop(0, '#fff8c9');
+        gradient.addColorStop(1, '#ffd65c');
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = 'rgba(20,54,66,0.18)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 5;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, radius);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        this.drawCoinIcon(ctx, x + 25, y + h / 2, 17);
+        ctx.fillStyle = '#8a5a00';
+        ctx.font = 'bold 17px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x + w - 14, y + h / 2 + 1);
+        ctx.restore();
+    }
+
+    drawCoinIcon(ctx, x, y, r) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(138,90,0,0.25)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetY = 3;
+        const coin = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.12, x, y, r);
+        coin.addColorStop(0, '#fff7c5');
+        coin.addColorStop(0.2, '#ffd94f');
+        coin.addColorStop(0.72, '#ff9b24');
+        coin.addColorStop(1, '#d46d08');
+        ctx.fillStyle = coin;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(138,90,0,0.24)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.58, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.beginPath();
+        ctx.arc(x - r * 0.36, y - r * 0.38, r * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     drawHome(ctx) {
@@ -602,11 +656,67 @@ export class OnlineStartScreen {
         ctx.textBaseline = 'middle';
         ctx.fillText(t('chooseAiDifficulty'), CENTER_X, 160);
 
-        this.drawCard(ctx, 24, 222, 402, 360, '#ffffffdd', 'panel');
-        this.drawPuckPreview(ctx, CENTER_X, 310, true);
-        this.drawButton(ctx, 52, 398, 346, 58, t('easy'), '#35b779', 'practice_ai_easy');
-        this.drawButton(ctx, 52, 474, 346, 58, t('medium'), '#ff8a3d', 'practice_ai_medium');
-        this.drawButton(ctx, 52, 550, 346, 58, t('hard'), '#d9480f', 'practice_ai_hard');
+        this.drawCard(ctx, 24, 210, 402, 430, '#ffffffdd', 'panel');
+        this.drawAiRobot(ctx, CENTER_X, 304);
+        this.drawButton(ctx, 52, 414, 346, 56, t('easy'), '#35b779', 'practice_ai_easy');
+        this.drawButton(ctx, 52, 488, 346, 56, t('medium'), '#ff8a3d', 'practice_ai_medium');
+        this.drawButton(ctx, 52, 562, 346, 56, t('hard'), '#d9480f', 'practice_ai_hard');
+    }
+
+    drawAiRobot(ctx, x, y) {
+        const bob = Math.sin(this.animPhase * 2.4) * 3;
+        const cy = y + bob;
+        const scan = 0.55 + 0.45 * Math.sin(this.animPhase * 3.2);
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(20,54,66,0.2)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 8;
+        const bodyGradient = ctx.createLinearGradient(x, cy - 56, x, cy + 44);
+        bodyGradient.addColorStop(0, '#45caff');
+        bodyGradient.addColorStop(1, '#137edc');
+        ctx.fillStyle = bodyGradient;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.roundRect(x - 62, cy - 48, 124, 92, 28);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        ctx.fillStyle = '#ff8a2a';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(x - 8, cy - 76, 16, 26, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(232, 255, 143, ${0.68 + scan * 0.28})`;
+        ctx.shadowColor = '#e8ff8f';
+        ctx.shadowBlur = 10 + scan * 8;
+        ctx.beginPath();
+        ctx.arc(x - 28, cy - 8, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x + 28, cy - 8, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(x - 38, cy + 18, 76, 10, 5);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(232,255,143,${0.35 + scan * 0.28})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - 44, cy - 30 + scan * 18);
+        ctx.lineTo(x + 44, cy - 30 + scan * 18);
+        ctx.stroke();
+        ctx.restore();
     }
 
     drawTextBackplate(ctx, x, y, w, h) {
@@ -961,11 +1071,6 @@ export class OnlineStartScreen {
     }
 
     drawPill(ctx, x, y, w, h, color, stroke) {
-        const isCoin = String(color || '').includes('fff') || String(color || '').includes('f6c');
-        if (isCoin && drawUIAsset(ctx, 'coinPill', x, y, w, h)) {
-            return;
-        }
-
         ctx.fillStyle = color;
         ctx.strokeStyle = stroke;
         ctx.lineWidth = 2;

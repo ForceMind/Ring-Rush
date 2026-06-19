@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="800" viewBox="0 0 450 800">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#74dcff"/><stop offset=".55" stop-color="#e9f7a2"/><stop offset="1" stop-color="#64dc93"/></linearGradient>
+    <linearGradient id="bot" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#45caff"/><stop offset="1" stop-color="#137edc"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#143642" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="450" height="800" fill="url(#bg)"/>
+  <g opacity=".28" fill="#fff"><circle cx="55" cy="104" r="28"/><circle cx="355" cy="128" r="34"/><rect x="18" y="580" width="56" height="144" rx="28"/></g>
+  <rect x="18" y="24" width="414" height="58" rx="22" fill="#fff" filter="url(#shadow)" opacity=".94"/>
+  <text x="40" y="61" font-family="Arial,sans-serif" font-size="21" font-weight="900" fill="#123642">返回</text>
+  <rect x="282" y="31" width="132" height="44" rx="22" fill="#ffd75c" stroke="#fff" stroke-width="4"/>
+  <circle cx="308" cy="53" r="16" fill="#ff9a2d" stroke="#fff" stroke-width="4"/>
+  <text x="400" y="60" font-family="Arial,sans-serif" font-size="17" font-weight="900" text-anchor="end" fill="#8a5a00">128</text>
+  <text x="225" y="150" font-family="Arial,sans-serif" font-size="42" font-weight="900" text-anchor="middle" fill="#123642">选择 AI 难度</text>
+  <rect x="28" y="196" width="394" height="430" rx="34" fill="#fff" filter="url(#shadow)" opacity=".94"/>
+  <rect x="163" y="252" width="124" height="92" rx="30" fill="url(#bot)" stroke="#fff" stroke-width="7" filter="url(#shadow)"/>
+  <rect x="217" y="222" width="16" height="30" rx="8" fill="#ff8a2a" stroke="#fff" stroke-width="4"/>
+  <circle cx="197" cy="298" r="11" fill="#e8ff8f"/><circle cx="253" cy="298" r="11" fill="#e8ff8f"/>
+  <path d="M188 326 H262" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".65"/>
+  <path d="M181 278 H269" stroke="#e8ff8f" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+  <g font-family="Arial,sans-serif" font-size="24" font-weight="900" text-anchor="middle" fill="#fff">
+    <rect x="58" y="414" width="334" height="58" rx="17" fill="#24bf6b" filter="url(#shadow)"/><text x="225" y="451">简单</text>
+    <rect x="58" y="492" width="334" height="58" rx="17" fill="#ff8a2a" filter="url(#shadow)"/><text x="225" y="529">中等</text>
+    <rect x="58" y="570" width="334" height="58" rx="17" fill="#ef4d57" filter="url(#shadow)"/><text x="225" y="607">困难</text>
+  </g>
+</svg>

@@ -1,11 +1,17 @@
 import {
     AI_DIFFICULTY,
+    BOARD_HEIGHT,
+    BOARD_WIDTH,
+    BOARD_X,
+    BOARD_Y,
     CENTER_X,
     CENTER_Y,
     FRICTION,
     MAX_SPEED,
     PIECE_RADIUS,
-    SCORING_ZONES
+    RESTITUTION,
+    SCORING_ZONES,
+    SPEED_THRESHOLD
 } from './constants.js';
 
 export class AI {
@@ -17,7 +23,8 @@ export class AI {
     }
 
     getRequiredSpeed(distance) {
-        return distance * (1 - FRICTION);
+        const frictionLossTail = SPEED_THRESHOLD / Math.max(0.001, 1 - FRICTION);
+        return (distance + frictionLossTail * 0.72) * (1 - FRICTION);
     }
 
     checkPathClear(startX, startY, targetX, targetY, avoidPieces, clearanceRadius) {
@@ -48,19 +55,13 @@ export class AI {
     }
 
     calculateLaunch(piece, game) {
-        let requiredSpeed = 0;
-        let bestTarget = null;
-        let bestTactic = 'occupy';
-        let bestOverallValue = -999;
-
         const pieces = game.physics.pieces;
         const enemies = pieces.filter((p) => p.player !== piece.player && p.player !== 'N' && p.isLaunched && !p.isDiscarded);
         const neutral = pieces.filter((p) => p.player === 'N' && p.isLaunched && !p.isDiscarded);
         const friends = pieces.filter((p) => p.player === piece.player && p !== piece && p.isLaunched && !p.isDiscarded);
         const avoidPieces = [...enemies, ...neutral, ...friends];
+        const plans = [];
 
-        let bestEnemyToKnock = null;
-        let maxEnemyValue = 0;
         for (const enemy of enemies) {
             const score = game.board.calculateScore(enemy);
             if (score < 3) continue;
@@ -75,17 +76,13 @@ export class AI {
             );
             if (!clear) continue;
 
-            const knockValue = score * 10 + 5;
-            if (knockValue > maxEnemyValue) {
-                bestEnemyToKnock = enemy;
-                maxEnemyValue = knockValue;
+            if (Math.random() < this.config.accuracy) {
+                plans.push({
+                    target: { x: enemy.x, y: enemy.y },
+                    tactic: 'knockout',
+                    baseValue: score * 22 + (score >= 5 ? 20 : 8)
+                });
             }
-        }
-
-        if (bestEnemyToKnock && Math.random() < this.config.accuracy) {
-            bestOverallValue = maxEnemyValue;
-            bestTarget = { x: bestEnemyToKnock.x, y: bestEnemyToKnock.y };
-            bestTactic = 'knockout';
         }
 
         const candidateTargets = this.getScoringCandidateTargets(game, piece.player);
@@ -96,58 +93,154 @@ export class AI {
             const clear = this.checkPathClear(piece.x, piece.y, target.x, target.y, avoidPieces, PIECE_RADIUS * 3);
             if (!clear) continue;
 
-            let cellValue = target.score * 12 - this.distanceToCenter(target) * 0.03;
-            if (target.score === 5) cellValue += 14;
-            if (target.score === 2) cellValue -= 3;
-            let minEnemyDist = 9999;
-            for (const enemy of enemies) {
-                const distance = Math.sqrt((enemy.x - target.x) ** 2 + (enemy.y - target.y) ** 2);
-                if (distance < minEnemyDist) minEnemyDist = distance;
-            }
-
-            if (minEnemyDist < PIECE_RADIUS * 2.5) {
-                cellValue -= 18;
-            } else if (minEnemyDist < PIECE_RADIUS * 4) {
-                cellValue -= 5;
-            }
-
-            if (cellValue > bestOverallValue) {
-                bestOverallValue = cellValue;
-                bestTarget = target;
-                bestTactic = 'occupy';
-            }
+            plans.push({
+                target,
+                tactic: 'occupy',
+                baseValue: this.scoreOccupyTarget(target, enemies)
+            });
         }
 
-        if (!bestTarget) {
+        if (plans.length === 0) {
             if (enemies.length > 0) {
                 let nearestDistance = 9999;
+                let nearestEnemy = null;
                 for (const enemy of enemies) {
                     const distance = Math.sqrt((enemy.x - piece.x) ** 2 + (enemy.y - piece.y) ** 2);
                     if (distance < nearestDistance) {
                         nearestDistance = distance;
-                        bestTarget = { x: enemy.x, y: enemy.y };
+                        nearestEnemy = enemy;
                     }
                 }
-                bestTactic = 'knockout';
+                if (nearestEnemy) {
+                    plans.push({
+                        target: { x: nearestEnemy.x, y: nearestEnemy.y },
+                        tactic: 'knockout',
+                        baseValue: 10
+                    });
+                }
             } else {
-                bestTarget = {
-                    x: CENTER_X,
-                    y: CENTER_Y + (piece.player === 'A' ? -1 : 1) * SCORING_ZONES.pentagon.radius * 0.72
-                };
-                bestTactic = 'occupy';
+                plans.push({
+                    target: {
+                        x: CENTER_X,
+                        y: CENTER_Y + (piece.player === 'A' ? -1 : 1) * SCORING_ZONES.pentagon.radius * 0.72
+                    },
+                    tactic: 'occupy',
+                    baseValue: 20
+                });
             }
         }
 
-        const dist = Math.sqrt((bestTarget.x - piece.x) ** 2 + (bestTarget.y - piece.y) ** 2);
-        if (bestTactic === 'occupy') {
-            requiredSpeed = this.getRequiredSpeed(dist);
-        } else {
-            requiredSpeed = this.getRequiredSpeed(dist) + MAX_SPEED * 0.28;
+        const selectedPlan = this.pickBestPlan(piece, game, plans);
+        return this.applyDifficultyError(piece, selectedPlan.target, selectedPlan.tactic);
+    }
+
+    scoreOccupyTarget(target, enemies) {
+        let value = target.score * 13 - this.distanceToCenter(target) * 0.025;
+        if (target.score === 5) value += 20;
+        if (target.score === 4) value += 8;
+        if (target.score === 2) value -= 2;
+
+        let minEnemyDist = 9999;
+        for (const enemy of enemies) {
+            const distance = Math.sqrt((enemy.x - target.x) ** 2 + (enemy.y - target.y) ** 2);
+            if (distance < minEnemyDist) minEnemyDist = distance;
         }
 
-        const dx = bestTarget.x - piece.x;
-        const dy = bestTarget.y - piece.y;
-        const baseAngle = Math.atan2(dy, dx);
+        if (minEnemyDist < PIECE_RADIUS * 2.5) {
+            value -= 18;
+        } else if (minEnemyDist < PIECE_RADIUS * 4) {
+            value -= 5;
+        }
+
+        return value;
+    }
+
+    pickBestPlan(piece, game, plans) {
+        const sortedPlans = plans
+            .filter((plan) => plan && plan.target)
+            .sort((a, b) => b.baseValue - a.baseValue);
+        const limit = this.difficulty === 'hard' ? 90 : this.difficulty === 'medium' ? 58 : 34;
+        const evaluated = sortedPlans.slice(0, limit).map((plan) => ({
+            plan,
+            value: this.evaluatePlan(piece, game, plan)
+        })).sort((a, b) => b.value - a.value);
+
+        if (evaluated.length === 0) {
+            return {
+                target: {
+                    x: CENTER_X,
+                    y: CENTER_Y + (piece.player === 'A' ? -1 : 1) * SCORING_ZONES.pentagon.radius * 0.72
+                },
+                tactic: 'occupy'
+            };
+        }
+
+        if (this.difficulty === 'hard') {
+            const bestKnockout = evaluated.find((entry) => entry.plan.tactic === 'knockout' && entry.value > -200);
+            if (bestKnockout && bestKnockout.value >= evaluated[0].value - 80) {
+                return bestKnockout.plan;
+            }
+            return evaluated[0].plan;
+        }
+
+        const choiceCount = this.difficulty === 'medium' ? Math.min(3, evaluated.length) : Math.min(6, evaluated.length);
+        const pick = Math.floor(Math.random() * choiceCount);
+        return evaluated[pick].plan;
+    }
+
+    evaluatePlan(piece, game, plan) {
+        const launch = this.createLaunchVector(piece, plan.target, plan.tactic);
+        const before = this.scoreSimulationPieces(game.physics.pieces, game);
+        const outcome = this.simulateShot(piece, game, launch.vx, launch.vy);
+        const after = this.scoreSimulationPieces(outcome.pieces, game);
+        const current = outcome.pieces.find((p) => p.isCurrent);
+
+        if (!current || current.isDiscarded || !current.hasEnteredBoard) return -999;
+
+        const currentScore = game.board.calculateScore(current);
+        const targetDistance = Math.sqrt((current.x - plan.target.x) ** 2 + (current.y - plan.target.y) ** 2);
+        const ownScoreGain = after.friendly[piece.player] - before.friendly[piece.player];
+        const enemyScoreBefore = before.enemy[piece.player] || 0;
+        const enemyScoreAfter = after.enemy[piece.player] || 0;
+        const enemyScoreDrop = enemyScoreBefore - enemyScoreAfter;
+        const friendlyLoss = Math.max(0, before.friendly[piece.player] - after.friendly[piece.player]);
+
+        let value = plan.baseValue;
+        value += currentScore * 24;
+        value += ownScoreGain * 10;
+        value += enemyScoreDrop * (plan.tactic === 'knockout' ? 22 : 12);
+        value -= friendlyLoss * 24;
+        value -= Math.min(55, targetDistance * 0.32);
+        if (plan.tactic === 'occupy' && currentScore === 0) value -= 85;
+        if (plan.tactic === 'knockout' && enemyScoreDrop <= 0) value -= 45;
+        if (currentScore >= 4) value += 12;
+        return value;
+    }
+
+    scoreSimulationPieces(pieces, game) {
+        const totals = {
+            friendly: { A: 0, B: 0 },
+            enemy: { A: 0, B: 0 }
+        };
+
+        for (const piece of pieces) {
+            if (piece.isDiscarded || piece.player === 'N') continue;
+            const score = game.board.calculateScore(piece);
+            if (piece.player === 'A') {
+                totals.friendly.A += score;
+                totals.enemy.B += score;
+            } else if (piece.player === 'B') {
+                totals.friendly.B += score;
+                totals.enemy.A += score;
+            }
+        }
+
+        return totals;
+    }
+
+    applyDifficultyError(piece, target, tactic) {
+        const launch = this.createLaunchVector(piece, target, tactic);
+        const { baseAngle, requiredSpeed } = launch;
         const angleError = Math.pow(1 - this.config.accuracy, 1.05) * Math.PI / 10;
         const actualAngle = baseAngle + (Math.random() * 2 - 1) * angleError;
         const powerError = (1 - this.config.powerControl) * 0.14 * MAX_SPEED;
@@ -156,9 +249,147 @@ export class AI {
         return {
             vx: Math.cos(actualAngle) * actualSpeed,
             vy: Math.sin(actualAngle) * actualSpeed,
-            tactic: bestTactic,
-            target: bestTarget
+            tactic,
+            target
         };
+    }
+
+    createLaunchVector(piece, target, tactic) {
+        const dx = target.x - piece.x;
+        const dy = target.y - piece.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const baseAngle = Math.atan2(dy, dx);
+        const tacticBoost = tactic === 'knockout' ? MAX_SPEED * 0.4 : 0;
+        const requiredSpeed = Math.min(MAX_SPEED, Math.max(0.5, this.getRequiredSpeed(dist) + tacticBoost));
+
+        return {
+            vx: Math.cos(baseAngle) * requiredSpeed,
+            vy: Math.sin(baseAngle) * requiredSpeed,
+            baseAngle,
+            requiredSpeed
+        };
+    }
+
+    simulateShot(sourcePiece, game, vx, vy) {
+        const pieces = game.physics.pieces.map((piece, index) => ({
+            x: piece.x,
+            y: piece.y,
+            vx: piece === sourcePiece ? vx : (piece.vx || 0),
+            vy: piece === sourcePiece ? vy : (piece.vy || 0),
+            radius: piece.radius || PIECE_RADIUS,
+            player: piece.player,
+            isLaunched: piece === sourcePiece ? true : piece.isLaunched,
+            isActive: piece === sourcePiece ? true : piece.isActive,
+            isDiscarded: !!piece.isDiscarded,
+            hasEnteredBoard: !!piece.hasEnteredBoard,
+            sourceIndex: index,
+            isCurrent: piece === sourcePiece
+        }));
+
+        for (let frame = 0; frame < 460; frame++) {
+            let anyActive = false;
+            for (const piece of pieces) {
+                if (!piece.isActive || piece.isDiscarded) continue;
+
+                piece.x += piece.vx;
+                piece.y += piece.vy;
+                piece.vx *= FRICTION;
+                piece.vy *= FRICTION;
+
+                this.applySimulationBoundary(piece);
+                this.applySimulationCollisions(piece, pieces);
+
+                const speed = Math.sqrt(piece.vx * piece.vx + piece.vy * piece.vy);
+                if (speed < SPEED_THRESHOLD) {
+                    piece.vx = 0;
+                    piece.vy = 0;
+                    piece.isActive = false;
+                } else {
+                    anyActive = true;
+                }
+            }
+            if (!anyActive) break;
+        }
+
+        return { pieces };
+    }
+
+    applySimulationBoundary(piece) {
+        const boardMinX = BOARD_X + piece.radius;
+        const boardMaxX = BOARD_X + BOARD_WIDTH - piece.radius;
+        const boardMinY = BOARD_Y + piece.radius;
+        const boardMaxY = BOARD_Y + BOARD_HEIGHT - piece.radius;
+        const absMinY = BOARD_Y - 85 + piece.radius;
+        const absMaxY = BOARD_Y + BOARD_HEIGHT + 85 - piece.radius;
+
+        if (!piece.hasEnteredBoard && piece.isLaunched) {
+            if (piece.y >= boardMinY && piece.y <= boardMaxY) {
+                piece.hasEnteredBoard = true;
+            }
+        }
+
+        if (piece.x < boardMinX) {
+            piece.x = boardMinX;
+            piece.vx *= -RESTITUTION;
+        }
+        if (piece.x > boardMaxX) {
+            piece.x = boardMaxX;
+            piece.vx *= -RESTITUTION;
+        }
+
+        if (piece.y < boardMinY) {
+            if (piece.hasEnteredBoard || piece.player === 'A') {
+                piece.y = boardMinY;
+                piece.vy *= -RESTITUTION;
+            } else if (piece.y < absMinY) {
+                piece.y = absMinY;
+                piece.vy *= -RESTITUTION;
+            }
+        }
+
+        if (piece.y > boardMaxY) {
+            if (piece.hasEnteredBoard || piece.player === 'B') {
+                piece.y = boardMaxY;
+                piece.vy *= -RESTITUTION;
+            } else if (piece.y > absMaxY) {
+                piece.y = absMaxY;
+                piece.vy *= -RESTITUTION;
+            }
+        }
+    }
+
+    applySimulationCollisions(currentPiece, pieces) {
+        for (const other of pieces) {
+            if (other === currentPiece || !other.isLaunched || other.isDiscarded) continue;
+
+            const dx = other.x - currentPiece.x;
+            const dy = other.y - currentPiece.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDist = currentPiece.radius + other.radius;
+
+            if (distance < minDist && distance > 0) {
+                const nx = dx / distance;
+                const ny = dy / distance;
+                const dvx = currentPiece.vx - other.vx;
+                const dvy = currentPiece.vy - other.vy;
+                const dvDotN = dvx * nx + dvy * ny;
+
+                if (dvDotN > 0) {
+                    const impulse = dvDotN * (1 + RESTITUTION) / 2;
+                    currentPiece.vx -= impulse * nx;
+                    currentPiece.vy -= impulse * ny;
+                    other.vx += impulse * nx;
+                    other.vy += impulse * ny;
+                    other.isActive = true;
+
+                    const overlap = minDist - distance;
+                    currentPiece.x -= (overlap / 2) * nx;
+                    currentPiece.y -= (overlap / 2) * ny;
+                    other.x += (overlap / 2) * nx;
+                    other.y += (overlap / 2) * ny;
+                }
+            }
+        }
     }
 
     getScoringCandidateTargets(game, player) {

@@ -12,10 +12,15 @@ All notable changes are tracked here.
 - Added `/download/Pello.apk` server route for Android APK downloads, while keeping `/download/pello-debug.apk` as a legacy alias.
 - Added repository APK artifact path `public/download/Pello.apk` for simple server pull-and-deploy testing.
 - Added static MIME support for JSON, WebP, JPEG, and APK files.
+- Added physics-backed AI regression tests that verify real landing positions and high-value enemy knockouts, not only selected targets.
+- Added clean public website screenshot artwork for home, AI difficulty, player turn, and game-over states.
 
 ### Changed
 
 - Redesigned the public website from a visual mockup into a gameplay-only sharing page, focused on drag shooting, collision positioning, AI practice, screenshots, online play, and APK download.
+- Reworked practice AI decision-making to evaluate candidate shots with the real board physics before choosing a target.
+- Reworked the app top-bar coin display into a round coin plus balance pill so it no longer stretches flat.
+- Replaced the AI difficulty puck preview with an animated robot presentation and kept difficulty buttons inside the panel.
 - Kept `online.html` as the web game entry and changed `index.html` into the public website.
 - Configured Capacitor `server.appStartPath` to `/online.html` so the Android app still opens the game UI.
 - Configured deployment defaults for `https://pello.xincreates.com`.
@@ -32,6 +37,7 @@ All notable changes are tracked here.
 - Removed the duplicate version label next to the top title and moved settings access to the lower home screen.
 - Prevented the new website entry from breaking Android startup.
 - Clarified combined deployment: one Node service hosts website, web game, HTTP API, WebSocket backend, and APK download.
+- Reduced oversized puck highlights and slowed score popups so scoring feedback stays readable.
 
 ## [0.10.5] - 2026-06-10
 

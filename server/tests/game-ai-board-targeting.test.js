@@ -222,6 +222,63 @@ function testAiLaunchChoosesScoringTargetFromTopLane(context) {
     assert(game.board.calculateScore({ ...launch.target, player: 'B' }) > 0, 'Top-lane AI target should be inside a real scoring zone');
 }
 
+function getSettledCurrentPiece(ai, game, piece, launch) {
+    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy);
+    return outcome.pieces.find((candidate) => candidate.isCurrent);
+}
+
+function testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(context) {
+    const game = createGame(context);
+    const ai = new context.AI('hard');
+    const piece = {
+        x: context.CENTER_X,
+        y: context.BOTTOM_LAUNCH_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'A',
+        isLaunched: false,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: false
+    };
+    game.physics.pieces = [piece];
+
+    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
+    const settled = getSettledCurrentPiece(ai, game, piece, launch);
+
+    assert(settled.hasEnteredBoard, 'Hard AI shot from bottom should enter the board');
+    assert(game.board.calculateScore(settled) >= 4, 'Hard AI shot from bottom should settle in a high-value scoring zone');
+    assert(
+        Math.hypot(settled.x - launch.target.x, settled.y - launch.target.y) < context.PIECE_RADIUS * 1.4,
+        'Hard AI shot from bottom should settle close to its selected target'
+    );
+}
+
+function testAiHardLaunchActuallyLandsOnScoringTargetFromTop(context) {
+    const game = createGame(context);
+    const ai = new context.AI('hard');
+    const piece = {
+        x: context.CENTER_X,
+        y: context.TOP_LAUNCH_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'B',
+        isLaunched: false,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: false
+    };
+    game.physics.pieces = [piece];
+
+    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
+    const settled = getSettledCurrentPiece(ai, game, piece, launch);
+
+    assert(settled.hasEnteredBoard, 'Hard AI shot from top should enter the board');
+    assert(game.board.calculateScore(settled) >= 4, 'Hard AI shot from top should settle in a high-value scoring zone');
+    assert(
+        Math.hypot(settled.x - launch.target.x, settled.y - launch.target.y) < context.PIECE_RADIUS * 1.4,
+        'Hard AI shot from top should settle close to its selected target'
+    );
+}
+
 function testAiDifficultyProfilesHaveDistinctAccuracy(context) {
     const makeLaunch = (difficulty) => {
         const game = createGame(context);
@@ -306,6 +363,45 @@ function testAiCanKnockHighValueEnemy(context) {
     assert(Math.hypot(launch.target.x - enemy.x, launch.target.y - enemy.y) < 1, 'AI knockout target should be the high-value enemy');
 }
 
+function testAiKnockoutShotActuallyMovesHighValueEnemy(context) {
+    const game = createGame(context);
+    const ai = new context.AI('hard');
+    const piece = {
+        x: context.CENTER_X,
+        y: context.BOTTOM_LAUNCH_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'A',
+        isLaunched: false,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: false
+    };
+    const enemy = {
+        x: context.CENTER_X,
+        y: context.CENTER_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'B',
+        isLaunched: true,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: true
+    };
+    game.physics.pieces = [piece, enemy];
+
+    const originalScore = game.board.calculateScore.bind(game.board);
+    game.board.calculateScore = (target) => target === enemy ? 5 : originalScore(target);
+    const launch = withRandom(context, [0, 0.5, 0.5], () => ai.calculateLaunch(piece, game));
+    game.board.calculateScore = originalScore;
+
+    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy);
+    const movedEnemy = outcome.pieces.find((candidate) => candidate.sourceIndex === 1);
+    const enemyMovedDistance = Math.hypot(movedEnemy.x - enemy.x, movedEnemy.y - enemy.y);
+
+    assert.strictEqual(launch.tactic, 'knockout', 'Hard AI should still choose a high-value knockout shot');
+    assert(enemyMovedDistance > context.PIECE_RADIUS * 1.25, 'Hard AI knockout shot should physically move the high-value enemy');
+    assert(originalScore(movedEnemy) < originalScore(enemy), 'Hard AI knockout should reduce the enemy scoring value');
+}
+
 const context = loadFrontendGameModules();
 testBoardScoresUseRealGeometry(context);
 testMobileBoardKeepsRealGameAspect(context);
@@ -313,8 +409,11 @@ testLaunchLanesStayAttachedToRealBoard(context);
 testAiScansOuterSquareScoringZone(context);
 testAiLaunchChoosesScoringTarget(context);
 testAiLaunchChoosesScoringTargetFromTopLane(context);
+testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(context);
+testAiHardLaunchActuallyLandsOnScoringTargetFromTop(context);
 testAiDifficultyProfilesHaveDistinctAccuracy(context);
 testAiAvoidsFriendlyOccupiedScoringTarget(context);
 testAiCanKnockHighValueEnemy(context);
+testAiKnockoutShotActuallyMovesHighValueEnemy(context);
 
 console.log('game AI board targeting tests passed');

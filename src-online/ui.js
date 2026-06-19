@@ -565,8 +565,8 @@ export class UI {
         this.scoreAnimations.push({
             x, y,
             score,
-            timer: 140,
-            max: 140,
+            timer: 170,
+            max: 170,
             startY: y
         });
     }
@@ -797,8 +797,8 @@ export class UI {
      */
     drawScoreAnimations(ctx) {
         this.scoreAnimations = this.scoreAnimations.filter(anim => {
-            anim.timer -= 1.35;
-            anim.y = anim.startY - (anim.max - anim.timer) * 0.42;
+            anim.timer -= 1;
+            anim.y = anim.startY - (anim.max - anim.timer) * 0.28;
 
             const alpha = Math.max(0, anim.timer / anim.max);
             const pop = 1 + Math.sin((1 - alpha) * Math.PI) * 0.16;

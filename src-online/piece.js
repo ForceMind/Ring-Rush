@@ -42,11 +42,11 @@ export class Piece {
 
         if (this.glowIntensity > 0) {
             ctx.save();
-            ctx.globalAlpha = 0.16 + this.glowIntensity * 0.14;
+            ctx.globalAlpha = 0.1 + this.glowIntensity * 0.1;
             ctx.shadowColor = showColor;
-            ctx.shadowBlur = 12 * this.glowIntensity;
+            ctx.shadowBlur = 9 * this.glowIntensity;
             ctx.beginPath();
-            ctx.arc(sx, sy, this.radius + 5 * this.glowIntensity, 0, Math.PI * 2);
+            ctx.arc(sx, sy, this.radius + 3.5 * this.glowIntensity, 0, Math.PI * 2);
             ctx.fillStyle = showColor;
             ctx.fill();
             ctx.restore();
@@ -72,8 +72,8 @@ export class Piece {
         ctx.beginPath();
         ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
         const outer = ctx.createRadialGradient(sx - 7, sy - 8, 3, sx, sy, this.radius + 4);
-        outer.addColorStop(0, 'rgba(255,255,255,0.78)');
-        outer.addColorStop(0.12, showColor);
+        outer.addColorStop(0, 'rgba(255,255,255,0.38)');
+        outer.addColorStop(0.16, showColor);
         outer.addColorStop(0.62, showColor);
         outer.addColorStop(1, showInner);
         ctx.fillStyle = outer;
@@ -95,13 +95,13 @@ export class Piece {
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(sx - this.radius * 0.36, sy - this.radius * 0.36, 3.2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.arc(sx - this.radius * 0.36, sy - this.radius * 0.36, 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.68)';
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(sx, sy, 1.9, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.58)';
+        ctx.arc(sx, sy, 1.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.34)';
         ctx.fill();
         ctx.restore();
 

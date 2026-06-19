@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="800" viewBox="0 0 450 800">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#74dcff"/><stop offset=".55" stop-color="#e9f7a2"/><stop offset="1" stop-color="#64dc93"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#143642" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="450" height="800" fill="url(#bg)"/>
+  <rect x="18" y="24" width="414" height="58" rx="22" fill="#fff" filter="url(#shadow)" opacity=".94"/>
+  <text x="40" y="61" font-family="Arial,sans-serif" font-size="24" font-weight="900" fill="#123642">PELLO</text>
+  <text x="390" y="58" font-family="Arial,sans-serif" font-size="19" font-weight="900" text-anchor="end" fill="#123642">第 2 回合</text>
+  <rect x="46" y="108" width="358" height="58" rx="22" fill="#fff" filter="url(#shadow)" opacity=".92"/>
+  <text x="84" y="145" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#123642">Pello AI</text>
+  <text x="366" y="145" font-family="Arial,sans-serif" font-size="18" font-weight="900" text-anchor="end" fill="#55717c">等待</text>
+  <g transform="translate(48 210)">
+    <rect width="356" height="396" rx="22" fill="#fff5a8" filter="url(#shadow)"/>
+    <rect x="10" y="10" width="336" height="376" rx="16" fill="#f8ffff" stroke="#fff" stroke-width="5"/>
+    <g opacity=".26" stroke="#8fe4ff"><path d="M56 28 V356"/><path d="M112 28 V356"/><path d="M168 28 V356"/><path d="M224 28 V356"/><path d="M280 28 V356"/></g>
+    <rect x="78" y="88" width="200" height="200" fill="#8063ff" opacity=".18" stroke="#8063ff" stroke-width="5"/>
+    <circle cx="178" cy="188" r="92" fill="#36b8ff" opacity=".22" stroke="#21aee8" stroke-width="5"/>
+    <polygon points="178,140 224,164 224,212 178,236 132,212 132,164" fill="#24bf6b" opacity=".38" stroke="#24bf6b" stroke-width="6"/>
+    <line x1="178" y1="28" x2="178" y2="356" stroke="#8aa4b1" stroke-width="4" stroke-dasharray="14 14" opacity=".45"/>
+    <line x1="30" y1="188" x2="326" y2="188" stroke="#8aa4b1" stroke-width="4" stroke-dasharray="14 14" opacity=".45"/>
+    <g>
+      <circle cx="140" cy="104" r="16" fill="#3aa7f3" stroke="#fff" stroke-width="5"/><circle cx="134" cy="98" r="5" fill="#fff" opacity=".8"/>
+      <circle cx="178" cy="148" r="16" fill="#ffd91f" stroke="#fff" stroke-width="5"/><circle cx="172" cy="142" r="5" fill="#fff" opacity=".8"/>
+      <circle cx="178" cy="188" r="16" fill="#ffd91f" stroke="#fff" stroke-width="5"/><circle cx="172" cy="182" r="5" fill="#fff" opacity=".8"/>
+      <circle cx="178" cy="228" r="16" fill="#ffd91f" stroke="#fff" stroke-width="5"/><circle cx="172" cy="222" r="5" fill="#fff" opacity=".8"/>
+    </g>
+  </g>
+  <rect x="128" y="642" width="194" height="48" rx="16" fill="rgba(255,255,255,.45)" stroke="#ef4d57" stroke-width="5"/>
+  <circle cx="225" cy="666" r="19" fill="#ef4d57" stroke="#fff" stroke-width="5"/>
+  <text x="225" y="724" font-family="Arial,sans-serif" font-size="20" font-weight="900" text-anchor="middle" fill="#ef4d57">拖拽后松手</text>
+  <rect x="66" y="744" width="318" height="10" rx="5" fill="#fff" opacity=".78"/><rect x="66" y="744" width="170" height="10" rx="5" fill="#ef4d57"/>
+</svg>
