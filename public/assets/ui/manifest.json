@@ -1,0 +1,19 @@
+{
+  "generatedBy": "scripts/generate-ui-assets.mjs",
+  "files": [
+    "screen-bg.svg",
+    "topbar.svg",
+    "panel.svg",
+    "modal.svg",
+    "player-card.svg",
+    "coin-pill.svg",
+    "button-orange.svg",
+    "button-blue.svg",
+    "button-green.svg",
+    "button-purple.svg",
+    "button-gray.svg",
+    "button-red.svg",
+    "board-base.svg",
+    "spinner-ring.svg"
+  ]
+}

@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="80" x2="864" y2="944" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9EEBFF"/>
+      <stop offset="0.48" stop-color="#FFF0A8"/>
+      <stop offset="1" stop-color="#5FE08E"/>
+    </linearGradient>
+    <linearGradient id="board" x1="260" y1="260" x2="764" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#203450"/>
+      <stop offset="1" stop-color="#142033"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="292" y1="210" x2="760" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFB451"/>
+      <stop offset="0.5" stop-color="#FF7D2E"/>
+      <stop offset="1" stop-color="#D9471C"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="570" y1="260" x2="820" y2="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF7A8"/>
+      <stop offset="0.45" stop-color="#FFD83D"/>
+      <stop offset="1" stop-color="#F6A400"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="30" stdDeviation="32" flood-color="#0B1626" flood-opacity="0.35"/>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+
+  <g opacity="0.45">
+    <circle cx="208" cy="250" r="44" fill="#fff"/>
+    <circle cx="842" cy="220" r="34" fill="#fff"/>
+    <circle cx="860" cy="748" r="58" fill="#fff2b6"/>
+    <circle cx="166" cy="760" r="32" fill="#fff"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M220 322c0-48 39-87 87-87h410c48 0 87 39 87 87v410c0 48-39 87-87 87H307c-48 0-87-39-87-87V322z" fill="url(#board)"/>
+    <path d="M282 384c0-36 29-65 65-65h330c36 0 65 29 65 65v286c0 36-29 65-65 65H347c-36 0-65-29-65-65V384z" fill="none" stroke="#8BE7FF" stroke-width="18" opacity="0.78"/>
+    <path d="M512 320v414M304 527h416" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" opacity="0.18"/>
+    <circle cx="512" cy="527" r="148" fill="#8BE7FF" opacity="0.22" stroke="#8BE7FF" stroke-width="14"/>
+    <path d="M512 430l86 50v99l-86 50-86-50v-99l86-50z" fill="#5FE08E" opacity="0.58" stroke="#63F2A2" stroke-width="12"/>
+  </g>
+
+  <path d="M287 725c117-161 281-281 493-358" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round" opacity="0.58"/>
+  <path d="M287 725c117-161 281-281 493-358" fill="none" stroke="#2D9CDB" stroke-width="10" stroke-linecap="round" opacity="0.85"/>
+
+  <g filter="url(#shadow)">
+    <circle cx="365" cy="664" r="172" fill="url(#ring)"/>
+    <circle cx="365" cy="664" r="88" fill="#FFE6BD"/>
+    <circle cx="319" cy="594" r="28" fill="#FFFFFF" opacity="0.95"/>
+    <circle cx="365" cy="664" r="172" fill="none" stroke="#FFCF85" stroke-width="18" opacity="0.7"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <circle cx="710" cy="360" r="112" fill="url(#coin)"/>
+    <circle cx="710" cy="360" r="78" fill="none" stroke="#FFF7A8" stroke-width="14" opacity="0.75"/>
+    <path d="M676 360h68M710 326v68" stroke="#FFFBE0" stroke-width="22" stroke-linecap="round" opacity="0.9"/>
+    <circle cx="671" cy="318" r="18" fill="#FFFFFF" opacity="0.85"/>
+  </g>
+
+  <g filter="url(#glow)">
+    <circle cx="247" cy="268" r="12" fill="#FFFFFF"/>
+    <circle cx="805" cy="522" r="10" fill="#FFFFFF"/>
+    <circle cx="605" cy="210" r="8" fill="#FFFFFF"/>
+    <circle cx="522" cy="810" r="9" fill="#FFFFFF"/>
+  </g>
+</svg>

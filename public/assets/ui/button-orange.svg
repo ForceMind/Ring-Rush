@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="68" viewBox="0 0 390 68">
+
+<defs>
+  <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#143642" flood-opacity="0.18"/>
+    <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#ffffff" flood-opacity="0.65"/>
+  </filter>
+  <filter id="popShadow" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="10" stdDeviation="7" flood-color="#143642" flood-opacity="0.22"/>
+  </filter>
+  <linearGradient id="glassPanel" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+    <stop offset="0.55" stop-color="#f7ffff" stop-opacity="0.96"/>
+    <stop offset="1" stop-color="#edfff3" stop-opacity="0.96"/>
+  </linearGradient>
+  <linearGradient id="panelEdge" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset="0.45" stop-color="#b8f1ff"/>
+    <stop offset="0.68" stop-color="#fff0a6"/>
+    <stop offset="1" stop-color="#9ff0b7"/>
+  </linearGradient>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#74dcff"/>
+    <stop offset="0.42" stop-color="#fff2a6"/>
+    <stop offset="0.72" stop-color="#a4ef9e"/>
+    <stop offset="1" stop-color="#58d88e"/>
+  </linearGradient>
+</defs>
+<linearGradient id="btn" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#ffb342"/>
+  <stop offset="1" stop-color="#ff7a18"/>
+</linearGradient>
+<rect x="5" y="9" width="380" height="55" rx="17" fill="#143642" opacity="0.18"/>
+<rect x="2" y="2" width="386" height="60" rx="18" fill="url(#btn)" filter="url(#popShadow)" stroke="#fff" stroke-opacity="0.88" stroke-width="4"/>
+<path d="M24 15 C94 5 140 15 194 13 C270 10 306 5 366 17" fill="none" stroke="#fff" stroke-opacity="0.42" stroke-width="4"/>
+<path d="M16 54 H374" stroke="#143642" stroke-opacity="0.1" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -1,2 +1,10 @@
 node_modules/
 dist/
+server/data/
+.tools/
+.env*.local
+artifacts/
+docs/screenshots/
+android/.gradle/
+android/build/
+android/app/build/

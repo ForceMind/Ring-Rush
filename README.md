@@ -1,199 +1,126 @@
-# Ring Rush - 弹棋
+# Pello / Ring Rush
 
-一款双人对战桌面弹射游戏，采用物理弹射 + 冰壶滑动 + 中心靶得分 + 拔河推进机制。
+Pello is a mobile-first casual board-flick game. Players launch pieces onto scoring zones, push the race marker, and play 1v1 matches with a coin entry and winner payout.
 
-## 当前版本
+Current focus: Android internal testing, online 1v1 matchmaking, AI fallback matches, and a single deployment for `https://pello.xincreates.com` that serves the website, web game, API, WebSocket backend, and APK download.
 
-**v0.10.5** - 修正困难 AI 分差控制：困难模式落后或存在对手下一杆胜机时会锁定最优高分出手，普通局面仍保留高分候选内的自然波动。
+## Entry Points
 
-## 游戏特性
+- Website: `/`
+- Web game: `/online.html`
+- Android debug APK download: `/download/pello-debug.apk`
+- Competitive health API: `/api/competitive/health`
+- WebSocket game server: same host and port as the website
 
-- 三种游戏模式：本地双人、Bot 对战、在线对战
-- 物理弹射系统
-- 多层得分区域
-- 拔河推进机制
-- 力度随机偏移
-- AI 对手（三种难度，基于全新战术体系）
-- 在线实时对战
-- 音效系统（碰撞、得分、胜利）
-- 粒子特效（碰撞火花、得分光效）
+Capacitor is configured with `server.appStartPath=/online.html`, so the Android app opens the game UI even though the public website uses `index.html`.
 
-## 快速开始
+## Features
 
-双击 `start.bat` 启动管理工具，然后在浏览器访问 `http://localhost:3000`。
+- Real-time 1v1 online play.
+- Coin table economy: default table uses 12 coins entry, 24 coins pool, 20 coins winner payout, 4 coins platform fee.
+- AI training with Easy / Medium / Hard difficulty.
+- Paid AI fallback controlled by matchmaking and player record, not by manual difficulty selection.
+- Mobile-safe UI with status bar/cutout spacing.
+- Local settings for server URL, sound, music, and vibration.
+- Website landing page with gameplay explanation, screenshots, live web preview, APK download, and online play link.
 
-> **注意**：v0.6.0 起使用 ES Module，需要通过 HTTP 服务器访问（不能直接双击 index.html）。
+## Local Development
 
-如需中文界面，请参考 `README-中文说明.txt`。
-
-## 版本历史
-
-| 版本 | 日期 | 说明 |
-|------|------|------|
-| v0.1.0 | 2026-06-02 | 基础单机版 |
-| v0.2.0 | 2026-06-02 | 纵向布局重构 |
-| v0.3.0 | 2026-06-02 | Bot AI 对手 |
-| v0.4.0 | 2026-06-02 | 在线对战 |
-| v0.5.0 | 2026-06-02 | UI 美化 |
-| v0.5.1 | 2026-06-02 | Bug 修复 |
-| v0.5.2 | 2026-06-02 | 脚本整合 |
-| v0.5.3 | 2026-06-02 | 中文管理工具 |
-| v0.5.4 | 2026-06-02 | 管理工具脚本 |
-| v0.6.0 | 2026-06-04 | 模块化重构 & Bug 修复 |
-| v0.7.0 | 2026-06-04 | 物理AI核心 & 断线重连优化 |
-| v0.7.1 | 2026-06-04 | 细节优化 & 掷骰子阶段禁言 |
-| v0.8.0 | 2026-06-05 | 修复掷骰子、加时赛及物理边界 |
-| v0.9.0 | 2026-06-05 | 重写 AI 逻辑、修复废弃棋子碰撞 |
-| v0.9.1 | 2026-06-05 | 桌面模式：重构本地双人双向UI |
-| v0.9.2 | 2026-06-05 | 修复在线模式加时赛卡死 BUG |
-| v0.9.3 | 2026-06-05 | 修复在线模式小人追踪条反向及异常提示结算 BUG |
-| v0.9.4 | 2026-06-05 | 修复在线模式得分单向同步与废弃球残留的致命状态 BUG |
-| v0.9.5 | 2026-06-05 | 终极修复：解决状态包双端重复结算（累计得分）及回合意外打断 BUG |
-| v0.9.6 | 2026-06-05 | 修复捷骰子平局报错，彻底修复被动端重复计分及小人动画同步 |
-| v0.9.7 | 2026-06-05 | 终极修复：修复 `network.js` 消息路由 BUG，使游戏状态能够正确送达被动端 |
-| v0.9.8 | 2026-06-05 | 修复滑块移动同步问题及屏幕中心残留的幽灵棋子 |
-| v0.9.9 | 2026-06-05 | 修复掷骰子阶段因视角翻转导致的状态错乱，并修正本地模式最终点数渲染映射 BUG |
-| v0.9.10 | 2026-06-05 | 彻底修复由于物理引擎与屏幕刷新率（如144Hz vs 60Hz）解绑失败导致的滑行距离和同步错位 BUG |
-| v0.9.11 | 2026-06-05 | 修复由于刷新网页断线重连导致丢失玩家 Index 引起的“双方皆红”视角 BUG；优化发球瞄准区滑块同步频率至 50ms |
-| v0.9.12 | 2026-06-05 | 彻底修复在线对战中，被动方因网络延迟导致模拟提前中断而残留物理状态，进而在后续回合引发碰撞位置完全错乱（瞬间瞬移）的深层 BUG |
-| v0.9.13 | 2026-06-05 | 修复对局中发球区滑块同步失效的问题（由于模块拆分时回调参数顺序错误导致判断恒等于假）；修正对局滑块同步的宽度映射误差 |
-| v0.9.14 | 2026-06-05 | 补充修复：统一了本地主动方和网络被动方发球区的滑块坐标映射参数，并添加网络包级联诊断日志，排查浏览器缓存问题 |
-| v0.9.15 | 2026-06-05 | 紧急修复：将 v0.9.14 错误拓展到全盘宽度的发球区映射公式回滚至正确的 `CENTER_X ± 100`，强制要求双端清缓存刷新测试 |
-| v0.9.16 | 2026-06-05 | 史诗级修复：找出导致网页端“控制台什么都没有”却依然无法同步发球位置的根源 BUG！原本代码在判断是否接受滑块同步时使用了 `if (this.currentPlayer === player)`，这导致收信方（被动方）判断“发送方是自己”才更新，恒为假，直接将对手同步的数据忽略。现已修正为 `if (player !== this.currentPlayer)`。 |
-| v0.9.17 | 2026-06-05 | 终极防线突破：解除服务器发包频率限制导致滑块同步被丢弃的 BUG。将防抖发送间隔从 50ms 降低到 100ms，并将服务端速率限制从 30包/秒 提升到 100包/秒。并增加了屏幕左上角直观的防弹日志监控。 |
-| v0.9.18 | 2026-06-05 | 大满贯修复：彻底解决了虽然收到同步包但画面依然不动的“幽灵棋子”问题！原因是被动方的 `getCurrentPiece` 错误地返回了自己的棋子进行渲染，导致无论怎么更新对手的棋子坐标，屏幕上画的永远是自己那颗没动的棋子！现已将 `getCurrentPiece` 强制绑定为渲染 `currentPlayer`（当前操作玩家）的棋子。 |
-| v0.9.19 | 2026-06-05 | UI 优化：移除发球区的诊断日志面板。 |
-| v0.9.20 | 2026-06-05 | 状态管理修复：修复了在线模式下“再来一局”时，因为上一局赢家获得的“底端视角（红蓝倒转）”没有被重置，导致第二局掷骰子时，UI 界面中左右两边显示的掷骰者点数错位（你和对手错乱）的问题。现已在 `performRestart` 时强制清空继承的视角状态。 |
-| v0.9.21 | 2026-06-05 | 游戏性升级（中立障碍球机制）：新增了 7 颗排布为正六边形的中立球（深灰色）作为动态障碍物。 |
-| v0.9.22 | 2026-06-05 | 修复中立球双倍生成 BUG 以及游戏崩溃问题，中立球颜色更改为金黄色。 |
-| v0.9.31 | 2026-06-08 | 彻底修复在线模式下发球区、跑道和按钮在底端视角时的颜色渲染颠倒问题，并对相关 UI 的硬编码颜色进行了动态解耦重构。 |
-| v0.10.0 | 2026-06-08 | **架构级升级**：彻底物理隔离在线对战代码以保证绝对稳定性。**AI 重构**：机器人支持 11 个滑杆起点的全盘路径规划、防守权重评估及平滑移动动画。 |
-| v0.10.2 | 2026-06-10 | **AI 决策升级**：重写 Bot 候选动作评分，按本杆得分、跑道胜负阈值、对手反打风险、残局收益和自撞风险选择更成熟的出手。 |
-| v0.10.3 | 2026-06-10 | **骰子 UI 修复**：将平局提示文字对齐到红色底衬正中，并确认本地/Bot 模式掷骰为独立随机点数。 |
-| v0.10.4 | 2026-06-10 | **AI 难度调校**：加入近似最优候选的加权选择和困难模式轻微执行误差，避免 Bot 在非关键局面机械地每次追求同一最高分。 |
-| v0.10.5 | 2026-06-10 | **困难 AI 分差修正**：落后、残局或对手存在下一杆胜机时锁定最优解，并限制困难模式只在高分近似最优候选中波动。 |
-
-## 开发计划
-
-- [x] v0.1.0 - 基础单机版
-- [x] v0.2.0 - 纵向布局重构
-- [x] v0.3.0 - Bot AI 对手
-- [x] v0.4.0 - 在线对战
-- [x] v0.5.0 - UI 美化
-- [x] v0.5.1 - Bug 修复
-- [x] v0.5.2 - 脚本整合
-- [x] v0.5.3 - 中文管理工具
-- [x] v0.5.4 - 管理工具脚本
-- [x] v0.6.0 - 模块化重构 & Bug 修复
-- [x] v0.7.0 - 物理AI核心 & 断线重连优化
-- [x] v0.8.0 - 修复掷骰子、加时赛及物理边界
-- [x] v0.9.0 - 重写 AI 逻辑、修复废弃棋子碰撞
-- [x] v0.9.1 - 桌面模式：重构本地双人双向UI
-- [x] v0.9.2 - 修复在线模式加时赛卡死 BUG
-- [x] v0.9.3 - 修复小人追踪条反向 BUG
-- [x] v0.9.4 - 修复得分单向同步与废弃球残留 BUG
-- [x] v0.9.5 - 彻底解决状态包双端重复结算及回合打断 BUG
-- [x] v0.9.6 - 修复捷骰子平局报错，彻底修复被动端重复计分及小人动画
-- [x] v0.9.7 - 修复底层的 `network.js` 消息路由错误，确保同步机制真正生效
-- [x] v0.9.8 - 修复发球滑块不同步及幽灵残留棋子 BUG
-- [x] v0.7.1 - 细节优化 & 掷骰子阶段禁言
-- [ ] v1.0.0 - 正式版
-
-## 文档
-
-- [开发计划](docs/DEVELOPMENT.md)
-- [变更日志](docs/CHANGELOG.md)
-- [游戏设计](docs/DESIGN.md)
-
-## 操作说明
-
-1. 点击己方发射区内的棋子
-2. 拖动鼠标瞄准（反向弹射）
-3. 松开发射棋子
-4. 棋子停在得分区获得分数
-5. 得分推动小人前进
-6. 先让小人到达对手终点获胜
-
-## 快速开始
-
-### 一键启动（推荐）
-双击 `start.bat` 打开管理工具菜单：
-
-```
-╔══════════════════════════════════════════╗
-║        Ring Rush - 弹棋 管理工具       ║
-╠══════════════════════════════════════════╣
-║                                          ║
-║   [1] 启动游戏服务器                      ║
-║   [2] 启动服务器（后台运行）               ║
-║   [3] 安装/更新依赖                       ║
-║   [4] 环境检查                            ║
-║   [5] 打开游戏页面                        ║
-║   [6] 查看端口占用                        ║
-║   [0] 退出                                ║
-║                                          ║
-╚══════════════════════════════════════════╝
+```bash
+npm install
+npm run dev
 ```
 
-### 手动启动
+Open:
+
+- Website: `http://127.0.0.1:5173/`
+- Web game: `http://127.0.0.1:5173/online.html`
+
+Run the backend separately when testing matchmaking:
+
 ```bash
 cd server
 npm install
-node server.js
-```
-然后在浏览器打开 http://localhost:3000
-
-### 在线对战
-1. 在浏览器打开游戏
-2. 选择"在线对战"
-3. 点击"连接服务器"
-4. 创建或加入房间
-5. 等待对手加入后自动开始游戏
-
-## 得分规则
-
-| 区域 | 分数 |
-|------|------|
-| 中心圆 | 5分 |
-| 六边形 | 4分 |
-| 五边形 | 3分 |
-| 正方形 | 2分 |
-| 区域外 | 0分 |
-
-## 项目结构
-
-```
-Ring-Rush/
-├── index.html          # 入口页面
-├── src/                # 源代码（ES Module）
-│   ├── main.js         # 应用入口
-│   ├── constants.js    # 游戏常量
-│   ├── game.js         # 游戏主类
-│   ├── board.js        # 棋盘绘制
-│   ├── physics.js      # 物理引擎
-│   ├── piece.js        # 棋子类
-│   ├── input.js        # 输入处理（鼠标+触控）
-│   ├── ai.js           # AI 对手
-│   ├── ui.js           # UI 界面
-│   ├── audio.js        # 音效管理
-│   ├── particles.js    # 粒子特效
-│   ├── network.js      # 网络通信
-│   ├── startscreen.js  # 启动界面
-│   └── style.css       # 样式表
-├── server/             # WebSocket 服务器
-│   ├── server.js
-│   └── package.json
-├── docs/               # 文档
-└── start.bat           # 一键启动
+npm start
 ```
 
-## 技术栈
+Default backend URL: `http://127.0.0.1:3000`.
 
-- HTML5 Canvas
-- 原生 JavaScript (ES6+ Module)
-- CSS3
-- Node.js + WebSocket (在线对战)
+## Tests
 
-## 许可证
+```bash
+npm run test:game-ai
+npm run test:competitive
+npm run build
+```
 
-MIT License
+Build Android debug APK:
+
+```powershell
+npm run android:build:debug:local
+```
+
+Output:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Production Deployment
+
+One Node service can host everything. The default public domain is `https://pello.xincreates.com`.
+
+From the server, pull this branch and run:
+
+```bash
+sudo bash deploy.sh
+```
+
+The script installs dependencies, builds the website/game with `VITE_PELLO_SERVER_URL=https://pello.xincreates.com`, writes a systemd service, and configures an nginx reverse proxy for `pello.xincreates.com`.
+
+If this server also manages HTTPS certificates, run it with an email address:
+
+```bash
+sudo SSL_EMAIL=admin@example.com bash deploy.sh
+```
+
+The APK route first serves `public/download/pello-debug.apk`, then falls back to `android/app/build/outputs/apk/debug/app-debug.apk`. Replace `public/download/pello-debug.apk` when you generate a newer internal-test build.
+
+Optional environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | HTTP/WebSocket port. Default `3000`. |
+| `HOST` | Bind host. Default `0.0.0.0`. |
+| `PUBLIC_BASE_URL` | Public website/backend URL compiled into the web app. Default `https://pello.xincreates.com`. |
+| `DOMAIN_NAME` | nginx server name. Default `pello.xincreates.com`. |
+| `SSL_EMAIL` | Enables certbot HTTPS setup when provided. |
+| `PELLO_COMPETITIVE_STORE` | Competitive account/match JSON store path. |
+| `PELLO_APK_PATH` | APK file served by `/download/pello-debug.apk`. |
+| `PELLO_APK_NAME` | Download filename. Default `pello-debug.apk`. |
+| `VITE_PELLO_SERVER_URL` | Backend URL compiled into website/app. |
+| `VITE_PELLO_SERVER_LOCKED` | Locks server editing in app when `true`. |
+
+## Project Structure
+
+```text
+index.html                 Website landing page
+online.html                Web game entry
+src-site/                  Website CSS and small browser script
+src-online/                Mobile/web game client
+public/site/               Website images and screenshots
+public/assets/ui/          Game UI sliced assets
+server/server.js           Static site, API, WebSocket, APK download
+server/src/competitive/    Coin economy and matchmaking services
+server/tests/              Backend and game behavior tests
+scripts/                   Android, asset, and server deployment helpers
+docs/                      Design, development, deployment notes
+android/                   Capacitor Android project
+```
+
+## Documentation
+
+- [Development](docs/DEVELOPMENT.md)
+- [Design](docs/DESIGN.md)
+- [Changelog](docs/CHANGELOG.md)
+- [App redesign plan](docs/APP_REDESIGN_PLAN.md)

@@ -1,0 +1,16 @@
+{
+  "appId": "com.pello.ringrush",
+  "appName": "Pello",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "appStartPath": "/online.html"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "disable",
+      "hidden": false,
+      "style": "DARK"
+    }
+  }
+}

@@ -7,8 +7,9 @@
 import {
     CANVAS_WIDTH,
     CANVAS_HEIGHT,
-    BOARD_X,
-    BOARD_WIDTH,
+    CENTER_X,
+    BOTTOM_LAUNCH_Y,
+    LAUNCH_LANE_HALF_WIDTH,
     LAUNCH_MULTIPLIER,
     MAX_SPEED,
     MAX_DRAG_DISTANCE,
@@ -18,6 +19,12 @@ import {
     PIECE_RADIUS,
     TRACK_STEPS
 } from './constants.js';
+import { t } from './i18n.js';
+
+const BOTTOM_SLIDER_OFFSET_FROM_LAUNCH = 86;
+const BOTTOM_PLAYER_CARD_TOP = CANVAS_HEIGHT - 122;
+const BOTTOM_SLIDER_CARD_GAP = 42;
+const TOP_LOCAL_SLIDER_Y = 70;
 
 /**
  * 输入处理类，管理鼠标/触摸事件与棋子交互
@@ -53,11 +60,16 @@ export class Input {
      * 初始化事件监听器（鼠标 + 触摸）
      */
     getSliderMetrics() {
-        const isLocalRed = this.game.gameMode === 'local' && this.game.currentPlayer === 'B';
+        const isTopLocalSeat = this.game.gameMode === 'local' && this.game.currentPlayer === 'B';
+        const bottomSliderY = Math.min(
+            BOTTOM_LAUNCH_Y + BOTTOM_SLIDER_OFFSET_FROM_LAUNCH,
+            BOTTOM_PLAYER_CARD_TOP - BOTTOM_SLIDER_CARD_GAP
+        );
         return {
-            x: 50,
-            y: isLocalRed ? 70 : CANVAS_HEIGHT - 70,
-            w: CANVAS_WIDTH - 100
+            x: 44,
+            y: isTopLocalSeat ? TOP_LOCAL_SLIDER_Y : bottomSliderY,
+            w: CANVAS_WIDTH - 88,
+            isTopSeat: isTopLocalSeat
         };
     }
 
@@ -112,6 +124,8 @@ export class Input {
      */
     handleMouseDown(e) {
         if (this.game.gameOver || this.game.isAnimating || this.game.isBotTurn() || this.game.opponentTemporarilyDisconnected) return;
+
+        this.game.audio.resume();
         
         if (this.game.dice.phase) {
             const rect = this.game.canvas.getBoundingClientRect();
@@ -121,8 +135,6 @@ export class Input {
         }
 
         if (this.game.isOnlineGame() && !this.game.isMyTurn()) return;
-
-        this.game.audio.resume();
 
         const rect = this.game.canvas.getBoundingClientRect();
         const scaleX = CANVAS_WIDTH / rect.width;
@@ -191,8 +203,8 @@ export class Input {
         if (!piece || piece.isLaunched) return;
         
         // 发球区范围限制 (原版是 CENTER_X ± 100)
-        const minX = (CANVAS_WIDTH / 2) - 100 + piece.radius;
-        const maxX = (CANVAS_WIDTH / 2) + 100 - piece.radius;
+        const minX = CENTER_X - LAUNCH_LANE_HALF_WIDTH + piece.radius;
+        const maxX = CENTER_X + LAUNCH_LANE_HALF_WIDTH - piece.radius;
         
         if (this.game.perspective === 'top') {
             piece.x = maxX - this.sliderValue * (maxX - minX);
@@ -221,6 +233,7 @@ export class Input {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > 25) {
+            const power = Math.min(distance / MAX_DRAG_DISTANCE, 1);
             let speed = Math.min(distance * LAUNCH_MULTIPLIER, MAX_SPEED);
             const rawJitter = speed * POWER_RANDOM_RANGE;
             const appliedJitter = Math.max(MIN_POWER_JITTER, Math.min(MAX_POWER_JITTER, rawJitter));
@@ -238,8 +251,15 @@ export class Input {
             }
             this.currentPiece.isLaunched = true;
             this.currentPiece.isActive = true;
+            this.currentPiece.launchFlash = 1;
             this.game.isAnimating = true;
+            this.game.settlePauseUntil = 0;
+            this.game.settleCueShown = false;
+            const sx = this.game.perspective === 'top' ? this.game.tx(this.currentPiece.x) : this.currentPiece.x;
+            const sy = this.game.perspective === 'top' ? this.game.ty(this.currentPiece.y) : this.currentPiece.y;
+            this.game.ui.addLaunchCue(sx, sy, power);
             this.game.audio.play('launch');
+            this.game.triggerFeedback('launch', power);
 
             if (this.game.isOnlineGame()) {
                 this.game.network.launchPiece({
@@ -354,24 +374,29 @@ export class Input {
 
         // 标签
         ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = '12px sans-serif';
+        ctx.fillStyle = 'rgba(20,54,66,0.76)';
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        if (ty === 70) {
+        const launchLabel = t('launchPosition');
+        if (metrics.isTopSeat) {
             ctx.translate(tx + tw / 2, ty + 15);
             ctx.rotate(Math.PI);
-            ctx.fillText('发球位置', 0, 0);
+            ctx.fillText(launchLabel, 0, 0);
         } else {
-            ctx.fillText('发球位置', tx + tw / 2, ty - 8);
+            ctx.fillText(launchLabel, tx + tw / 2, ty - 8);
         }
         ctx.restore();
 
         // 轨道背景
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.save();
+        ctx.shadowColor = 'rgba(20,54,66,0.18)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
         ctx.beginPath();
-        ctx.roundRect(tx, ty - 3, tw, 6, 3);
+        ctx.roundRect(tx, ty - 6, tw, 12, 6);
         ctx.fill();
+        ctx.restore();
 
         const isBottom = this.game.perspective === 'bottom';
         const myColorHex = this.game.getPlayerColor(this.game.currentPlayer);
@@ -379,28 +404,28 @@ export class Input {
         
         ctx.fillStyle = myColorHex;
         ctx.beginPath();
-        if (ty === 70) {
+        if (metrics.isTopSeat) {
             // For top player, fill from their left (screen-right) to handle
             const handleX = tx + this.sliderValue * tw;
             const fillWidth = (tx + tw) - handleX;
-            ctx.roundRect(handleX, ty - 3, fillWidth, 6, 3);
+            ctx.roundRect(handleX, ty - 6, fillWidth, 12, 6);
         } else {
             // For bottom player, fill from their left (screen-left) to handle
-            ctx.roundRect(tx, ty - 3, tw * this.sliderValue, 6, 3);
+            ctx.roundRect(tx, ty - 6, tw * this.sliderValue, 12, 6);
         }
         ctx.fill();
 
         // 绘制滑块把手
         const hx = tx + this.sliderValue * tw;
         const hy = ty;
-        const handleWidth = 24;
-        const handleHeight = 32;
+        const handleWidth = 30;
+        const handleHeight = 36;
 
         ctx.save();
         ctx.shadowColor = myColorHex;
         ctx.shadowBlur = 8;
         ctx.beginPath();
-        ctx.roundRect(hx - handleWidth / 2, ty - handleHeight / 2, handleWidth, handleHeight, 6);
+        ctx.roundRect(hx - handleWidth / 2, ty - handleHeight / 2, handleWidth, handleHeight, 10);
         ctx.fillStyle = this.sliderDragging ? myColorDrag : myColorHex;
         ctx.fill();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';

@@ -21,9 +21,9 @@ export class Piece {
         this.isLaunched = false;
         this.isActive = false;
         this.hasEnteredBoard = false;
-        this.color = this.game.getPlayerColor(player);
-        this.innerColor = this.game.getPlayerInnerColor(player);
         this.glowIntensity = 0;
+        this.hitFlash = 0;
+        this.launchFlash = 0;
     }
 
     draw(ctx, highlight = false, perspective = 'bottom') {
@@ -31,8 +31,8 @@ export class Piece {
     }
 
     drawAt(ctx, sx, sy, highlight = false, perspective = 'bottom') {
-        const showColor = this.color;
-        const showInner = this.innerColor;
+        const showColor = this.game.getPlayerColor(this.player);
+        const showInner = this.game.getPlayerInnerColor(this.player);
 
         if (this.isActive || highlight) {
             this.glowIntensity = Math.min(1, this.glowIntensity + 0.1);
@@ -41,20 +41,80 @@ export class Piece {
         }
 
         if (this.glowIntensity > 0) {
-            ctx.save(); ctx.shadowColor = showColor; ctx.shadowBlur = 15 * this.glowIntensity;
-            ctx.beginPath(); ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = showColor; ctx.fill(); ctx.restore();
+            ctx.save();
+            ctx.globalAlpha = 0.16 + this.glowIntensity * 0.14;
+            ctx.shadowColor = showColor;
+            ctx.shadowBlur = 12 * this.glowIntensity;
+            ctx.beginPath();
+            ctx.arc(sx, sy, this.radius + 5 * this.glowIntensity, 0, Math.PI * 2);
+            ctx.fillStyle = showColor;
+            ctx.fill();
+            ctx.restore();
         }
 
-        ctx.beginPath(); ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = showColor; ctx.fill();
-        ctx.strokeStyle = highlight ? '#fff' : 'rgba(0,0,0,0.4)';
-        ctx.lineWidth = highlight ? 3 : 2; ctx.stroke();
+        if (this.launchFlash > 0) {
+            const alpha = this.launchFlash;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sx, sy, this.radius + (1 - alpha) * 18, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            this.launchFlash = Math.max(0, this.launchFlash - 0.08);
+        }
 
-        ctx.beginPath(); ctx.arc(sx, sy, this.radius * 0.55, 0, Math.PI * 2);
-        ctx.fillStyle = showInner; ctx.fill();
+        ctx.save();
+        ctx.shadowColor = 'rgba(20,54,66,0.24)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 4;
+        ctx.beginPath();
+        ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
+        const outer = ctx.createRadialGradient(sx - 7, sy - 8, 3, sx, sy, this.radius + 4);
+        outer.addColorStop(0, 'rgba(255,255,255,0.78)');
+        outer.addColorStop(0.12, showColor);
+        outer.addColorStop(0.62, showColor);
+        outer.addColorStop(1, showInner);
+        ctx.fillStyle = outer;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = highlight ? '#ffffff' : 'rgba(20,54,66,0.38)';
+        ctx.lineWidth = highlight ? 4 : 2.5;
+        ctx.stroke();
+        ctx.restore();
 
-        ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(sx, sy, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = showInner;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(sx - this.radius * 0.36, sy - this.radius * 0.36, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.9, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.58)';
+        ctx.fill();
+        ctx.restore();
+
+        if (this.hitFlash > 0) {
+            ctx.save();
+            ctx.globalAlpha = this.hitFlash * 0.75;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(sx, sy, this.radius + 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            this.hitFlash = Math.max(0, this.hitFlash - 0.12);
+        }
     }
 }

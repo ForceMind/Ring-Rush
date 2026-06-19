@@ -14,30 +14,69 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const {
+    CompetitiveService,
+    FileCompetitiveStore,
+    handleCompetitiveApi,
+    createCompetitiveLiveController
+} = require('./src/competitive');
 
 // 服务器配置
 const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0';
+const HOST = process.env.HOST || '0.0.0.0';
 
 // 静态文件 MIME 类型映射
 const MIME_TYPES = {
     '.html': 'text/html',
     '.css':  'text/css',
     '.js':   'application/javascript',
+    '.json': 'application/json',
     '.png':  'image/png',
     '.jpg':  'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
     '.svg':  'image/svg+xml',
-    '.ico':  'image/x-icon'
+    '.ico':  'image/x-icon',
+    '.apk':  'application/vnd.android.package-archive'
 };
 
 // 项目根目录（server 的上级目录）
 const PROJECT_ROOT = path.resolve(__dirname, '..');
+const DEFAULT_APK_DOWNLOAD_PATH = path.resolve(PROJECT_ROOT, 'public/download/pello-debug.apk');
+const ANDROID_DEBUG_APK_PATH = path.resolve(PROJECT_ROOT, 'android/app/build/outputs/apk/debug/app-debug.apk');
+const APK_DOWNLOAD_PATH = process.env.PELLO_APK_PATH
+    ? path.resolve(process.env.PELLO_APK_PATH)
+    : (fs.existsSync(DEFAULT_APK_DOWNLOAD_PATH) ? DEFAULT_APK_DOWNLOAD_PATH : ANDROID_DEBUG_APK_PATH);
+const APK_DOWNLOAD_NAME = process.env.PELLO_APK_NAME || 'pello-debug.apk';
 
 // 创建 HTTP 服务器（用于提供静态文件）
 const server = http.createServer((req, res) => {
+    if (handleCompetitiveApi(req, res, competitiveService)) {
+        return;
+    }
+
     if (req.url === '/favicon.ico') {
         res.writeHead(204);
         res.end();
+        return;
+    }
+
+    if (req.method === 'GET' && req.url.split('?')[0] === '/download/pello-debug.apk') {
+        fs.stat(APK_DOWNLOAD_PATH, (statErr, stat) => {
+            if (statErr || !stat.isFile()) {
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('APK not found. Add public/download/pello-debug.apk, build the Android APK, or set PELLO_APK_PATH.');
+                return;
+            }
+
+            res.writeHead(200, {
+                'Content-Type': MIME_TYPES['.apk'],
+                'Content-Length': stat.size,
+                'Content-Disposition': `attachment; filename="${APK_DOWNLOAD_NAME}"`,
+                'Cache-Control': 'no-store'
+            });
+            fs.createReadStream(APK_DOWNLOAD_PATH).pipe(res);
+        });
         return;
     }
 
@@ -103,6 +142,10 @@ let roomIdCounter = 1;
 
 // 玩家管理
 const players = new Map();
+const competitiveService = new CompetitiveService({
+    store: new FileCompetitiveStore(process.env.PELLO_COMPETITIVE_STORE)
+});
+let competitiveLive = null;
 
 // 速率限制配置
 const RATE_LIMIT_MAX = 100;       // 每秒最大消息数
@@ -168,12 +211,24 @@ class Room {
     }
 }
 
+competitiveLive = createCompetitiveLiveController({
+    service: competitiveService,
+    players,
+    rooms,
+    Room,
+    allocateRoomId: () => roomIdCounter++,
+    startGame,
+    broadcastRoomListUpdate
+});
+
 // ===== 玩家类 =====
 class Player {
     constructor(id, ws, name) {
         this.id = id;
         this.ws = ws;
         this.name = name;
+        this.accountId = null;
+        this.activeMatchId = null;
         this.roomId = null;
         this.playerIndex = null;  // 'A' 或 'B'
         this.ready = false;
@@ -238,6 +293,14 @@ wss.on('connection', (ws) => {
                     oldPlayer.ws = ws;
                     players.delete(player.id);
                     player = oldPlayer; // 更新闭包引用
+                    if (message.accountId && player.accountId !== message.accountId) {
+                        try {
+                            competitiveService.restoreAccount(player, message.accountId, message.sessionToken);
+                        } catch (err) {
+                            competitiveLive.sendError(player, err);
+                            return;
+                        }
+                    }
                     
                     const room = rooms.get(player.roomId);
                     let opponentName = '对手';
@@ -262,8 +325,10 @@ wss.on('connection', (ws) => {
                         type: 'reconnect_success', 
                         room: room?.toJSON(),
                         playerIndex: player.playerIndex,
-                        opponentName: opponentName
+                        opponentName: opponentName,
+                        accountId: player.accountId
                     });
+                    competitiveLive.sendSnapshot(player);
                     
                     broadcastToRoom(player.roomId, {
                         type: 'opponent_reconnected',
@@ -286,7 +351,24 @@ wss.on('connection', (ws) => {
                     
                     return;
                 } else {
-                    player.send({ type: 'reconnect_failed' });
+                    if (message.accountId) {
+                        try {
+                            competitiveService.restoreAccount(player, message.accountId, message.sessionToken);
+                        } catch (err) {
+                            player.send({
+                                type: 'reconnect_failed',
+                                code: err.code || 'RECONNECT_FAILED',
+                                message: err.message || 'Cannot restore account'
+                            });
+                            competitiveLive.sendError(player, err);
+                            return;
+                        }
+                    }
+                    player.send({
+                        type: 'reconnect_failed',
+                        accountId: player.accountId
+                    });
+                    competitiveLive.sendSnapshot(player);
                     return;
                 }
             }
@@ -300,22 +382,26 @@ wss.on('connection', (ws) => {
     // 断线处理
     ws.on('close', () => {
         console.log(`玩家断线: ${player.name}`);
-        if (player.roomId) {
-            const room = rooms.get(player.roomId);
-            if (room && room.state === 'playing') {
-                console.log(`玩家 ${player.name} 在游戏中掉线，等待60秒重连...`);
-                player.disconnectTimeout = setTimeout(() => {
-                    handleDisconnect(player);
-                    players.delete(player.id);
-                }, 60000);
-                
+        const room = player.roomId ? rooms.get(player.roomId) : null;
+        const shouldWaitForReconnect = (room && room.state === 'playing') || player.activeMatchId;
+        if (shouldWaitForReconnect) {
+            console.log(`玩家 ${player.name} 在付费对局中掉线，等待60秒重连...`);
+            player.disconnectTimeout = setTimeout(() => {
+                competitiveLive.handleDisconnectTimeout(player);
+                competitiveService.unlinkPlayer(player.id);
+                handleDisconnect(player);
+                players.delete(player.id);
+            }, 60000);
+
+            if (player.roomId) {
                 broadcastToRoom(player.roomId, {
                     type: 'opponent_disconnected',
                     playerId: player.id
                 }, player.id);
-                return;
             }
+            return;
         }
+        competitiveService.unlinkPlayer(player.id);
         handleDisconnect(player);
         players.delete(player.id);
     });
@@ -405,6 +491,7 @@ function handleMessage(player, message) {
             break;
 
         case 'surrender':
+            competitiveLive.handleSurrender(player);
             broadcastToRoom(player.roomId, {
                 type: 'surrender',
                 playerId: player.id
@@ -413,6 +500,26 @@ function handleMessage(player, message) {
 
         case 'restart_request':
             handleRestartRequest(player);
+            break;
+
+        case 'competitive_profile':
+            competitiveLive.sendSnapshot(player);
+            break;
+
+        case 'quick_match':
+            competitiveLive.handleQuickMatch(player, message);
+            break;
+
+        case 'cancel_matchmaking':
+            competitiveLive.handleCancelMatchmaking(player);
+            break;
+
+        case 'ai_match':
+            competitiveLive.handleAiMatch(player, message);
+            break;
+
+        case 'competitive_result':
+            competitiveLive.handleResult(player, message);
             break;
 
         case 'ping':

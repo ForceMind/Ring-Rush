@@ -245,10 +245,13 @@ export class Game {
             this.dice.opRollAnimEndTime = state.opDiceRollAnimEndTime;
             this.piecesLeftA = state.piecesLeftA !== undefined ? state.piecesLeftA : this.piecesLeftA;
             this.piecesLeftB = state.piecesLeftB !== undefined ? state.piecesLeftB : this.piecesLeftB;
+            this.timeoutsA = state.timeoutsA !== undefined ? state.timeoutsA : this.timeoutsA;
+            this.timeoutsB = state.timeoutsB !== undefined ? state.timeoutsB : this.timeoutsB;
             
             if (state.pendingWin !== undefined) this.pendingWin = state.pendingWin;
             if (state.pendingWinReason !== undefined) this.pendingWinReason = state.pendingWinReason;
             if (state.winner !== undefined) this.winner = state.winner;
+            if (state.gameOver !== undefined) this.gameOver = state.gameOver;
             // 注意：isAnimating 是本地物理状态，不应被远端覆盖
             
             if (state.runnerPosition !== undefined && this.runnerPosition !== state.runnerPosition) {
@@ -549,6 +552,9 @@ export class Game {
                 if (!this.pendingWin && !this.gameOver) {
                     this.switchPlayer();
                 }
+                if (this.gameMode === 'online' && this.network) {
+                    this.network.updateGameState(this.getState());
+                }
             }
         }
 
@@ -722,6 +728,8 @@ export class Game {
             currentPlayer: this.currentPlayer,
             turnStartTime: this.turnStartTime,
             turnTimeLeft: this.turnTimeLeft,
+            timeoutsA: this.timeoutsA,
+            timeoutsB: this.timeoutsB,
             dicePhase: this.dice.phase,
             diceResults: this.dice.results,
             diceTieResult: this.dice.tieResult,
@@ -737,6 +745,7 @@ export class Game {
             pendingWin: this.pendingWin,
             pendingWinReason: this.pendingWinReason,
             winner: this.winner,
+            gameOver: this.gameOver,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
             piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
             piecesN: this.piecesN.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard }))

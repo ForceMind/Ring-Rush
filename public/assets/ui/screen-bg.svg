@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="960" viewBox="0 0 450 960">
+
+<defs>
+  <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#143642" flood-opacity="0.18"/>
+    <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#ffffff" flood-opacity="0.65"/>
+  </filter>
+  <filter id="popShadow" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="10" stdDeviation="7" flood-color="#143642" flood-opacity="0.22"/>
+  </filter>
+  <linearGradient id="glassPanel" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+    <stop offset="0.55" stop-color="#f7ffff" stop-opacity="0.96"/>
+    <stop offset="1" stop-color="#edfff3" stop-opacity="0.96"/>
+  </linearGradient>
+  <linearGradient id="panelEdge" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff"/>
+    <stop offset="0.45" stop-color="#b8f1ff"/>
+    <stop offset="0.68" stop-color="#fff0a6"/>
+    <stop offset="1" stop-color="#9ff0b7"/>
+  </linearGradient>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#74dcff"/>
+    <stop offset="0.42" stop-color="#fff2a6"/>
+    <stop offset="0.72" stop-color="#a4ef9e"/>
+    <stop offset="1" stop-color="#58d88e"/>
+  </linearGradient>
+</defs>
+<rect width="450" height="960" fill="url(#bg)"/>
+<path d="M0 0 H450 V150 C360 126 326 170 244 142 C164 114 96 176 0 142 Z" fill="#ffffff" opacity="0.1"/>
+<g opacity="0.3" fill="#fff">
+  <circle cx="28" cy="88" r="26"/>
+  <circle cx="182" cy="74" r="23"/>
+  <circle cx="326" cy="92" r="35"/>
+  <circle cx="430" cy="204" r="32"/>
+  <circle cx="54" cy="238" r="26"/>
+  <circle cx="118" cy="438" r="22"/>
+  <rect x="-18" y="548" width="46" height="116" rx="23"/>
+  <rect x="70" y="672" width="42" height="116" rx="21"/>
+  <rect x="328" y="760" width="48" height="92" rx="24"/>
+</g>
+<path d="M0 724 C78 668 146 716 218 682 C304 638 374 674 450 616 L450 960 L0 960 Z" fill="#35b779" opacity="0.2"/>
+<path d="M0 798 C72 736 146 784 226 742 C322 692 374 742 450 686 L450 960 L0 960 Z" fill="#ffffff" opacity="0.12"/>
+</svg>

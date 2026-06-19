@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pello</string>
+    <string name="title_activity_main">Pello</string>
+    <string name="package_name">com.pello.ringrush</string>
+    <string name="custom_url_scheme">com.pello.ringrush</string>
+</resources>

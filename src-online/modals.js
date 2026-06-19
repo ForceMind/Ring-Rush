@@ -1,7 +1,4 @@
-/**
- * Ring Rush - Modals
- * 游戏内的各种浮动弹窗管理器
- */
+import { t } from './i18n.js';
 
 export class ModalManager {
     constructor(game) {
@@ -17,79 +14,83 @@ export class ModalManager {
                 <style>
                     #ringRushSurrenderModal {
                         position: absolute;
-                        top: 0; left: 0; right: 0; bottom: 0;
-                        background: rgba(0,0,0,0.7);
+                        inset: 0;
+                        background: rgba(20,54,66,0.62);
                         display: flex;
                         justify-content: center;
                         align-items: center;
                         z-index: 200;
+                        padding: 24px;
+                        -webkit-tap-highlight-color: transparent;
                     }
                     #ringRushSurrenderModal .modal-content {
-                        background: #2a2a2a;
-                        padding: 24px;
-                        border-radius: 12px;
+                        width: min(372px, 100%);
+                        background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(240,255,252,0.94));
+                        padding: 24px 22px 22px;
+                        border-radius: 24px;
                         text-align: center;
-                        color: white;
-                        border: 2px solid #f44336;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                        font-family: sans-serif;
-                        min-width: 250px;
+                        color: #143642;
+                        border: 2px solid rgba(255,255,255,0.95);
+                        box-shadow: 0 18px 34px rgba(20,54,66,0.28), inset 0 -5px 0 rgba(117,224,160,0.24);
+                        font-family: "Segoe UI", Arial, sans-serif;
                     }
                     #ringRushSurrenderModal .modal-title {
-                        font-size: 20px;
-                        font-weight: bold;
+                        font-size: 24px;
+                        font-weight: 900;
                         margin-bottom: 12px;
-                        color: #f44336;
+                        color: #d9480f;
+                        letter-spacing: 0;
                     }
                     #ringRushSurrenderModal .modal-body {
                         font-size: 16px;
-                        margin-bottom: 24px;
-                        color: #ccc;
+                        margin-bottom: 22px;
+                        color: #47707c;
+                        line-height: 1.45;
+                        font-weight: 700;
                     }
                     #ringRushSurrenderModal .modal-buttons {
                         display: flex;
-                        justify-content: space-around;
+                        gap: 12px;
+                        justify-content: center;
                     }
                     #ringRushSurrenderModal .btn {
-                        padding: 8px 24px;
+                        min-width: 126px;
+                        min-height: 48px;
+                        padding: 10px 16px;
                         border: none;
-                        border-radius: 6px;
+                        border-radius: 14px;
                         font-size: 16px;
                         cursor: pointer;
-                        font-weight: bold;
-                        transition: opacity 0.2s;
+                        font-weight: 900;
+                        color: white;
+                        box-shadow: inset 0 -4px 0 rgba(20,54,66,0.13), 0 8px 14px rgba(20,54,66,0.16);
+                        transition: transform 0.12s;
                     }
-                    #ringRushSurrenderModal .btn-yes { background: #f44336; color: white; }
-                    #ringRushSurrenderModal .btn-no { background: #555; color: white; }
-                    #ringRushSurrenderModal .btn:hover { opacity: 0.8; }
+                    #ringRushSurrenderModal .btn-yes {
+                        background: linear-gradient(180deg, #ff8f68, #d9480f);
+                    }
+                    #ringRushSurrenderModal .btn-no {
+                        background: linear-gradient(180deg, #49d987, #1aa95a);
+                    }
+                    #ringRushSurrenderModal .btn:active { transform: translateY(1px) scale(0.99); }
                 </style>
                 <div class="modal-content">
-                    <div class="modal-title">确认投降</div>
-                    <div class="modal-body">投降后将被判负，确定要投降吗？</div>
+                    <div class="modal-title">${t('confirmSurrenderTitle')}</div>
+                    <div class="modal-body">${t('confirmSurrenderBody')}</div>
                     <div class="modal-buttons">
-                        <button class="btn btn-no" id="btnSurrenderNo">取消</button>
-                        <button class="btn btn-yes" id="btnSurrenderYes">确认投降</button>
+                        <button class="btn btn-no" id="btnSurrenderNo">${t('cancel')}</button>
+                        <button class="btn btn-yes" id="btnSurrenderYes">${t('confirmSurrender')}</button>
                     </div>
                 </div>
             `;
             document.getElementById('gameContainer').appendChild(modal);
-            
+
             document.getElementById('btnSurrenderNo').onclick = () => {
                 modal.style.display = 'none';
             };
             document.getElementById('btnSurrenderYes').onclick = () => {
                 modal.style.display = 'none';
-                if (this.game.gameMode === 'local') {
-                    this.game.winner = this.game.currentPlayer === 'A' ? 'B' : 'A';
-                } else if (this.game.gameMode === 'online') {
-                    this.game.winner = this.game.network.playerIndex === 'A' ? 'B' : 'A';
-                } else {
-                    this.game.winner = 'B'; // Bot wins
-                }
-                this.game.gameOver = true;
-                if (this.game.isOnlineGame()) {
-                    this.game.network.send({ type: 'surrender' });
-                }
+                this.game.surrender();
             };
         } else {
             modal.style.display = 'flex';

@@ -5,7 +5,7 @@
 import {
     CANVAS_WIDTH, CANVAS_HEIGHT, CENTER_X, CENTER_Y,
     BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT,
-    LAUNCH_ZONE_WIDTH, LAUNCH_ZONE_HEIGHT,
+    LAUNCH_LANE_WIDTH, LAUNCH_LANE_HALF_WIDTH, TOP_LAUNCH_Y, BOTTOM_LAUNCH_Y,
     MAX_SPEED, PIECES_PER_PLAYER, WIN_THRESHOLD,
     RUNNER_SMOOTH_FACTOR, RUNNER_SNAP_THRESHOLD, SCORING_ZONES,
     VERSION, PIECE_RADIUS
@@ -29,6 +29,7 @@ export class Game {
 
         this.gameMode = null;
         this.network = null;
+        this.connectionStatus = 'offline';
         this.opponentName = null;
 
         // 视角和骰子
@@ -41,8 +42,12 @@ export class Game {
         this.runnerDisplayPosition = 0;   // 显示位置（可为小数，用于动画）
         this.runnerAnimating = false;     // 小人是否在移动中
         this.currentScore = 0;
+        this.settlePauseUntil = 0;
+        this.settleCueShown = false;
         this.gameOver = false;
         this.winner = null;
+        this._gameOverNotified = false;
+        this.competitiveSettlement = null;
         this.isAnimating = false;
         this.scorePopup = null;
         this.restartBtn = null;
@@ -70,6 +75,19 @@ export class Game {
         this.opponentWantsRestart = false;
         this.opponentLeft = false;
         this.isDestroyed = false;
+        this.onGameOver = null;
+        this._gameOverNotified = false;
+        this.competitiveMatch = null;
+        this.competitiveEntryWallet = null;
+        this.competitiveWallet = null;
+        this.competitiveSettlement = null;
+        this.competitiveSettlementReceivedAt = null;
+        this.competitiveSettlementError = null;
+        this.feedback = {
+            shakeUntil: 0,
+            shakeStrength: 0,
+            lastVibrateAt: 0
+        };
 
         // 延迟胜利状态
         this.pendingWin = false;      // 是否有待展示的胜利
@@ -83,6 +101,40 @@ export class Game {
 
     get chatMessages() { return this.chat ? this.chat.chatMessages : []; }
 
+    triggerFeedback(type, intensity = 1) {
+        const strength = Math.max(0.2, Math.min(2.5, intensity));
+        const shake = {
+            launch: 0,
+            bounce: 2,
+            collision: 5,
+            settle: 1,
+            score: 3,
+            miss: 2,
+            runner: 2.5,
+            win: 6
+        }[type] || 0;
+
+        if (shake > 0) {
+            this.feedback.shakeStrength = Math.max(this.feedback.shakeStrength, shake * strength);
+            this.feedback.shakeUntil = Math.max(this.feedback.shakeUntil, Date.now() + 120 + strength * 35);
+        }
+
+        this.audio?.vibrate(type);
+    }
+
+    getScreenShakeOffset() {
+        if (!this.feedback || Date.now() > this.feedback.shakeUntil) {
+            if (this.feedback) this.feedback.shakeStrength = 0;
+            return { x: 0, y: 0 };
+        }
+        const remaining = (this.feedback.shakeUntil - Date.now()) / 180;
+        const strength = this.feedback.shakeStrength * Math.max(0, Math.min(1, remaining));
+        return {
+            x: (Math.random() * 2 - 1) * strength,
+            y: (Math.random() * 2 - 1) * strength
+        };
+    }
+
     initOnlineGame(network, playerIndex, opponentName) {
         this.isDestroyed = false;
         this.gameMode = 'online';
@@ -90,6 +142,10 @@ export class Game {
         this.currentPlayer = playerIndex;
         this.opponentName = opponentName;
         this.perspective = playerIndex === 'A' ? 'bottom' : 'top';
+        this.connectionStatus = this.network.connectionStatus || (this.network.isConnected ? 'connected' : 'offline');
+        this.network.onConnectionStatus = (status) => {
+            this.connectionStatus = status;
+        };
 
         this.network.onPieceLaunch = (message) => {
             this.handleRemotePieceLaunch(message.piece);
@@ -101,8 +157,8 @@ export class Game {
                 if (!piece || piece.isLaunched) {
                     return;
                 }
-                const minX = (CANVAS_WIDTH / 2) - 100 + piece.radius;
-                const maxX = (CANVAS_WIDTH / 2) + 100 - piece.radius;
+                const minX = CENTER_X - LAUNCH_LANE_HALF_WIDTH + piece.radius;
+                const maxX = CENTER_X + LAUNCH_LANE_HALF_WIDTH - piece.radius;
                 
                 const opPerspective = this.perspective === 'bottom' ? 'top' : 'bottom';
                 if (opPerspective === 'top') {
@@ -245,10 +301,13 @@ export class Game {
             this.dice.opRollAnimEndTime = state.opDiceRollAnimEndTime;
             this.piecesLeftA = state.piecesLeftA !== undefined ? state.piecesLeftA : this.piecesLeftA;
             this.piecesLeftB = state.piecesLeftB !== undefined ? state.piecesLeftB : this.piecesLeftB;
+            this.timeoutsA = state.timeoutsA !== undefined ? state.timeoutsA : this.timeoutsA;
+            this.timeoutsB = state.timeoutsB !== undefined ? state.timeoutsB : this.timeoutsB;
             
             if (state.pendingWin !== undefined) this.pendingWin = state.pendingWin;
             if (state.pendingWinReason !== undefined) this.pendingWinReason = state.pendingWinReason;
             if (state.winner !== undefined) this.winner = state.winner;
+            if (state.gameOver !== undefined) this.gameOver = state.gameOver;
             // 注意：isAnimating 是本地物理状态，不应被远端覆盖
             
             if (state.runnerPosition !== undefined && this.runnerPosition !== state.runnerPosition) {
@@ -402,9 +461,9 @@ export class Game {
         this.piecesB = [];
         this.physics.clearPieces();
         
-        const zoneWidth = LAUNCH_ZONE_WIDTH * 4;
-        const bottomZoneY = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT / 2;
-        const topZoneY = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT / 2;
+        const zoneWidth = LAUNCH_LANE_WIDTH;
+        const bottomZoneY = BOTTOM_LAUNCH_Y;
+        const topZoneY = TOP_LAUNCH_Y;
         for (let i = 0; i < PIECES_PER_PLAYER; i++) {
             const x = CENTER_X - zoneWidth / 2 + (i + 0.5) * zoneWidth / PIECES_PER_PLAYER;
             this.piecesA.push(new Piece(this, x, bottomZoneY, 'A'));
@@ -429,6 +488,10 @@ export class Game {
         return this.gameMode === 'online';
     }
 
+    isServerSettledGame() {
+        return this.isOnlineGame() || Boolean(this.competitiveMatch && this.network);
+    }
+
     handleRemotePieceLaunch(pieceData) {
         const pieceArray = pieceData.player === 'A' ? this.piecesA : this.piecesB;
         const piece = pieceArray.find(p => !p.isLaunched && !p.isDiscarded);
@@ -439,9 +502,16 @@ export class Game {
             piece.vy = pieceData.vy;
             piece.isLaunched = true;
             piece.isActive = true;
+            piece.launchFlash = 1;
             this.currentPlayer = pieceData.player; // Fix potential state desync
             this.isAnimating = true;
+            this.settlePauseUntil = 0;
+            this.settleCueShown = false;
+            const sx = this.perspective === 'top' ? this.tx(piece.x) : piece.x;
+            const sy = this.perspective === 'top' ? this.ty(piece.y) : piece.y;
+            this.ui.addLaunchCue(sx, sy, 0.65);
             this.audio.play('launch');
+            this.triggerFeedback('launch', 0.65);
         }
     }
 
@@ -470,6 +540,7 @@ export class Game {
                         this.gameOver = true;
                         this.particles.emitWin(CENTER_X, CENTER_Y);
                         this.audio.play('win');
+                        this.triggerFeedback('win', 1.2);
                     }
                 }
             }
@@ -500,6 +571,26 @@ export class Game {
         }
 
         if (this.isAnimating && this.physics.allStopped()) {
+            if (!this.settlePauseUntil) {
+                const settlingPiece = this.getCurrentPiece();
+                if (settlingPiece && settlingPiece.isLaunched) {
+                    const sx = this.perspective === 'top' ? this.tx(settlingPiece.x) : settlingPiece.x;
+                    const sy = this.perspective === 'top' ? this.ty(settlingPiece.y) : settlingPiece.y;
+                    this.ui.addSettleCue(sx, sy);
+                    this.triggerFeedback('settle', 0.6);
+                    this.settleCueShown = true;
+                }
+                this.settlePauseUntil = Date.now() + 350;
+                return;
+            }
+
+            if (Date.now() < this.settlePauseUntil) {
+                return;
+            }
+
+            this.settlePauseUntil = 0;
+            this.settleCueShown = false;
+
             if (this.gameMode === 'online') {
                 const wasMyTurn = this.isMyTurn();
                 if (wasMyTurn) {
@@ -527,6 +618,7 @@ export class Game {
                     piece.isLaunched = true; 
                     piece.isDiscarded = true;
                     this.audio.play('collision');
+                    this.triggerFeedback('miss', 0.8);
                 }
                 // 记录超时次数
                 if (this.currentPlayer === 'A') {
@@ -548,6 +640,9 @@ export class Game {
                 }
                 if (!this.pendingWin && !this.gameOver) {
                     this.switchPlayer();
+                }
+                if (this.gameMode === 'online' && this.network) {
+                    this.network.updateGameState(this.getState());
                 }
             }
         }
@@ -602,9 +697,17 @@ export class Game {
                 const isTop = this.perspective === 'top';
                 const sx = isTop ? this.tx(piece.x) : piece.x;
                 const sy = isTop ? this.ty(piece.y) : piece.y;
+                this.ui.addScoreZonePulse(this.currentScore);
                 this.ui.addScoreAnimation(sx, sy - 30, this.currentScore);
                 this.particles.emitScore(sx, sy);
                 this.audio.play('score');
+                this.triggerFeedback('score', this.currentScore / 3);
+            } else {
+                const isTop = this.perspective === 'top';
+                const sx = isTop ? this.tx(piece.x) : piece.x;
+                const sy = isTop ? this.ty(piece.y) : piece.y;
+                this.ui.addMissAnimation(sx, sy - 24);
+                this.triggerFeedback('miss', 0.7);
             }
 
             const winReason = this.checkWinner();
@@ -637,6 +740,8 @@ export class Game {
         // 如果位置改变，启动动画
         if (oldPosition !== this.runnerPosition) {
             this.runnerAnimating = true;
+            this.ui.addRunnerImpact(score);
+            this.triggerFeedback('runner', score / 2);
         }
     }
 
@@ -675,20 +780,20 @@ export class Game {
         // 各分配 3 颗新棋子
         const PIECES_IN_OVERTIME = 3;
         const spacing = 40; // 避免重叠
-        const startX = BOARD_X + BOARD_WIDTH/2 - spacing;
+        const startX = CENTER_X - spacing;
         
         for (let i = 0; i < PIECES_IN_OVERTIME; i++) {
             // A队（下方）
             let ax = startX + i * spacing;
             // Y坐标必须和普通开局一样，才能被正常识别发球
-            let ay = BOARD_Y + BOARD_HEIGHT + 25 + LAUNCH_ZONE_HEIGHT/2;
+            let ay = BOTTOM_LAUNCH_Y;
             let pieceA = new Piece(this, ax, ay, 'A');
             this.piecesA.push(pieceA);
             this.physics.addPiece(pieceA);
 
             // B队（上方）
             let bx = startX + i * spacing;
-            let by = BOARD_Y - 25 - LAUNCH_ZONE_HEIGHT/2;
+            let by = TOP_LAUNCH_Y;
             let pieceB = new Piece(this, bx, by, 'B');
             this.piecesB.push(pieceB);
             this.physics.addPiece(pieceB);
@@ -722,6 +827,8 @@ export class Game {
             currentPlayer: this.currentPlayer,
             turnStartTime: this.turnStartTime,
             turnTimeLeft: this.turnTimeLeft,
+            timeoutsA: this.timeoutsA,
+            timeoutsB: this.timeoutsB,
             dicePhase: this.dice.phase,
             diceResults: this.dice.results,
             diceTieResult: this.dice.tieResult,
@@ -737,6 +844,7 @@ export class Game {
             pendingWin: this.pendingWin,
             pendingWinReason: this.pendingWinReason,
             winner: this.winner,
+            gameOver: this.gameOver,
             piecesA: this.piecesA.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
             piecesB: this.piecesB.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard })),
             piecesN: this.piecesN.map(p => ({ x: p.x, y: p.y, isLaunched: p.isLaunched, isDiscarded: p.isDiscarded, isActive: p.isActive, hasEnteredBoard: p.hasEnteredBoard }))
@@ -749,6 +857,8 @@ export class Game {
 
         this.currentPlayer = this.currentPlayer === 'A' ? 'B' : 'A';
         this.currentScore = 0;
+        this.settlePauseUntil = 0;
+        this.settleCueShown = false;
         this.isAnimating = false;
         this.roundNumber++;
         this.input.sliderValue = 0.5;
@@ -824,6 +934,31 @@ export class Game {
         this.performRestart();
     }
 
+    surrender() {
+        if (this.gameOver) return;
+
+        if (this.isOnlineGame()) {
+            this.winner = this.network.playerIndex === 'A' ? 'B' : 'A';
+        } else if (this.gameMode === 'local') {
+            this.winner = this.currentPlayer === 'A' ? 'B' : 'A';
+        } else {
+            this.winner = 'B';
+        }
+
+        this.pendingWin = false;
+        this.pendingWinReason = 'surrender';
+        this.pendingWinTime = Date.now();
+        this.isAnimating = false;
+        this.dice.phase = false;
+        this.gameOver = true;
+        this.audio.play('win');
+        this.triggerFeedback('win', 0.9);
+
+        if (this.isOnlineGame()) {
+            this.network.send({ type: 'surrender' });
+        }
+    }
+
     performRestart() {
         if (this.ai) this.ai.cancel();
 
@@ -866,13 +1001,18 @@ export class Game {
     }
 
     draw() {
+        if (this.canvas.__pelloApplyHiDpi) this.canvas.__pelloApplyHiDpi();
         const ctx = this.ctx;
 
-        ctx.fillStyle = '#0f0f1a';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.ui.drawBackground(ctx);
+
+        const shake = this.getScreenShakeOffset();
+        ctx.save();
+        ctx.translate(shake.x, shake.y);
 
         if (this.dice.phase) {
             this.dice.draw(ctx);
+            ctx.restore();
             return;
         }
 
@@ -903,6 +1043,7 @@ export class Game {
         this.input.drawSlider(ctx);
         this.particles.draw(ctx);
         this.ui.draw(ctx);
+        ctx.restore();
     }
 
     gameLoop(timestamp = performance.now()) {
@@ -927,11 +1068,25 @@ export class Game {
         }
 
         this.draw();
+        this.notifyGameOverOnce();
         requestAnimationFrame((ts) => this.gameLoop(ts));
+    }
+
+    notifyGameOverOnce() {
+        if (!this.gameOver || this._gameOverNotified) return;
+        this._gameOverNotified = true;
+        if (this.onGameOver) {
+            this.onGameOver({
+                winner: this.winner,
+                reason: this.pendingWinReason,
+                state: this.getState()
+            });
+        }
     }
 
     exitGame() {
         this.isDestroyed = true;
+        this.audio?.stopMusic();
         if (this.isOnlineGame()) {
             this.network.send({ type: 'leave_room' });
         }
@@ -944,6 +1099,7 @@ export class Game {
 
     cleanup() {
         this.isDestroyed = true;
+        this.audio?.stopMusic();
         this.canvas.removeEventListener('click', this._boundHandleClick);
         this.canvas.removeEventListener('touchstart', this._boundHandleTouch);
         if (this.input) this.input.cleanup();

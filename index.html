@@ -2,16 +2,149 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="description" content="Pello 弹棋 - 一款双人对战桌面弹射游戏，支持本地双人、Bot AI 对战和在线实时对战">
-    <title>Pello - 弹棋</title>
-    <link rel="stylesheet" href="src/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Pello 是一款休闲弹棋 1v1 金币对战游戏，支持 Android APK 下载、在线对战、AI 训练和本地练习。">
+    <title>Pello - 休闲弹棋 1v1 金币对战</title>
+    <link rel="icon" href="/site/pello-icon.png">
+    <link rel="stylesheet" href="/src-site/site.css">
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas" width="600" height="900"></canvas>
-        <div id="version"></div>
-    </div>
-    <script type="module" src="src/main.js"></script>
+    <header class="site-header" aria-label="Pello website navigation">
+        <a class="brand" href="/">
+            <img src="/site/pello-icon.png" alt="Pello">
+            <span>Pello</span>
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+            <a href="#how">玩法</a>
+            <a href="#screens">截图</a>
+            <a href="#live">Live</a>
+            <a href="#deploy">部署</a>
+        </nav>
+        <div class="header-actions">
+            <a class="ghost-link" href="/online.html">在线对战</a>
+            <a class="solid-link" href="/download/pello-debug.apk">下载 APK</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" aria-label="Pello introduction">
+            <div class="hero-media" aria-hidden="true"></div>
+            <div class="hero-content">
+                <p class="eyebrow">Android-first casual arena</p>
+                <h1>Pello</h1>
+                <p class="hero-copy">休闲弹棋 1v1 金币对战。12 金币入场，赢家获得 20 金币；匹配不到真人时，可以切到实力相当的 AI 对战。</p>
+                <div class="hero-actions">
+                    <a class="primary-action" href="/download/pello-debug.apk">下载 Android APK</a>
+                    <a class="secondary-action" href="/online.html">网页版在线对战</a>
+                </div>
+                <dl class="hero-stats" aria-label="Game highlights">
+                    <div><dt>1v1</dt><dd>真人匹配</dd></div>
+                    <div><dt>AI</dt><dd>训练与补位</dd></div>
+                    <div><dt>金币</dt><dd>入场与奖励</dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section id="how" class="section gameplay">
+            <div class="section-heading">
+                <p class="eyebrow">Core loop</p>
+                <h2>轻量上手，局内有真实弹射策略</h2>
+                <p>拖拽棋子发射，停留在得分区推动赛道角色前进。碰撞、停留和加分反馈会清晰提示每次出手的结果。</p>
+            </div>
+            <div class="feature-grid">
+                <article class="feature-card">
+                    <span class="feature-number">01</span>
+                    <h3>金币对局</h3>
+                    <p>默认青铜桌 12 金币入场，奖池 24 金币，赢家拿 20 金币，平台服务费 4 金币。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-number">02</span>
+                    <h3>真人或 AI</h3>
+                    <p>真人匹配优先；长时间匹配不到人时，系统可按战绩匹配 AI。练习入口支持简单、中等、困难。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-number">03</span>
+                    <h3>移动端 UI</h3>
+                    <p>棋盘、滑块、赛道和回合信息按手机竖屏设计，状态栏和挖孔区域会自动避让。</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="screens" class="section screenshots">
+            <div class="section-heading">
+                <p class="eyebrow">Screenshots</p>
+                <h2>真实 APP 截图</h2>
+                <p>以下截图来自当前 Android/移动端 UI 验收画面，用于展示首页、对战中和结算状态。</p>
+            </div>
+            <div class="screenshot-grid">
+                <figure>
+                    <img src="/site/screenshots/home.png" alt="Pello 中文首页截图">
+                    <figcaption>首页与模式入口</figcaption>
+                </figure>
+                <figure>
+                    <img src="/site/screenshots/player-turn.png" alt="Pello 玩家回合截图">
+                    <figcaption>玩家回合与滑块</figcaption>
+                </figure>
+                <figure>
+                    <img src="/site/screenshots/gameover.png" alt="Pello 胜利结算截图">
+                    <figcaption>胜利结束框</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section id="live" class="section live-section">
+            <div class="section-heading">
+                <p class="eyebrow">Live preview</p>
+                <h2>网页里直接进入对战</h2>
+                <p>服务器部署后，官网、API 和 WebSocket 共用同一 Node 服务。网页入口会使用当前域名连接后端。</p>
+            </div>
+            <div class="live-layout">
+                <div class="phone-shell">
+                    <iframe src="/online.html" title="Pello live online preview"></iframe>
+                </div>
+                <div class="live-copy">
+                    <h3>同一个部署包，两个入口</h3>
+                    <p>访问 <strong>/</strong> 是官网，访问 <strong>/online.html</strong> 是在线游戏。Android APK 可通过官网下载，APP 内服务器地址由构建环境锁定。</p>
+                    <ul class="check-list">
+                        <li>HTTP 静态网站和游戏资源</li>
+                        <li>WebSocket 实时对战</li>
+                        <li>竞技金币账户与结算 API</li>
+                        <li>APK 下载路由</li>
+                    </ul>
+                    <a class="primary-action compact" href="/online.html">打开完整在线对战</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="deploy" class="section deploy">
+            <div class="section-heading">
+                <p class="eyebrow">Deploy</p>
+                <h2>整站和后端一起部署</h2>
+                <p>生产环境推荐先写入服务器 URL，再构建网站和 APK。Node 服务会托管 dist 网站、在线游戏、API、WebSocket 和 APK 下载。</p>
+            </div>
+            <div class="deploy-grid">
+                <div class="command-panel">
+                    <span>服务器配置</span>
+                    <code>sudo bash deploy.sh</code>
+                    <code>npm run build</code>
+                    <code>NODE_ENV=production PORT=3000 node server/server.js</code>
+                </div>
+                <div class="download-panel">
+                    <img src="/site/pello-icon.png" alt="">
+                    <h3>Android 内测包</h3>
+                    <p>当前下载入口指向服务器上的 debug APK。正式发布前再处理 release 签名和 AAB。</p>
+                    <a class="solid-link wide" href="/download/pello-debug.apk">下载 APK</a>
+                    <p class="status-line" data-health-status>正在检测服务器状态...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>Pello v0.10.5</span>
+        <span>© <span data-year></span> Pello. Built for casual 1v1 matches.</span>
+    </footer>
+
+    <script type="module" src="/src-site/site.js"></script>
 </body>
 </html>

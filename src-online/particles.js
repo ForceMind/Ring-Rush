@@ -46,18 +46,19 @@ export class ParticleSystem {
     }
 
     // 碰撞火花
-    emitCollision(x, y, color1, color2) {
-        const count = 12;
+    emitCollision(x, y, color1, color2, intensity = 1) {
+        const strength = Math.max(0.6, Math.min(2.1, intensity));
+        const count = Math.round(8 + strength * 5);
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 / count) * i;
-            const speed = 2 + Math.random() * 3;
+            const speed = (2.2 + Math.random() * 2.8) * strength;
             const color = Math.random() > 0.5 ? color1 : color2;
             this.particles.push(new Particle(
                 x, y, color,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
-                20 + Math.random() * 20,
-                3 + Math.random() * 3
+                14 + Math.random() * 12,
+                2 + Math.random() * 2.2 * strength
             ));
         }
     }
@@ -65,16 +66,16 @@ export class ParticleSystem {
     // 得分光效
     emitScore(x, y) {
         const colors = ['#ffd700', '#ffed4a', '#fff3b0'];
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 12; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 1 + Math.random() * 4;
+            const speed = 0.8 + Math.random() * 2.6;
             this.particles.push(new Particle(
                 x, y,
                 colors[Math.floor(Math.random() * colors.length)],
                 Math.cos(angle) * speed,
-                Math.sin(angle) * speed - 2,
-                30 + Math.random() * 30,
-                2 + Math.random() * 4
+                Math.sin(angle) * speed - 1.4,
+                28 + Math.random() * 18,
+                1.8 + Math.random() * 2.2
             ));
         }
     }

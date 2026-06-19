@@ -1,190 +1,109 @@
-# Ring Rush - 开发计划
+# Development
 
-## 项目概述
-《弹棋 / Ring Rush》是一款双人对战桌面弹射游戏，采用物理弹射 + 冰壶滑动 + 中心靶得分 + 拔河推进机制。
+## Goal
 
-## 当前版本
-**v0.10.5**
+Pello is being prepared for small Android internal testing. The product has three surfaces:
 
----
+- Public website at `/`.
+- Web game at `/online.html`.
+- Android app built with Capacitor, starting at `/online.html`.
 
-## 🤖 AI Agent 核心记忆规则 (MEMORY RULE)
-**【强制执行】** 每次在本项目中修复Bug、增加功能或调整代码后，必须执行以下步骤，**不再需要用户提醒**：
-1. 自动提升并统一主目录和 `server` 目录下的 `package.json` 中的版本号。
-2. 同步更新 `src/constants.js` 中的 `VERSION` 常量。
-3. 自动更新 `docs/CHANGELOG.md` 记录详细的变更内容。
-4. 自动更新 `README.md` 和 `docs/DEVELOPMENT.md` 中的当前版本号。
-5. 完成后执行构建与部署任务。
+The backend is a Node HTTP/WebSocket service. In production it serves the built website, the online game, the competitive API, WebSocket messages, and the APK download route.
 
----
+## Required Tooling
 
-## 版本路线图
+- Node.js 18+.
+- npm.
+- JDK 21 for Android builds.
+- Android SDK platform `android-36`.
 
-### v0.1.0 ✅ 基础单机版 (已完成)
-- [x] 双人本地对战
-- [x] 物理弹射系统
-- [x] 棋子碰撞检测
-- [x] 得分区域判定
-- [x] 跑道推进机制
-- [x] 基础 UI 显示
+The local Android script reads `JAVA_HOME` / `ANDROID_HOME`, or falls back to `.tools/jdk21` and `.tools/android-sdk`.
 
-### v0.2.0 ✅ 纵向布局重构 (已完成)
-**目标：** 优化游戏体验，修正布局和物理问题
+## Common Commands
 
-- [x] **纵向布局**：游戏改为竖屏，玩家在上下两端
-- [x] **视角固定**：当前玩家始终在下方，对手在上方
-- [x] **方形修正**：最外侧正方形与桌面方向一致
-- [x] **力度随机**：每次发射添加随机偏移量
-- [x] **UI优化**：调整界面布局适配纵向设计
-
-**完成日期：** 2026-06-02
-
-### v0.3.0 ✅ Bot AI 对手 (已完成)
-**目标：** 添加单人模式，可与 AI 对战
-
-- [x] **AI 系统**：实现基础 Bot 对手
-- [x] **难度选择**：简单/中等/困难三个等级
-- [x] **选择界面**：游戏开始前选择对手类型
-- [x] **AI 决策**：基于距离和角度的发射策略
-- [x] **AI 个性**：不同难度的准确度和力度控制
-
-**完成日期：** 2026-06-02
-
-### v0.4.0 ✅ 局域网对战 (已完成)
-**目标：** 支持局域网内双人在线对战
-
-- [x] **网络架构**：WebSocket 服务器实现
-- [x] **房间系统**：创建/加入游戏房间
-- [x] **状态同步**：实时同步游戏状态
-- [ ] **断线重连**：网络中断自动恢复
-- [x] **匹配界面**：房间列表和快速匹配
-
-**完成日期：** 2026-06-02
-
-### v0.5.0 ✅ UI 美化 (已完成)
-**目标：** 提升视觉体验
-
-- [x] **音效系统**：碰撞音效、得分音效、胜利音效
-- [x] **动画优化**：得分动画、胜利动画、发光效果
-- [ ] **主题皮肤**：多套视觉主题
-- [x] **粒子特效**：碰撞火花、得分光效、胜利烟花
-- [x] **界面美化**：更精致的 UI 组件
-
-**完成日期：** 2026-06-02
-
-### v0.6.0 ✅ 模块化重构 (已完成)
-**目标：** 优化代码结构，引入现代前端工程化工具
-
-- [x] **ES Module**：拆分单一庞大文件为按业务分离的模块
-- [x] **Vite 接入**：使用 Vite 作为构建工具
-- [x] **架构解耦**：将 UI、物理、网络等分离到独立文件
-- [x] **服务器调整**：支持访问构建后的 `dist` 静态资源
-- [x] **Bug 修理**：修复多次 Canvas 翻转绘制等漏洞
-
-**完成日期：** 2026-06-04
-
-### v0.7.0 ✅ 物理AI与联机优化 (已完成)
-**目标：** 解决 AI 智商低下的问题，并提升网络断线体验
-
-- [x] **物理级 AI 算法**：利用微积分预测滑动距离
-- [x] **AI 碰撞预检**：加入避免撞击己方棋子的雷达检测
-- [x] **无缝断线重连**：掉线玩家可瞬间返回对战页面
-- [x] **在线交互体系**：新增联机预设聊天与消息气泡
-- [x] **UI 布局优化**：调整了双方投降按钮与遮罩的设计
-
-**完成日期：** 2026-06-04
-
-### v1.0.0 📋 正式版
-**目标：** 完整功能发布
-
-- [ ] **完整游戏循环**：所有核心功能稳定
-- [ ] **性能优化**：流畅运行无卡顿
-- [ ] **Bug 修复**：所有已知问题修复
-- [ ] **文档完善**：用户手册、开发者文档
-- [ ] **发布准备**：打包、部署说明
-
-**预计完成：** 2026-06-12
-
----
-
-## 技术架构
-
-### 核心模块
-```
-Game        → 游戏主控制器
-Piece       → 棋子类（物理属性、绘制）
-Physics     → 物理引擎（碰撞、摩擦、边界）
-Board       → 棋盘（得分区、绘制）
-Input       → 输入控制（鼠标、拖拽）
-UI          → 界面绘制（HUD、信息显示）
-Network     → 网络模块（v0.4.0）
-AI          → Bot 智能体（v0.3.0）
+```bash
+npm run dev
+npm run build
+npm run test:game-ai
+npm run test:competitive
 ```
 
-### 文件结构
-```
-Ring-Rush/
-├── index.html              # 当前开发版
-├── docs/
-│   ├── DEVELOPMENT.md      # 开发计划（本文件）
-│   ├── CHANGELOG.md        # 版本变更日志
-│   └── DESIGN.md           # 游戏设计文档
-├── versions/
-│   ├── v0.1.0/             # 基础单机版存档
-│   └── v0.2.0/             # 纵向布局版存档
-└── server/                 # 网络服务器（v0.4.0）
+```powershell
+npm run android:build:debug:local
+npm run app-server:write-env
+npm run app-server:deploy:local
 ```
 
----
+## Architecture
 
-## 开发规范
+### Frontend
 
-### 版本号规则
-采用语义化版本：`主版本.次版本.修订版本`
-- **主版本**：重大功能变更或架构调整
-- **次版本**：新功能添加
-- **修订版本**：Bug 修复和小优化
+`index.html` is the public website. It imports `src-site/site.css` and `src-site/site.js`.
 
-### 代码规范
-- 使用 ES6+ 语法
-- 模块化设计，职责分离
-- 清晰的中文注释
-- 统一的命名规范
+`online.html` is the game app. It imports `src-online/online-main.js`, which starts the online start screen and switches into real-player, AI, or local game modes.
 
-### 提交规范
-```
-feat: 新功能
-fix: Bug 修复
-docs: 文档更新
-style: 代码格式调整
-refactor: 重构
-test: 测试相关
-chore: 构建/工具变更
+The game keeps a fixed logical canvas size of `450x960`. HiDPI rendering only changes the backing store; game coordinates and input mapping remain in logical coordinates.
+
+### Android
+
+`capacitor.config.json` uses:
+
+```json
+{
+  "server": {
+    "appStartPath": "/online.html"
+  }
+}
 ```
 
----
+This prevents the APK from opening the website landing page.
 
-## 进度跟踪
+### Backend
 
-| 版本 | 状态 | 开始日期 | 完成日期 | 主要功能 |
-|------|------|----------|----------|----------|
-| v0.1.0 | ✅ 完成 | 2026-06-02 | 2026-06-02 | 基础单机版 |
-| v0.2.0 | ✅ 完成 | 2026-06-02 | 2026-06-02 | 纵向布局重构 |
-| v0.3.0 | ✅ 完成 | 2026-06-02 | 2026-06-02 | Bot AI 对手 |
-| v0.4.0 | ✅ 完成 | 2026-06-02 | 2026-06-02 | 在线对战 |
-| v0.5.0 | ✅ 完成 | 2026-06-02 | 2026-06-02 | UI 美化 |
-| v0.5.1 | ✅ 完成 | 2026-06-02 | 2026-06-02 | Bug 修复 |
-| v0.5.2 | ✅ 完成 | 2026-06-02 | 2026-06-02 | 脚本整合 |
-| v0.5.3 | ✅ 完成 | 2026-06-02 | 2026-06-02 | 中文管理工具 |
-| v0.5.4 | ✅ 完成 | 2026-06-02 | 2026-06-02 | 管理工具脚本 |
-| v0.6.0 | ✅ 完成 | 2026-06-04 | 2026-06-04 | 模块化重构 & Bug 修复 |
-| v0.7.0 | ✅ 完成 | 2026-06-04 | 2026-06-04 | 物理AI核心 & 断线重连优化 |
-| v0.7.1 | ✅ 完成 | 2026-06-04 | 2026-06-04 | 细节优化 & 掷骰子阶段禁言 |
-| v1.0.0 | 🔄 进行中 | 2026-06-02 | - | 正式版 |
+`server/server.js` owns:
 
----
+- Static `dist` hosting in production.
+- Static source hosting in development.
+- `/api/competitive/*` HTTP API.
+- WebSocket room and live match messages.
+- `/download/pello-debug.apk` APK streaming.
 
-## 备注
-- 每个版本完成后更新本文档状态
-- 开发过程中如需调整计划，及时更新文档
-- 保持向后兼容性，新版本不破坏已有功能
+Competitive account and match state lives in `server/src/competitive`.
+
+## Deployment Flow
+
+1. Pull the deployment branch on the server.
+
+2. Run the one-step script:
+
+```bash
+sudo bash deploy.sh
+```
+
+The script defaults to `https://pello.xincreates.com`, builds the website/game with the locked server URL, installs a systemd service, and configures nginx for `pello.xincreates.com`.
+
+If this server should issue the HTTPS certificate itself:
+
+```bash
+sudo SSL_EMAIL=admin@example.com bash deploy.sh
+```
+
+The downloadable internal-test APK is expected at `public/download/pello-debug.apk`; the route falls back to the Android debug build output if that file is missing.
+
+## Release Checklist
+
+- `npm run test:game-ai`
+- `npm run test:competitive`
+- `npm run build`
+- `npm run android:build:debug:local`
+- Website loads `/`.
+- Web game loads `/online.html`.
+- `/api/competitive/health` returns `ok: true`.
+- `/download/pello-debug.apk` downloads the expected APK.
+- Android app starts directly in the game UI.
+
+## Known Boundaries
+
+- Current APK route serves the debug build. Release signing and Play Store AAB are separate work.
+- The default competitive store is a JSON file. Use a managed database before larger public traffic.
+- Paid AI difficulty is server/matchmaking controlled; only local practice exposes manual difficulty.

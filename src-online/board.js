@@ -1,9 +1,3 @@
-/**
- * @file board.js
- * @description 棋盘模块 - 绘制棋盘、得分区域和发射区域，计算棋子得分
- * Ring Rush - 弹棋
- */
-
 import {
     SCORING_ZONES,
     CENTER_X,
@@ -12,13 +6,16 @@ import {
     BOARD_Y,
     BOARD_WIDTH,
     BOARD_HEIGHT,
-    LAUNCH_ZONE_WIDTH,
-    LAUNCH_ZONE_HEIGHT
+    LAUNCH_ZONE_HEIGHT,
+    LAUNCH_LANE_WIDTH,
+    TOP_LAUNCH_LANE_Y,
+    BOTTOM_LAUNCH_LANE_Y
 } from './constants.js';
 
-/**
- * 棋盘类，负责棋盘和得分区域的绘制与计分逻辑
- */
+const SURFACE_INSET = 10;
+const SURFACE_RADIUS = 10;
+const INNER_HIGHLIGHT_INSET = 18;
+
 export class Board {
     constructor(game) {
         this.game = game;
@@ -28,12 +25,6 @@ export class Board {
         this.pulsePhase = 0;
     }
 
-    /**
-     * 生成正多边形顶点（相对于中心的偏移量）
-     * @param {number} sides - 边数
-     * @param {number} radius - 外接圆半径
-     * @returns {Array<{x: number, y: number}>}
-     */
     generatePolygon(sides, radius) {
         const vertices = [];
         const angleStep = (Math.PI * 2) / sides;
@@ -45,11 +36,6 @@ export class Board {
         return vertices;
     }
 
-    /**
-     * 生成轴对齐正方形的顶点
-     * @param {number} radius - 半边长
-     * @returns {Array<{x: number, y: number}>}
-     */
     generateSquareAligned(radius) {
         return [
             { x: -radius, y: -radius },
@@ -59,11 +45,6 @@ export class Board {
         ];
     }
 
-    /**
-     * 计算棋子在哪个得分区域内
-     * @param {Piece} piece
-     * @returns {number} 得分值 (0, 2, 3, 4, 5)
-     */
     calculateScore(piece) {
         if (!piece || piece.isDiscarded || piece.player === 'N') return 0;
         const dx = piece.x - CENTER_X;
@@ -77,143 +58,281 @@ export class Board {
         return 0;
     }
 
-    /**
-     * 射线法判断点是否在多边形内部
-     * @param {number} px - 相对于中心的X坐标
-     * @param {number} py - 相对于中心的Y坐标
-     * @param {Array<{x: number, y: number}>} vertices
-     * @returns {boolean}
-     */
     isInsidePolygon(px, py, vertices) {
         let inside = false;
         const n = vertices.length;
         for (let i = 0, j = n - 1; i < n; j = i++) {
-            const xi = vertices[i].x, yi = vertices[i].y;
-            const xj = vertices[j].x, yj = vertices[j].y;
-            if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+            const xi = vertices[i].x;
+            const yi = vertices[i].y;
+            const xj = vertices[j].x;
+            const yj = vertices[j].y;
+            if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
                 inside = !inside;
             }
         }
         return inside;
     }
 
-    /**
-     * 绘制棋盘（统一方法，支持正常和翻转视角）
-     * - isTop = false: 正常绘制（底部视角）
-     * - isTop = true:  翻转坐标绘制（顶部视角，文字始终正向）
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {boolean} [isTop=false] - 是否为顶部视角（翻转坐标）
-     */
     draw(ctx, isTop = false) {
-        const flipX = (x) => isTop ? BOARD_X + BOARD_WIDTH - (x - BOARD_X) : x;
-        const flipY = (y) => isTop ? BOARD_Y + BOARD_HEIGHT - (y - BOARD_Y) : y;
+        const flipX = (x) => (isTop ? BOARD_X + BOARD_WIDTH - (x - BOARD_X) : x);
+        const flipY = (y) => (isTop ? BOARD_Y + BOARD_HEIGHT - (y - BOARD_Y) : y);
 
         this.pulsePhase += 0.02;
 
-        // 棋盘背景
-        const gradient = ctx.createLinearGradient(BOARD_X, BOARD_Y, BOARD_X, BOARD_Y + BOARD_HEIGHT);
-        gradient.addColorStop(0, '#2d1f14');
-        gradient.addColorStop(0.5, '#3d2b1a');
-        gradient.addColorStop(1, '#2d1f14');
-        ctx.fillStyle = gradient;
-        ctx.strokeStyle = '#8b7355';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.roundRect(BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 12);
-        ctx.fill();
-        ctx.stroke();
-
-        // 内边框
-        ctx.strokeStyle = 'rgba(139, 115, 85, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(BOARD_X + 8, BOARD_Y + 8, BOARD_WIDTH - 16, BOARD_HEIGHT - 16, 8);
-        ctx.stroke();
-
-        // 得分区域
+        this.drawArenaBase(ctx, isTop);
         this.drawScoringZones(ctx, flipX, flipY);
-
-        // 中心十字线
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([10, 10]);
-        ctx.beginPath();
-        ctx.moveTo(flipX(CENTER_X), BOARD_Y);
-        ctx.lineTo(flipX(CENTER_X), BOARD_Y + BOARD_HEIGHT);
-        ctx.moveTo(BOARD_X, flipY(CENTER_Y));
-        ctx.lineTo(BOARD_X + BOARD_WIDTH, flipY(CENTER_Y));
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // 发射区
+        this.drawCenterGuides(ctx, flipX, flipY);
         this.drawLaunchZones(ctx, isTop);
     }
 
-    /**
-     * 绘制得分区域（支持坐标翻转）
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {function} flipX - X坐标变换函数
-     * @param {function} flipY - Y坐标变换函数
-     */
+    drawArenaBase(ctx, isTop = false) {
+        let topStroke = this.game.getPlayerColor('B');
+        let bottomStroke = this.game.getPlayerColor('A');
+        if (isTop) {
+            const tempStroke = topStroke;
+            topStroke = bottomStroke;
+            bottomStroke = tempStroke;
+        }
+        const topRgb = this.hexToRgbStr(topStroke);
+        const bottomRgb = this.hexToRgbStr(bottomStroke);
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(45, 120, 148, 0.26)';
+        ctx.shadowBlur = 22;
+        ctx.shadowOffsetY = 9;
+        const teamRim = ctx.createLinearGradient(BOARD_X, BOARD_Y, BOARD_X + BOARD_WIDTH, BOARD_Y + BOARD_HEIGHT);
+        teamRim.addColorStop(0, `rgba(${topRgb}, 0.95)`);
+        teamRim.addColorStop(0.5, 'rgba(255, 220, 92, 0.95)');
+        teamRim.addColorStop(1, `rgba(${bottomRgb}, 0.95)`);
+        ctx.fillStyle = teamRim;
+        ctx.beginPath();
+        ctx.roundRect(BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 18);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.62)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.86)';
+        ctx.beginPath();
+        ctx.roundRect(BOARD_X + 8, BOARD_Y + 8, BOARD_WIDTH - 16, BOARD_HEIGHT - 16, 14);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+
+        const floor = ctx.createLinearGradient(
+            BOARD_X,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_X,
+            BOARD_Y + BOARD_HEIGHT - SURFACE_INSET
+        );
+        floor.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        floor.addColorStop(0.48, 'rgba(225, 245, 255, 0.74)');
+        floor.addColorStop(1, 'rgba(236, 255, 246, 0.82)');
+        ctx.fillStyle = floor;
+        ctx.beginPath();
+        ctx.roundRect(
+            BOARD_X + SURFACE_INSET,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_WIDTH - SURFACE_INSET * 2,
+            BOARD_HEIGHT - SURFACE_INSET * 2,
+            SURFACE_RADIUS
+        );
+        ctx.fill();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(
+            BOARD_X + SURFACE_INSET,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_WIDTH - SURFACE_INSET * 2,
+            BOARD_HEIGHT - SURFACE_INSET * 2,
+            SURFACE_RADIUS
+        );
+        ctx.clip();
+        this.drawArenaPattern(ctx);
+        ctx.restore();
+
+        this.drawGlassOverlay(ctx);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(
+            BOARD_X + INNER_HIGHLIGHT_INSET,
+            BOARD_Y + INNER_HIGHLIGHT_INSET,
+            BOARD_WIDTH - INNER_HIGHLIGHT_INSET * 2,
+            BOARD_HEIGHT - INNER_HIGHLIGHT_INSET * 2,
+            8
+        );
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(20, 54, 66, 0.16)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(
+            BOARD_X + SURFACE_INSET,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_WIDTH - SURFACE_INSET * 2,
+            BOARD_HEIGHT - SURFACE_INSET * 2,
+            SURFACE_RADIUS
+        );
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    drawGlassOverlay(ctx) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(
+            BOARD_X + SURFACE_INSET,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_WIDTH - SURFACE_INSET * 2,
+            BOARD_HEIGHT - SURFACE_INSET * 2,
+            SURFACE_RADIUS
+        );
+        ctx.clip();
+
+        const sheen = ctx.createLinearGradient(
+            BOARD_X,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_X,
+            BOARD_Y + BOARD_HEIGHT - SURFACE_INSET
+        );
+        sheen.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
+        sheen.addColorStop(0.26, 'rgba(255, 255, 255, 0.1)');
+        sheen.addColorStop(0.62, 'rgba(111, 207, 255, 0.13)');
+        sheen.addColorStop(1, 'rgba(255, 255, 255, 0.22)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(
+            BOARD_X + SURFACE_INSET,
+            BOARD_Y + SURFACE_INSET,
+            BOARD_WIDTH - SURFACE_INSET * 2,
+            BOARD_HEIGHT - SURFACE_INSET * 2
+        );
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.46)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(BOARD_X + 30, BOARD_Y + 34);
+        ctx.bezierCurveTo(BOARD_X + 118, BOARD_Y + 22, BOARD_X + BOARD_WIDTH - 118, BOARD_Y + 25, BOARD_X + BOARD_WIDTH - 30, BOARD_Y + 34);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    drawArenaPattern(ctx) {
+        ctx.save();
+        ctx.globalAlpha = 0.13;
+        for (let x = BOARD_X + 34; x < BOARD_X + BOARD_WIDTH - 24; x += 38) {
+            const sway = Math.sin((x - BOARD_X) * 0.055) * 6;
+            ctx.strokeStyle = x % 76 === 0 ? '#ffffff' : '#6fcfff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, BOARD_Y + 24);
+            ctx.bezierCurveTo(x + sway, BOARD_Y + 124, x - sway, BOARD_Y + BOARD_HEIGHT - 124, x + 2, BOARD_Y + BOARD_HEIGHT - 24);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        const topShade = ctx.createLinearGradient(BOARD_X, BOARD_Y + SURFACE_INSET, BOARD_X, BOARD_Y + 102);
+        topShade.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
+        topShade.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = topShade;
+        ctx.fillRect(BOARD_X + SURFACE_INSET, BOARD_Y + SURFACE_INSET, BOARD_WIDTH - SURFACE_INSET * 2, 92);
+
+        const bottomShade = ctx.createLinearGradient(
+            BOARD_X,
+            BOARD_Y + BOARD_HEIGHT - 102,
+            BOARD_X,
+            BOARD_Y + BOARD_HEIGHT - SURFACE_INSET
+        );
+        bottomShade.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        bottomShade.addColorStop(1, 'rgba(65, 197, 155, 0.14)');
+        ctx.fillStyle = bottomShade;
+        ctx.fillRect(
+            BOARD_X + SURFACE_INSET,
+            BOARD_Y + BOARD_HEIGHT - 110,
+            BOARD_WIDTH - SURFACE_INSET * 2,
+            92
+        );
+    }
+
+    drawCenterGuides(ctx, flipX, flipY) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(20, 54, 66, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.moveTo(flipX(CENTER_X), BOARD_Y + SURFACE_INSET + 4);
+        ctx.lineTo(flipX(CENTER_X), BOARD_Y + BOARD_HEIGHT - SURFACE_INSET - 4);
+        ctx.moveTo(BOARD_X + SURFACE_INSET + 4, flipY(CENTER_Y));
+        ctx.lineTo(BOARD_X + BOARD_WIDTH - SURFACE_INSET - 4, flipY(CENTER_Y));
+        ctx.stroke();
+        ctx.restore();
+    }
+
     drawScoringZones(ctx, flipX, flipY) {
         const cx = flipX(CENTER_X);
         const cy = flipY(CENTER_Y);
 
-        // 正方形（最外层）
-        const sq = this.squareVertices.map(v => ({
+        ctx.save();
+        ctx.shadowColor = 'rgba(47, 111, 139, 0.18)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+
+        const square = this.squareVertices.map((v) => ({
             x: flipX(CENTER_X + v.x),
             y: flipY(CENTER_Y + v.y)
         }));
-        this.drawPolygonAt(ctx, sq, SCORING_ZONES.square.color, '#9370db');
+        this.drawPolygonAt(ctx, square, 'rgba(149, 128, 244, 0.24)', '#8068f0', 3);
 
-        // 五边形改为圆形（第三环）
         ctx.beginPath();
         ctx.arc(cx, cy, SCORING_ZONES.pentagon.radius, 0, Math.PI * 2);
-        ctx.fillStyle = SCORING_ZONES.pentagon.color;
+        ctx.fillStyle = 'rgba(111, 187, 255, 0.26)';
         ctx.fill();
-        ctx.strokeStyle = '#6495ed';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#35a9e8';
+        ctx.lineWidth = 3;
         ctx.stroke();
 
-        // 六边形（第二环）
-        const hex = this.hexagonVertices.map(v => ({
+        const hexagon = this.hexagonVertices.map((v) => ({
             x: flipX(CENTER_X + v.x),
             y: flipY(CENTER_Y + v.y)
         }));
-        this.drawPolygonAt(ctx, hex, SCORING_ZONES.hexagon.color, '#3cb371');
+        this.drawPolygonAt(ctx, hexagon, 'rgba(89, 218, 151, 0.44)', '#31bd78', 4);
 
-        // 中心圆（带发光）
-        ctx.save();
-        ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#f6c945';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 0;
         ctx.beginPath();
         ctx.arc(cx, cy, SCORING_ZONES.center.radius, 0, Math.PI * 2);
-        ctx.fillStyle = SCORING_ZONES.center.color;
+        ctx.fillStyle = 'rgba(255, 216, 24, 0.86)';
         ctx.fill();
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#fff5ad';
+        ctx.lineWidth = 3;
         ctx.stroke();
         ctx.restore();
 
-        // 分数标注（文字始终正向）
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.font = 'bold 12px sans-serif';
+        ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.82)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = 'rgba(20, 54, 66, 0.72)';
+        ctx.font = 'bold 13px sans-serif';
         ctx.fillText('5', cx, cy);
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillStyle = 'rgba(20, 54, 66, 0.68)';
         ctx.fillText('4', cx, cy - SCORING_ZONES.hexagon.radius + 15);
         ctx.fillText('3', cx, cy - SCORING_ZONES.pentagon.radius + 15);
         ctx.fillText('2', cx, cy - SCORING_ZONES.square.radius + 18);
+        ctx.restore();
     }
 
-    /**
-     * 在绝对坐标处绘制多边形
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {Array<{x: number, y: number}>} vertices - 绝对坐标顶点
-     * @param {string} fillColor
-     * @param {string} strokeColor
-     */
-    drawPolygonAt(ctx, vertices, fillColor, strokeColor) {
+    drawPolygonAt(ctx, vertices, fillColor, strokeColor, lineWidth = 1.5) {
         if (vertices.length < 2) return;
         ctx.beginPath();
         ctx.moveTo(vertices[0].x, vertices[0].y);
@@ -221,31 +340,23 @@ export class Board {
             ctx.lineTo(vertices[i].x, vertices[i].y);
         }
         ctx.closePath();
+        ctx.save();
         ctx.fillStyle = fillColor;
         ctx.fill();
         ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = lineWidth;
         ctx.stroke();
+        ctx.restore();
     }
 
-    /**
-     * 绘制发射区域（顶部和底部）
-     * @param {CanvasRenderingContext2D} ctx
-     */
     drawLaunchZones(ctx, isTop = false) {
         let topStroke = this.game.getPlayerColor('B');
         let bottomStroke = this.game.getPlayerColor('A');
 
-        const hexToRgbStr = (hex) => {
-            return `${parseInt(hex.slice(1,3),16)}, ${parseInt(hex.slice(3,5),16)}, ${parseInt(hex.slice(5,7),16)}`;
-        };
-
-        let topColor = hexToRgbStr(topStroke);
-        let bottomColor = hexToRgbStr(bottomStroke);
+        let topColor = this.hexToRgbStr(topStroke);
+        let bottomColor = this.hexToRgbStr(bottomStroke);
 
         if (isTop) {
-            // If the user is B (isTop), they are playing from the bottom of the screen.
-            // So the bottom of the screen should be B's color (topColor), and top should be A's color (bottomColor).
             const tempColor = topColor;
             topColor = bottomColor;
             bottomColor = tempColor;
@@ -255,32 +366,53 @@ export class Board {
             bottomStroke = tempStroke;
         }
 
-        // 对手发射区（顶部）
-        const topZoneY = BOARD_Y - LAUNCH_ZONE_HEIGHT - 25;
-        const topGradient = ctx.createLinearGradient(CENTER_X - LAUNCH_ZONE_WIDTH * 2, topZoneY, CENTER_X + LAUNCH_ZONE_WIDTH * 2, topZoneY);
-        topGradient.addColorStop(0, `rgba(${topColor}, 0.1)`);
-        topGradient.addColorStop(0.5, `rgba(${topColor}, 0.25)`);
-        topGradient.addColorStop(1, `rgba(${topColor}, 0.1)`);
-        ctx.fillStyle = topGradient;
-        ctx.strokeStyle = topStroke;
-        ctx.lineWidth = 2;
+        this.drawLaunchLane(ctx, TOP_LAUNCH_LANE_Y, topColor, topStroke, true);
+        this.drawLaunchLane(ctx, BOTTOM_LAUNCH_LANE_Y, bottomColor, bottomStroke, false);
+    }
+
+    hexToRgbStr(hex) {
+        const normalized = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#47707c';
+        return `${parseInt(normalized.slice(1, 3), 16)}, ${parseInt(normalized.slice(3, 5), 16)}, ${parseInt(normalized.slice(5, 7), 16)}`;
+    }
+
+    drawLaunchLane(ctx, y, rgb, stroke, isTop) {
+        const x = CENTER_X - LAUNCH_LANE_WIDTH / 2;
+        const w = LAUNCH_LANE_WIDTH;
+        const h = LAUNCH_ZONE_HEIGHT;
+        const gradient = ctx.createLinearGradient(x, y, x, y + h);
+        gradient.addColorStop(0, `rgba(${rgb}, ${isTop ? 0.22 : 0.08})`);
+        gradient.addColorStop(0.5, `rgba(${rgb}, 0.22)`);
+        gradient.addColorStop(1, `rgba(${rgb}, ${isTop ? 0.08 : 0.26})`);
+
+        ctx.save();
+        ctx.shadowColor = `rgba(${rgb}, 0.34)`;
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = isTop ? 2 : 4;
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.roundRect(CENTER_X - LAUNCH_ZONE_WIDTH * 2, topZoneY, LAUNCH_ZONE_WIDTH * 4, LAUNCH_ZONE_HEIGHT, 8);
+        ctx.roundRect(x, y, w, h, 10);
         ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // 玩家发射区（底部）
-        const bottomZoneY = BOARD_Y + BOARD_HEIGHT + 25;
-        const bottomGradient = ctx.createLinearGradient(CENTER_X - LAUNCH_ZONE_WIDTH * 2, bottomZoneY, CENTER_X + LAUNCH_ZONE_WIDTH * 2, bottomZoneY);
-        bottomGradient.addColorStop(0, `rgba(${bottomColor}, 0.1)`);
-        bottomGradient.addColorStop(0.5, `rgba(${bottomColor}, 0.25)`);
-        bottomGradient.addColorStop(1, `rgba(${bottomColor}, 0.1)`);
-        ctx.fillStyle = bottomGradient;
-        ctx.strokeStyle = bottomStroke;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.48)';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect(CENTER_X - LAUNCH_ZONE_WIDTH * 2, bottomZoneY, LAUNCH_ZONE_WIDTH * 4, LAUNCH_ZONE_HEIGHT, 8);
-        ctx.fill();
+        ctx.roundRect(x + 7, y + 7, w - 14, h - 14, 8);
         ctx.stroke();
+
+        ctx.globalAlpha = 0.56;
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 5; i++) {
+            const dotX = x + 34 + i * 33;
+            const dotY = y + h / 2;
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
     }
 }

@@ -4,6 +4,8 @@
  */
 
 import { CENTER_X, CANVAS_WIDTH, CANVAS_HEIGHT } from './constants.js';
+import { t } from './i18n.js';
+import { drawUIAsset, getButtonAsset } from './ui-assets.js';
 
 export class DiceManager {
     constructor(game) {
@@ -84,20 +86,20 @@ export class DiceManager {
     draw(ctx) {
         if (!this.phase) return;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
         let myVal = this.val, opVal = this.opVal;
         let myColor = '#888';
         let opColor = '#888';
-        let myLabel = '你';
-        let opLabel = '对手';
+        let myLabel = t('you');
+        let opLabel = t('opponent');
         
         if (this.game.gameMode === 'local') {
-            myLabel = '玩家 1';
-            opLabel = '玩家 2';
+            myLabel = t('player1');
+            opLabel = t('player2');
         } else if (this.game.gameMode === 'bot') {
-            myLabel = '你';
+            myLabel = t('you');
             opLabel = 'Bot';
         }
 
@@ -118,19 +120,18 @@ export class DiceManager {
             opColor = myFirst ? '#d94a4a' : '#4a90d9';
             
             if (this.game.gameMode === 'online') {
-                myLabel = myFirst ? '你先手' : '你后手';
-                opLabel = myFirst ? '对手后手' : '对手先手';
+                myLabel = myFirst ? t('youFirst') : t('youSecond');
+                opLabel = myFirst ? t('opponentSecond') : t('opponentFirst');
             } else if (this.game.gameMode === 'bot') {
-                myLabel = myFirst ? '你先手' : '你后手';
-                opLabel = myFirst ? 'Bot后手' : 'Bot先手';
+                myLabel = myFirst ? t('youFirst') : t('youSecond');
+                opLabel = myFirst ? t('botSecond') : t('botFirst');
             } else if (this.game.gameMode === 'local') {
-                const bottomIsFirst = (this.game.perspective === 'bottom' && myFirst) || (this.game.perspective === 'top' && !myFirst);
                 if (this.game.perspective === 'bottom') {
-                    myLabel = myFirst ? '下方先手' : '下方后手';
-                    opLabel = myFirst ? '上方后手' : '上方先手';
+                    myLabel = myFirst ? t('bottomFirst') : t('bottomSecond');
+                    opLabel = myFirst ? t('topSecond') : t('topFirst');
                 } else {
-                    myLabel = myFirst ? '上方先手' : '上方后手';
-                    opLabel = myFirst ? '下方后手' : '下方先手';
+                    myLabel = myFirst ? t('topFirst') : t('topSecond');
+                    opLabel = myFirst ? t('bottomSecond') : t('bottomFirst');
                 }
             }
         } else {
@@ -146,15 +147,22 @@ export class DiceManager {
     }
 
     drawNormalLayout(ctx, myVal, opVal, myColor, opColor, myLabel, opLabel) {
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 36px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('开局掷骰子决定先手', CENTER_X, 200);
+        const panelX = 24;
+        const panelY = 150;
+        const panelW = CANVAS_WIDTH - 48;
+        const panelH = 520;
+        this.drawDicePanel(ctx, panelX, panelY, panelW, panelH);
 
-        this.drawDie(ctx, CENTER_X - 120, 320, myVal, myColor, myLabel);
-        this.drawDie(ctx, CENTER_X + 120, 320, opVal, opColor, opLabel);
+        ctx.fillStyle = '#143642';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        this.drawCenteredText(ctx, t('diceTitle'), CENTER_X, 200, panelW - 56, 28, '900');
 
-        ctx.fillStyle = '#f0e68c'; ctx.font = 'bold 28px sans-serif';
-        ctx.fillText('VS', CENTER_X, 340);
+        this.drawDie(ctx, CENTER_X - 88, 324, myVal, myColor, myLabel);
+        this.drawDie(ctx, CENTER_X + 88, 324, opVal, opColor, opLabel);
+
+        ctx.fillStyle = '#f6c945'; ctx.font = '900 28px sans-serif';
+        ctx.fillText('VS', CENTER_X, 338);
 
         this.drawNormalResults(ctx);
     }
@@ -163,52 +171,83 @@ export class DiceManager {
         if (this.results) {
             const myOriginalId = this.game.gameMode === 'online' ? this.game.network.playerIndex : (this.game.perspective === 'bottom' ? 'A' : 'B');
             const first = this.results.first;
-            let firstLabel = first === myOriginalId ? '你先手！' : '对手先手！';
+            let firstLabel = first === myOriginalId ? t('youFirst') : t('opponentFirst');
             if (this.game.gameMode === 'local') {
-                firstLabel = first === 'A' ? '下方先手！' : '上方先手！';
+                firstLabel = first === 'A' ? t('bottomFirst') : t('topFirst');
             } else if (this.game.gameMode === 'bot') {
-                firstLabel = first === 'A' ? '你先手！' : 'Bot先手！';
+                firstLabel = first === 'A' ? t('youFirst') : t('botFirst');
             }
-            ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 36px sans-serif';
-            ctx.fillText(firstLabel, CENTER_X, 420);
+            ctx.fillStyle = '#35b779'; ctx.font = '900 34px sans-serif';
+            ctx.fillText(firstLabel, CENTER_X, 438, CANVAS_WIDTH - 80);
         } else if (this.tieResult) {
             ctx.fillStyle = 'rgba(244, 67, 54, 0.2)';
             ctx.fillRect(0, 400 - 40, CANVAS_WIDTH, 80);
-            ctx.fillStyle = '#f44336'; ctx.font = 'bold 36px sans-serif';
-            ctx.fillText('双方点数相同，平局重掷！', CENTER_X, 400);
+            ctx.fillStyle = '#f44336';
+            this.drawCenteredText(ctx, t('sameDice'), CENTER_X, 400, CANVAS_WIDTH - 56, 32, 'bold');
         } else {
-            const bx = CENTER_X - 80, by = 500, bw = 160, bh = 50;
+            const bx = CENTER_X - 100, by = 494, bw = 200, bh = 58;
             if (!this.hasRolled) {
-                ctx.fillStyle = '#ddd'; ctx.font = '16px sans-serif';
-                ctx.fillText('点击按钮随机生成点数', CENTER_X, 390);
+                ctx.fillStyle = '#47707c'; ctx.font = '16px sans-serif';
+                ctx.fillText(t('clickRoll'), CENTER_X, 390);
 
                 const left = Math.ceil(Math.max(0, this.countdownEndTime - Date.now()) / 1000);
-                ctx.fillText(`${left}秒后自动摇号...`, CENTER_X, 580);
+                ctx.fillText(t('autoRoll', { seconds: left }), CENTER_X, 580);
 
                 const grad = ctx.createLinearGradient(bx, by, bx, by + bh);
                 grad.addColorStop(0, '#4CAF50'); grad.addColorStop(1, '#45a049');
                 ctx.fillStyle = grad;
                 ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 8); ctx.fill();
                 ctx.strokeStyle = '#81c784'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 24px sans-serif';
-                ctx.fillText('掷骰子', CENTER_X, by + 28);
+                this.drawRollButton(ctx, bx, by, bw, bh, t('rollDice'));
                 this.btn = { x: bx, y: by, w: bw, h: bh };
 
                 if (this.opponentRolling) {
                     ctx.fillStyle = '#ff9800'; ctx.font = 'bold 20px sans-serif';
-                    ctx.fillText('对手已掷，请你掷骰子', CENTER_X, 450);
+                    ctx.fillText(t('opponentRolled'), CENTER_X, 450);
                 }
             } else {
                 this.btn = null;
                 if (!this.opponentRolling && this.game.gameMode === 'online') {
                     ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
-                    ctx.fillText('等待对手掷骰子...', CENTER_X, 500);
+                    ctx.fillText(t('waitingOpponentRoll'), CENTER_X, 500);
                 } else {
                     ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
-                    ctx.fillText('等待出结果...', CENTER_X, 500);
+                    ctx.fillText(t('waitingResult'), CENTER_X, 500);
                 }
             }
         }
+    }
+
+    drawDicePanel(ctx, x, y, w, h) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 24);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    drawRollButton(ctx, x, y, w, h, label) {
+        if (!drawUIAsset(ctx, getButtonAsset('#35b779'), x, y, w, h)) {
+            const grad = ctx.createLinearGradient(x, y, x, y + h);
+            grad.addColorStop(0, '#49d987');
+            grad.addColorStop(1, '#1aa95a');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 16);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x + w / 2, y + h / 2);
     }
 
     drawLocalLayout(ctx, myVal, opVal, myColor, opColor, myLabel, opLabel) {
@@ -232,20 +271,21 @@ export class DiceManager {
     }
 
     drawLocalHalf(ctx, val, color, label, isTop, playerRolled) {
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 24px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('开局掷骰子决定先手', CENTER_X, CANVAS_HEIGHT - 120);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        this.drawCenteredText(ctx, t('diceTitle'), CENTER_X, CANVAS_HEIGHT - 120, CANVAS_WIDTH - 44, 24, 'bold');
 
         this.drawDie(ctx, CENTER_X, CANVAS_HEIGHT - 240, val, color, label);
 
         if (this.results) {
             const first = this.results.first;
-            const firstLabel = first === 'A' ? '下方先手！' : '上方先手！';
+            const firstLabel = first === 'A' ? t('bottomFirst') : t('topFirst');
             ctx.fillStyle = '#4CAF50'; ctx.font = 'bold 28px sans-serif';
             ctx.fillText(firstLabel, CENTER_X, CANVAS_HEIGHT - 350);
         } else if (this.tieResult) {
-            ctx.fillStyle = '#f44336'; ctx.font = 'bold 24px sans-serif';
-            ctx.fillText('点数相同，平局重掷！', CENTER_X, CANVAS_HEIGHT - 350);
+            ctx.fillStyle = '#f44336';
+            this.drawCenteredText(ctx, t('sameDice'), CENTER_X, CANVAS_HEIGHT - 350, CANVAS_WIDTH - 44, 24, 'bold');
         } else {
             const bx = CENTER_X - 80, by = CANVAS_HEIGHT - 400, bw = 160, bh = 50;
             if (!playerRolled) {
@@ -254,8 +294,7 @@ export class DiceManager {
                 ctx.fillStyle = grad;
                 ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 8); ctx.fill();
                 ctx.strokeStyle = '#81c784'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 24px sans-serif';
-                ctx.fillText('掷骰子', CENTER_X, by + 28);
+                this.drawRollButton(ctx, bx, by, bw, bh, t('rollDice'));
                 
                 // Store actual screen coordinates
                 if (isTop) {
@@ -270,13 +309,58 @@ export class DiceManager {
                 }
             } else {
                 ctx.fillStyle = '#aaa'; ctx.font = '20px sans-serif';
-                ctx.fillText('已掷骰，等待对方...', CENTER_X, CANVAS_HEIGHT - 380);
+                ctx.fillText(t('rolledWait'), CENTER_X, CANVAS_HEIGHT - 380);
             }
         }
     }
 
     drawDie(ctx, x, y, value, color, label) {
         const s = 80;
+        ctx.fillStyle = color;
+        ctx.font = '900 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, y - s / 2 - 20);
+
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        const polishedDie = ctx.createLinearGradient(x - s / 2, y - s / 2, x + s / 2, y + s / 2);
+        polishedDie.addColorStop(0, '#ffffff');
+        polishedDie.addColorStop(1, '#eefaff');
+        ctx.fillStyle = polishedDie;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(x - s / 2, y - s / 2, s, s, 16);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        if (value === null) {
+            ctx.fillStyle = color;
+            ctx.font = '900 38px sans-serif';
+            ctx.fillText('?', x, y);
+            return;
+        }
+
+        ctx.fillStyle = color;
+        const dotRadius = 8;
+        const dotOffset = s * 0.3;
+        const polishedDots = {
+            1: [[0, 0]],
+            2: [[-dotOffset, -dotOffset], [dotOffset, dotOffset]],
+            3: [[-dotOffset, -dotOffset], [0, 0], [dotOffset, dotOffset]],
+            4: [[-dotOffset, -dotOffset], [dotOffset, -dotOffset], [-dotOffset, dotOffset], [dotOffset, dotOffset]],
+            5: [[-dotOffset, -dotOffset], [dotOffset, -dotOffset], [0, 0], [-dotOffset, dotOffset], [dotOffset, dotOffset]],
+            6: [[-dotOffset, -dotOffset], [dotOffset, -dotOffset], [-dotOffset, 0], [dotOffset, 0], [-dotOffset, dotOffset], [dotOffset, dotOffset]]
+        };
+        (polishedDots[value] || []).forEach(([dx, dy]) => {
+            ctx.beginPath();
+            ctx.arc(x + dx, y + dy, dotRadius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        return;
         // 标签
         ctx.fillStyle = color; ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -308,8 +392,19 @@ export class DiceManager {
         });
     }
 
+    drawCenteredText(ctx, text, x, y, maxWidth, initialSize, weight = 'bold') {
+        let fontSize = initialSize;
+        ctx.font = `${weight} ${fontSize}px sans-serif`;
+        while (fontSize > 12 && ctx.measureText(text).width > maxWidth) {
+            fontSize -= 1;
+            ctx.font = `${weight} ${fontSize}px sans-serif`;
+        }
+        ctx.fillText(text, x, y);
+    }
+
     handleClick(mx, my, force = false) {
         if (!this.phase || this.results || this.tieResult) return false;
+        if (!force) this.game.audio?.resume();
 
         if (this.game.gameMode === 'local') {
             if (this.localRolledA && this.localRolledB) return false;

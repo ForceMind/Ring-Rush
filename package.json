@@ -4,9 +4,28 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "test:game-ai": "node server/tests/game-ai-board-targeting.test.js && node server/tests/game-bot-turn-flow.test.js",
+    "test:competitive": "node server/tests/competitive-service.test.js && node server/tests/competitive-api.test.js && node server/tests/competitive-live-controller.test.js",
+    "android:add": "cap add android",
+    "android:sync": "npm run build && cap sync android",
+    "android:build:debug": "npm run android:sync && cd android && gradlew.bat :app:assembleDebug",
+    "android:build:debug:local": "powershell -ExecutionPolicy Bypass -File scripts/android-build-debug.ps1",
+    "android:open": "cap open android",
+    "ui:assets": "node scripts/generate-ui-assets.mjs",
+    "app:assets": "powershell -ExecutionPolicy Bypass -File scripts/generate-app-assets.ps1",
+    "app-server:config": "powershell -ExecutionPolicy Bypass -File scripts/deploy-app-server.ps1 -SkipBuild",
+    "app-server:write-env": "powershell -ExecutionPolicy Bypass -File scripts/deploy-app-server.ps1 -SkipBuild -WriteEnv",
+    "app-server:deploy:local": "powershell -ExecutionPolicy Bypass -File scripts/deploy-app-server.ps1 -StartLocal",
+    "server:start": "node server/server.js"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
     "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.4.0"
   }
 }

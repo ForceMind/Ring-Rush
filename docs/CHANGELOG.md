@@ -1,332 +1,58 @@
-# Ring Rush - 版本变更日志
+# Changelog
 
-所有重要更改都将记录在此文件中。
-
-格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
-版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
-
----
+All notable changes are tracked here.
 
 ## [Unreleased]
 
-### 计划中
-- 正式版发布 (v1.0.0)
+### Added
 
----
+- Added a public website at `/` with game introduction, rule summary, screenshots, live web preview, APK download, online play link, and deployment notes.
+- Added website assets under `public/site`.
+- Added `src-site/site.css` and `src-site/site.js` for the website surface.
+- Added `/download/pello-debug.apk` server route for Android debug APK downloads.
+- Added repository APK artifact path `public/download/pello-debug.apk` for simple server pull-and-deploy testing.
+- Added static MIME support for JSON, WebP, JPEG, and APK files.
+
+### Changed
+
+- Kept `online.html` as the web game entry and changed `index.html` into the public website.
+- Configured Capacitor `server.appStartPath` to `/online.html` so the Android app still opens the game UI.
+- Configured deployment defaults for `https://pello.xincreates.com`.
+- Rewrote core documentation to describe the current website, backend, Android, deployment, economy, AI, and testing flow.
+
+### Fixed
+
+- Prevented the new website entry from breaking Android startup.
+- Clarified combined deployment: one Node service hosts website, web game, HTTP API, WebSocket backend, and APK download.
 
 ## [0.10.5] - 2026-06-10
+
 ### Fixed
+
 - Tightened Hard Bot score-pressure logic so it locks the best high-score shot when trailing, in late turns, or when the opponent can win on the next shot.
 - Prevented Hard Bot variety selection from intentionally dropping from available 5/4-point near-optimal shots to 3/2-point shots.
 - Removed Hard Bot execution error; Hard difficulty now varies tactically only in safe positions rather than missing mechanically.
 
----
-
 ## [0.10.4] - 2026-06-10
-### Changed
-- Bot difficulty now combines search depth, near-optimal move selection, score-variety weighting, and execution error instead of only changing search density.
-- Hard Bot keeps deterministic best-play behavior for critical shots, immediate wins, and comeback situations, but uses weighted near-optimal choices in ordinary positions so scoring is less mechanical.
 
----
+### Changed
+
+- Bot difficulty now combines search depth, near-optimal move selection, score-variety weighting, and execution error instead of only changing search density.
+- Hard Bot keeps deterministic best-play behavior for critical shots, immediate wins, and comeback situations, but uses weighted near-optimal choices in ordinary positions.
 
 ## [0.10.3] - 2026-06-10
+
 ### Fixed
+
 - Centered the dice-tie message vertically inside its red banner in both normal and isolated online source trees.
 
-### Notes
-- Local and Bot dice rolls remain two independent `Math.random()` rolls from 1 to 6, so the expected tie rate is 1/6 per opening roll.
-
----
-
 ## [0.10.2] - 2026-06-10
+
 ### Changed
-- Bot AI decision scoring now predicts the current shot score, runner-position impact, immediate win opportunities, opponent counterplay risk, endgame value, and friendly-collision risk before choosing a launch.
-- Replaced the previous whole-board score heuristic with a shot-focused tactical evaluator while keeping the existing physics simulation search.
+
+- Bot AI decision scoring predicts shot score, runner-position impact, immediate win opportunities, opponent counterplay risk, endgame value, and friendly-collision risk.
 
 ### Fixed
-- Fixed the AI candidate loop crash caused by `noiseScore` being swallowed by a malformed comment.
+
+- Fixed the AI candidate loop crash caused by a malformed comment.
 - Fixed Bot slider animation cancellation caused by checking a non-existent `game.state` field.
-
----
-
-## [0.7.4] - 2026-06-04 ✅
-
-### 修复与优化
-- **UI调整**：将游戏主界面的“回合数”文本移动至屏幕顶部中央“在线对战”等模式标签的正下方，使界面布局更加紧凑整洁。
-- **掷骰子动画修复**：修复了在触发“平局”时，掷骰子动画并未锁定最终数字，导致骰子继续以60fps随机闪烁，让玩家在平局等待阶段误以为掷出了不相等点数（例如看到“二”和“四”闪过）的视觉Bug。
-
----
-
-## [0.7.3] - 2026-06-04 ✅
-
-### 修复
-- **发球区边界**：修复了棋盘碰撞逻辑，现在棋子只能从发球区进入棋盘，一旦进入棋盘后将被彻底困在场内，无法再返回或被打回任何发球区。
-
----
-
-## [0.7.2] - 2026-06-04 ✅
-
-### 修复与优化
-- **UI布局调整**：在线对战状态文本移至顶部居中，解决与右上角投降按钮重叠的问题。
-- **投降体验优化**：将浏览器原生的 `confirm()` 弹窗替换为美观的定制化暗色调 HTML 网页弹窗，提升视觉体验。
-- **移动端适配修复**：修复了在移动设备（手机等）上无法点击“再来一局”、“退出”等 UI 按钮的问题。
-- **物理边界修复**：修复了棋子从发球区发射时因超出棋盘上下绝对边界而被错误反弹，导致“棋子刚发球就飞出棋盘外”的问题，为发球区添加了物理碰撞开口（H型边界）。
-- **UI细节**：聊天按钮移除了过于抢眼的蓝色背景，改为更加中立低调的灰色风格。
-
----
-
-## [0.7.1] - 2026-06-04 ✅
-
-### 变更
-- **掷骰子阶段禁言**：在掷骰子阶段隐藏消息发送按钮。
-
----
-
-## [0.7.0] - 2026-06-04 ✅
-
-### 新增
-- **真物理引擎 AI**：AI 算法彻底重写，支持完美物理制动（考虑摩擦阻力）以及路径碰撞检测。
-- **动态战术系统**：AI 懂得击飞高分敌方棋子（Knockout）或助攻己方棋子（Assist）。
-- **联机聊天功能**：在线模式新增预设快捷聊天语句，包含消息气泡与动画尾巴。
-- **无缝断线重连**：掉线玩家重新进入游戏后可瞬间恢复对局状态。
-
-### 修复
-- 修复了本地双人对战早退计分报错的问题。
-- 修复了在线模式下掷骰子阶段的多个网络同步 Bug。
-- 修复了掉线时遮罩全屏影响玩家观盘的问题。
-- 修复了本地双人对战时部分按钮位置方向不友好的问题。
-
----
-
-## [0.6.0] - 2026-06-04 ✅
-
-### 变更
-- **模块化重构**：代码从单文件拆分为基于 ES Module 的多个模块（constants, ui, physics, game 等）。
-- **打包工具链**：引入 Vite 用于构建和生产环境打包。
-- **服务器优化**：Server 支持直接分发构建后的前端静态资源。
-
-### 修复
-- 修复了 Canvas 绘制翻转逻辑导致的多次重复调用问题。
-- 修复了点击及触摸事件未正确清除的内存泄漏问题。
-- 服务器端修复变量遮蔽、缺失 UUID 库以及 WebSocket 心跳问题。
-
----
-
-## [0.5.4] - 2026-06-02 ✅
-
-### 变更
-- **简化脚本**：移除复杂的中文编码处理
-- **英文界面**：管理工具改为英文，提供中文修改说明
-- **首次运行自动生成**：start.ps1 由 start.bat 自动生成
-
----
-
-## [0.5.3] - 2026-06-02 ✅
-
-### 变更
-- **中文管理工具**：PowerShell 脚本支持中文界面
-- bat 文件改为调用 ps1 脚本
-
----
-
-## [0.5.2] - 2026-06-02 ✅
-
-### 变更
-- **脚本整合**：所有调试脚本合并为一个 `start.bat` 管理工具
-- 删除冗余脚本文件（check.bat, test-server.bat, run.bat, start.ps1, server/start.bat）
-- 管理工具包含：启动服务器、后台启动、安装依赖、环境检查、打开页面、查看端口
-
----
-
-## [0.5.1] - 2026-06-02 ✅
-
-### 修复
-- **移除正方形脉冲动画**：最外层正方形不再跳动
-- **修复发射区域检测**：扩大点击检测范围，更容易选中棋子
-- **小人平滑动画**：跑道小人移动改为一格一格动画效果
-- **移除棋子AB文字**：棋子已有颜色区分，不再显示文字
-- **第三环改为圆形**：五边形得分区改为圆形
-
----
-
-## [0.5.0] - 2026-06-02 ✅
-
----
-
-## [0.5.0] - 2026-06-02 ✅
-
-### 新增
-- **音效系统**：碰撞音效、得分音效、胜利音效、弹射音效、边界反弹音效
-- **粒子特效**：碰撞火花、得分光效、胜利烟花
-- **动画优化**：棋子发光效果、得分浮动动画、UI 脉冲动画
-- **星空背景**：动态星空背景效果
-- **一键启动脚本**：start.bat 和 start.ps1
-
-### 变更
-- 优化 UI 视觉效果，更精致的界面元素
-- 按钮添加渐变效果和发光边框
-- 得分区添加脉冲动画效果
-- 移除"局域网"字样，改为"在线对战"
-- 服务器地址自动检测，支持任意部署环境
-- 更新版本号显示
-
-### 技术
-- 新增 AudioManager 类，使用 Web Audio API 生成音效
-- 新增 Particle 和 ParticleSystem 类，实现粒子效果
-- Physics 类添加碰撞音效触发
-
----
-
-## [0.4.0] - 2026-06-02 ✅
-
-### 新增
-- **局域网对战**：支持局域网内双人在线对战
-- **WebSocket 服务器**：Node.js 实现的实时通信服务器
-- **房间系统**：创建/加入/离开游戏房间
-- **房间列表**：显示可用房间，支持快速匹配
-- **实时状态同步**：棋子发射状态实时同步
-- **网络状态显示**：显示连接状态
-
-### 变更
-- 启动界面新增"局域网对战"选项
-- 游戏模式分为：本地双人、Bot 对战、局域网对战
-- 更新版本号显示
-
-### 技术
-- 新增 NetworkManager 类，封装 WebSocket 通信
-- 新增 server/ 目录，包含服务器代码
-- 游戏支持在线/离线两种模式
-
----
-
-## [0.3.0] - 2026-06-02 ✅
-
-### 新增
-- **游戏启动界面**：选择对手类型（双人/Bot）
-- **Bot AI 系统**：实现基础 AI 对手
-- **难度选择**：简单/中等/困难三个等级
-- **AI 决策**：基于距离和角度的发射策略
-- **AI 思考动画**：显示 AI 思考状态
-
-### 变更
-- 游戏开始前需要选择模式
-- Bot 回合自动发射
-- 更新版本号显示
-
-### 技术
-- 新增 AI 类，封装决策逻辑
-- 新增 StartScreen 类，管理启动界面
-- 重构 Game 类支持多种游戏模式
-
----
-
-## [0.2.0] - 2026-06-02 ✅
-
-### 新增
-- **纵向布局**：游戏改为竖屏模式，Canvas 尺寸 600x900
-- **视角固定**：当前玩家始终在下方，对手在上方
-- **力度随机**：每次发射添加 ±15% 随机偏移量
-- **UI 调整**：所有界面元素适配纵向布局
-- **力度显示**：新增力度条和颜色指示
-
-### 变更
-- 重新设计得分区域布局，适配纵向桌面
-- 调整发射区域位置，玩家从上下两端发射
-- 优化瞄准线显示，适应新的发射方向
-- 修改跑道显示位置，改为左侧纵向显示
-- 更新版本号显示
-
-### 修复
-- 最外侧正方形与桌面方向一致（边平行于桌面边）
-- 修正碰撞检测边界问题
-
----
-
-## [0.1.0] - 2026-06-02
-
-### 新增
-- **基础游戏框架**
-  - HTML5 Canvas 渲染
-  - 游戏主循环 (requestAnimationFrame)
-  - 模块化代码结构
-
-- **物理系统**
-  - 棋子位置和速度
-  - 摩擦力系统
-  - 边界碰撞反弹
-  - 棋子间弹性碰撞
-
-- **游戏机制**
-  - 双人本地对战
-  - 10枚棋子轮流发射
-  - 拖拽式发射控制
-  - 瞄准线显示
-
-- **得分系统**
-  - 中心圆：5分
-  - 六边形：4分
-  - 五边形：3分
-  - 四边形：2分
-  - 区域外：0分
-
-- **跑道机制**
-  - 11格跑道显示
-  - 小人位置指示
-  - 得分推进移动
-  - 胜负判定
-
-- **UI 界面**
-  - 游戏标题显示
-  - 当前玩家指示
-  - 剩余棋子显示
-  - 本回合得分
-  - 胜利/平局界面
-  - 重新开始按钮
-
----
-
-## 版本说明
-
-### 版本号规则
-- **主版本号 (Major)**：重大功能变更、架构调整、不兼容的 API 修改
-- **次版本号 (Minor)**：新功能添加、功能增强
-- **修订号 (Patch)**：Bug 修复、性能优化、文档更新
-
-### 状态标识
-- ✅ **完成**：已开发完成并测试通过
-- 🔄 **进行中**：正在开发
-- 📋 **计划中**：已规划未开始
-- ⚠️ **阻塞**：遇到问题暂停
-- ❌ **取消**：计划取消
-
----
-
-## 开发日志
-
-### 2026-06-02
-- **项目启动**：完成基础单机版 v0.1.0
-- **需求收集**：确定后续功能需求
-- **计划制定**：制定 v0.2.0 - v1.0.0 开发计划
-- **v0.2.0 完成**：纵向布局重构、力度随机、方形修正
-- **v0.3.0 完成**：Bot AI 对手系统、启动界面、难度选择
-- **v0.4.0 完成**：在线对战、房间系统、WebSocket 服务器
-- **v0.5.0 完成**：UI 美化、音效系统、粒子特效、一键启动脚本
-- **v0.5.1 完成**：修复动画问题、优化交互体验
-- **v0.5.2 完成**：脚本整合为统一管理工具
-- **v0.5.3 完成**：中文管理工具（PowerShell）
-- **v0.5.4 完成**：简化脚本，提供中文修改说明
-- **v0.6.0 完成**：模块化重构、Vite 打包、代码分离
-- **v0.7.0 完成**：真物理引擎 AI、断线无缝重连、联机对战聊天
-- **v0.7.1 完成**：细节优化、掷骰子阶段禁言
-
----
-
-## 贡献者
-- ForceMind (主要开发者)
-
----
-
-## 备注
-- 每个版本发布前更新此文档
-- 记录所有用户可见的变更
-- 保持简洁明了的描述

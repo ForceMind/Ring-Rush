@@ -1,271 +1,92 @@
-# Ring Rush - 游戏设计文档
+# Game Design
 
-## 游戏概述
+## Product Shape
 
-《弹棋 / Ring Rush》是一款双人对战桌面弹射游戏，结合了弹射物理、冰壶滑动和拔河推进机制。
+Pello is a quick casual 1v1 flick-board game for mobile. It should feel light, readable, and competitive without becoming a complex simulation UI.
 
----
+Primary modes:
 
-## 核心玩法
+- Online 1v1 coin match.
+- Paid AI fallback when matchmaking has no human opponent.
+- Local practice AI with Easy / Medium / Hard difficulty.
+- Local 2P practice.
 
-### 游戏目标
-通过弹射棋子获得分数，推动小人向对手方向移动，先让小人到达对手终点即获胜。
+## Core Rules
 
-### 游戏流程
-```
-选择对手 → 轮流发射 → 物理滑动 → 得分计算 → 小人推进 → 判定胜负
-```
+1. Players roll dice to decide first turn.
+2. Each player launches one piece per turn.
+3. Pieces slide, collide, bounce, and settle.
+4. A settled piece scores according to its final zone.
+5. Score moves the race marker toward the opponent side.
+6. A player wins by reaching the opponent finish line, timeout, surrender, or final piece comparison.
 
-### 操作方式
-1. **瞄准**：点击己方发射区内的棋子
-2. **拖拽**：按住鼠标拖动，显示瞄准线
-3. **发射**：松开鼠标，棋子向反方向弹射
-4. **等待**：棋子滑动直到停止
-5. **结算**：计算得分，更新小人位置
-6. **换手**：对手回合开始
+## Scoring Zones
 
----
+The mobile board preserves the real board ratio. Logical canvas coordinates stay `450x960`.
 
-## 游戏规则
+| Zone | Shape | Score |
+| --- | --- | --- |
+| Center | Circle | 5 |
+| Inner | Hexagon | 4 |
+| Middle | Pentagon/circle area | 3 |
+| Outer | Square | 2 |
+| Outside | None | 0 |
 
-### 棋子规则
-- 每方 10 枚棋子
-- 轮流发射，一次一枚
-- 棋子在桌面上滑动并最终停止
-- 棋子之间可发生碰撞
-- 棋子碰到边界会反弹
+## Economy
 
-### 得分规则
-根据棋子最终停留位置计算得分：
+Default table:
 
-| 区域 | 形状 | 分数 | 半径 |
-|------|------|------|------|
-| 中心 | 圆形 | 5分 | 20px |
-| 内圈 | 六边形 | 4分 | 60px |
-| 中圈 | 五边形 | 3分 | 100px |
-| 外圈 | 正方形 | 2分 | 140px |
-| 区域外 | - | 0分 | - |
+- Entry fee: 12 coins per player.
+- Pool: 24 coins.
+- Winner payout: 20 coins.
+- Platform fee: 4 coins.
 
-### 跑道规则
-- 跑道共 11 格，位置 -5 到 +5
-- 小人初始在位置 0（正中间）
-- 玩家 A 得分：小人向负方向移动
-- 玩家 B 得分：小人向正方向移动
-- 移动格数 = 得分值
+The UI must call this `平台服务费` / `Platform fee`.
 
-### 胜负判定
-- **胜利**：小人到达对手终点（A终点-5，B终点+5）
-- **胜利**：棋子用完时，小人离谁更近谁赢
-- **平局**：棋子用完且小人正好在中间
+## AI
 
----
+Local practice exposes manual difficulty:
 
-## 物理系统
+- Easy: larger aim and power variance.
+- Medium: balanced target selection and execution variance.
+- Hard: tighter execution, stronger target priority, still not perfectly deterministic.
 
-### 物理参数
-```javascript
-摩擦系数: 0.985      // 每帧速度衰减
-碰撞恢复: 0.8        // 碰撞能量保留
-最大速度: 20          // 发射速度上限
-速度阈值: 0.1        // 停止判定阈值
-发射系数: 0.15        // 拖拽距离转速度
-最大拖拽: 200px       // 最大拖拽距离
-```
+Paid AI fallback does not expose manual difficulty. It should be selected by player record/server matchmaking so coin matches remain fair.
 
-### 力度随机 (v0.2.0)
-```
-实际力度 = 计算力度 × (1 + 随机偏移)
-随机偏移范围: -15% ~ +15%
-```
+AI target priority:
 
-### 碰撞检测
-- 使用圆形碰撞检测
-- 基于动量守恒的碰撞响应
-- 处理重叠分离
+1. Open scoring targets, with high-value zones preferred.
+2. Knock high-value enemy pieces when scoring is blocked or tactically useful.
+3. Avoid friendly occupied targets and blocked paths.
+4. Use mobile-scaled board dimensions when computing shots.
 
----
+## Mobile UI Principles
 
-## 界面设计
+- Keep the real game board recognizable; do not redraw the board into a different game.
+- Leave safe-area space for status bars and cutout cameras.
+- Keep player cards, race track, surrender, slider, and turn text readable at phone width.
+- The drag hint must live between the board and slider, not under cards.
+- End dialogs must leave at least 24 px between the bottom button and the panel edge.
 
-### 纵向布局 (v0.2.0)
-```
-┌─────────────────────┐
-│   对手发射区 (顶部)   │
-│   ○ ○ ○ ○ ○ ○ ○ ○ ○ ○  │
-│  ┌─────────────────┐ │
-│  │                 │ │
-│  │   得分靶心区     │ │
-│  │                 │ │
-│  └─────────────────┘ │
-│   ○ ○ ○ ○ ○ ○ ○ ○ ○ ○  │
-│   玩家发射区 (底部)   │
-└─────────────────────┘
-```
+## Feedback Effects
 
-### UI 元素
-- **游戏标题**：顶部居中
-- **玩家信息**：两侧显示剩余棋子
-- **跑道**：左侧或右侧显示小人位置
-- **回合指示**：显示当前玩家
-- **得分显示**：本回合获得分数
-- **瞄准线**：拖拽时显示方向和力度
+Effects must clarify game state rather than hide the board.
 
----
+- Launch: short ring pulse and vibration.
+- Collision: sharp sparks and brief shake.
+- Score: readable `+N` text with slower upward movement.
+- Zone pulse: visible but low-opacity.
+- Win: short sound/vibration and clean result dialog.
 
-## 视觉风格
+Background music is generated with Web Audio and starts after the first user interaction.
 
-### 配色方案
-```
-玩家A: #4a90d9 (蓝色系)
-玩家B: #d94a4a (红色系)
-棋盘: #3d2b1a (深木色)
-得分区: 半透明渐变色
-背景: #1a1a2e (深蓝黑)
-```
+## Website Design
 
-### 得分区域颜色
-```
-中心圆: rgba(255, 215, 0, 0.4)    金色
-六边形: rgba(144, 238, 144, 0.3)  浅绿
-五边形: rgba(135, 206, 250, 0.25) 浅蓝
-正方形: rgba(221, 160, 221, 0.2)  浅紫
-```
+The website is not a marketing-only placeholder. It provides:
 
----
-
-## 技术架构
-
-### 类结构
-```javascript
-class Game {
-    // 游戏状态管理
-    // 回合控制
-    // 胜负判定
-}
-
-class Piece {
-    // 棋子属性
-    // 绘制方法
-}
-
-class Physics {
-    // 物理更新
-    // 碰撞检测
-    // 边界处理
-}
-
-class Board {
-    // 棋盘绘制
-    // 得分计算
-    // 区域判定
-}
-
-class Input {
-    // 鼠标事件
-    // 拖拽处理
-    // 瞄准显示
-}
-
-class UI {
-    // 信息显示
-    // 界面绘制
-}
-```
-
-### 游戏循环
-```
-1. 处理输入 (Input)
-2. 更新物理 (Physics)
-3. 检测碰撞 (Physics)
-4. 判定回合 (Game)
-5. 渲染画面 (Board, Piece, UI)
-6. 循环 (requestAnimationFrame)
-```
-
----
-
-## 对手系统 (v0.3.0)
-
-### Bot AI 设计
-```javascript
-class AI {
-    // 难度等级
-    difficulty: 'easy' | 'medium' | 'hard'
-    
-    // 决策方法
-    calculateTarget()    // 计算目标位置
-    calculatePower()     // 计算发射力度
-    addNoise()           // 添加随机误差
-}
-```
-
-### 难度差异
-| 难度 | 准确度 | 力度控制 | 反应速度 |
-|------|--------|----------|----------|
-| 简单 | 低 | 差 | 慢 |
-| 中等 | 中 | 中 | 中 |
-| 困难 | 高 | 好 | 快 |
-
----
-
-## 网络系统 (v0.4.0)
-
-### 架构设计
-```
-客户端A ←→ 服务器 ←→ 客户端B
-```
-
-### 消息类型
-```javascript
-// 游戏消息
-'join_room'      // 加入房间
-'leave_room'     // 离开房间
-'game_start'     // 游戏开始
-'piece_launch'   // 棋子发射
-'game_state'     // 状态同步
-'game_end'       // 游戏结束
-```
-
-### 同步策略
-- 服务器权威模式
-- 客户端预测
-- 状态插值平滑
-
----
-
-## 扩展计划
-
-### 后续功能
-- [ ] 排行榜系统
-- [ ] 成就系统
-- [ ] 回放功能
-- [ ] 自定义规则
-- [ ] 更多得分区域形状
-- [ ] 特殊技能棋子
-
----
-
-## 版本历史
-
-| 版本 | 日期 | 主要变更 |
-|------|------|----------|
-| v0.1.0 | 2026-06-02 | 基础单机版 |
-| v0.2.0 | 2026-06-02 | 纵向布局重构 |
-| v0.3.0 | - | Bot AI 对手 |
-| v0.4.0 | - | 局域网对战 |
-| v1.0.0 | - | 正式版 |
-
----
-
-## 附录
-
-### 参考游戏
-- Carrom (印度弹球)
-- Curling (冰壶)
-- Pool (台球)
-
-### 技术栈
-- HTML5 Canvas
-- 原生 JavaScript (ES6+)
-- CSS3
-- WebSocket (v0.4.0)
+- Game explanation.
+- APK download.
+- Online play link.
+- Real screenshots.
+- Live embedded web game preview.
+- Deployment summary for the combined site/backend service.

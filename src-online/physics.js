@@ -56,8 +56,13 @@ export class Physics {
             piece.vx *= FRICTION;
             piece.vy *= FRICTION;
 
-            if (this.checkBoundaryCollision(piece)) {
+            const bounce = this.checkBoundaryCollision(piece);
+            if (bounce) {
+                const sx = this.game.perspective === 'top' ? this.game.tx(bounce.x) : bounce.x;
+                const sy = this.game.perspective === 'top' ? this.game.ty(bounce.y) : bounce.y;
+                this.game.ui.addWallBounce(sx, sy, bounce.intensity);
                 this.game.audio.play('bounce');
+                this.game.triggerFeedback('bounce', bounce.intensity);
             }
             this.checkPieceCollisions(piece);
 
@@ -83,7 +88,17 @@ export class Physics {
         const absMinY = BOARD_Y - 85 + piece.radius;
         const absMaxY = BOARD_Y + BOARD_HEIGHT + 85 - piece.radius;
         
-        let bounced = false;
+        let bounce = null;
+        const impactSpeed = Math.sqrt(piece.vx * piece.vx + piece.vy * piece.vy);
+
+        const markBounce = (side) => {
+            bounce = {
+                side,
+                x: piece.x,
+                y: piece.y,
+                intensity: Math.max(0.5, Math.min(2.2, impactSpeed / 8))
+            };
+        };
 
         // Check if piece has entered the board
         if (!piece.hasEnteredBoard && piece.isLaunched) {
@@ -93,32 +108,32 @@ export class Physics {
         }
 
         // X collision (全开，不再限制为发球区宽度)
-        if (piece.x < boardMinX) { piece.x = boardMinX; piece.vx *= -RESTITUTION; bounced = true; }
-        if (piece.x > boardMaxX) { piece.x = boardMaxX; piece.vx *= -RESTITUTION; bounced = true; }
+        if (piece.x < boardMinX) { piece.x = boardMinX; piece.vx *= -RESTITUTION; markBounce('left'); }
+        if (piece.x > boardMaxX) { piece.x = boardMaxX; piece.vx *= -RESTITUTION; markBounce('right'); }
 
         // Y collision
         if (piece.y < boardMinY) {
             if (piece.hasEnteredBoard || piece.player === 'A') {
                 // Already entered, or it's A (starts at bottom, crossing top means crossed the board)
-                piece.y = boardMinY; piece.vy *= -RESTITUTION; bounced = true;
+                piece.y = boardMinY; piece.vy *= -RESTITUTION; markBounce('top');
             } else {
                 if (piece.y < absMinY) {
-                    piece.y = absMinY; piece.vy *= -RESTITUTION; bounced = true;
+                    piece.y = absMinY; piece.vy *= -RESTITUTION; markBounce('top');
                 }
             }
         }
         
         if (piece.y > boardMaxY) {
             if (piece.hasEnteredBoard || piece.player === 'B') {
-                piece.y = boardMaxY; piece.vy *= -RESTITUTION; bounced = true;
+                piece.y = boardMaxY; piece.vy *= -RESTITUTION; markBounce('bottom');
             } else {
                 if (piece.y > absMaxY) {
-                    piece.y = absMaxY; piece.vy *= -RESTITUTION; bounced = true;
+                    piece.y = absMaxY; piece.vy *= -RESTITUTION; markBounce('bottom');
                 }
             }
         }
 
-        return bounced;
+        return bounce;
     }
 
     /**
@@ -160,8 +175,18 @@ export class Physics {
                     const midY = (currentPiece.y + other.y) / 2;
                     const sx = this.game.perspective === 'top' ? this.game.tx(midX) : midX;
                     const sy = this.game.perspective === 'top' ? this.game.ty(midY) : midY;
-                    this.game.particles.emitCollision(sx, sy, currentPiece.color, other.color);
+                    const intensity = Math.max(0.6, Math.min(2.4, Math.abs(dvDotN) / 7));
+                    currentPiece.hitFlash = 1;
+                    other.hitFlash = 1;
+                    this.game.particles.emitCollision(
+                        sx,
+                        sy,
+                        this.game.getPlayerColor(currentPiece.player),
+                        this.game.getPlayerColor(other.player),
+                        intensity
+                    );
                     this.game.audio.play('collision');
+                    this.game.triggerFeedback('collision', intensity);
                 }
             }
         }

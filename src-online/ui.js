@@ -18,9 +18,11 @@ import {
     TRACK_WIDTH,
     TRACK_HEIGHT,
     TRACK_STEPS,
-    AI_DIFFICULTY,
-    VERSION
+    VERSION,
+    SCORING_ZONES
 } from './constants.js';
+import { t } from './i18n.js';
+import { drawUIAsset, getButtonAsset } from './ui-assets.js';
 
 /**
  * UI类，负责所有非棋盘的界面绘制
@@ -32,6 +34,124 @@ export class UI {
     constructor(game) {
         this.game = game;
         this.scoreAnimations = [];
+        this.missAnimations = [];
+        this.launchCues = [];
+        this.wallBounces = [];
+        this.settleCues = [];
+        this.zonePulses = [];
+        this.runnerImpacts = [];
+        this.palette = {
+            ink: '#143642',
+            muted: '#57717d',
+            panel: 'rgba(255, 255, 255, 0.9)',
+            panelStrong: 'rgba(255, 255, 255, 0.96)',
+            line: 'rgba(255, 255, 255, 0.72)',
+            orange: '#ff8a3d',
+            green: '#35b779',
+            blue: '#2d9cdb',
+            danger: '#ef5350',
+            gold: '#f6c945'
+        };
+    }
+
+    getScreenSlot(position) {
+        const bottomSlot = this.game.perspective === 'bottom' ? 'A' : 'B';
+        const topSlot = bottomSlot === 'A' ? 'B' : 'A';
+        return position === 'bottom' ? bottomSlot : topSlot;
+    }
+
+    getMySlot() {
+        return this.getScreenSlot('bottom');
+    }
+
+    getOpponentSlot() {
+        return this.getScreenSlot('top');
+    }
+
+    isSlotTurn(slot) {
+        return this.game.currentPlayer === slot;
+    }
+
+    getModeLabel() {
+        if (this.game.competitiveMatch?.mode === 'ai') return t('modeAi');
+        if (this.game.competitiveMatch) return t('modeOnline');
+        if (this.game.gameMode === 'bot') return t('modePractice');
+        if (this.game.gameMode === 'local') return t('modeLocal');
+        if (this.game.gameMode === 'online') return t('modeOnline');
+        return t('modePractice');
+    }
+
+    getEconomyLabel() {
+        const match = this.game.competitiveMatch;
+        if (!match) return t('noStake');
+        return t('stakePayout', { stake: match.stake, payout: match.winnerPayout });
+    }
+
+    getSlotName(slot, position) {
+        if (position === 'bottom') return t('you');
+        if (this.game.gameMode === 'bot' && slot === 'B') return 'Pello AI';
+        if (this.game.gameMode === 'local') return slot === 'A' ? t('player1') : t('player2');
+        if (this.game.gameMode === 'online' && this.game.opponentName) return this.game.opponentName;
+        return t('opponent');
+    }
+
+    getTurnText(slot, position) {
+        if (!this.isSlotTurn(slot)) {
+            return position === 'bottom' ? t('waitTurnHint') : t('wait');
+        }
+        if (position === 'bottom') return t('yourTurn');
+        if (this.game.gameMode === 'bot' && slot === 'B') return t('botTurn');
+        return t('rivalTurn');
+    }
+
+    getPiecesLeft(slot) {
+        return slot === 'A' ? this.game.piecesLeftA : this.game.piecesLeftB;
+    }
+
+    hexToRgb(hex) {
+        return `${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}`;
+    }
+
+    drawRoundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+    }
+
+    drawSoftPanel(ctx, x, y, w, h, radius = 12, fill = this.palette.panel, assetName = undefined) {
+        const resolvedAsset = assetName === false ? null : (assetName || (h > 230 ? 'modal' : 'panel'));
+        if (resolvedAsset && drawUIAsset(ctx, resolvedAsset, x, y, w, h)) {
+            return;
+        }
+
+        ctx.save();
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = this.palette.line;
+        ctx.lineWidth = 2;
+        this.drawRoundRect(ctx, x, y, w, h, radius);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    drawImageButton(ctx, x, y, w, h, label, color, fontSize = 20) {
+        ctx.save();
+        if (!drawUIAsset(ctx, getButtonAsset(color), x, y, w, h)) {
+            const grad = ctx.createLinearGradient(x, y, x, y + h);
+            grad.addColorStop(0, color);
+            grad.addColorStop(1, '#1d7f52');
+            ctx.fillStyle = grad;
+            this.drawRoundRect(ctx, x, y, w, h, 14);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.68)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.fillText(label, x + w / 2, y + h / 2, w - 24);
+        ctx.restore();
     }
 
     /**
@@ -39,12 +159,12 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     draw(ctx) {
-        this.drawBackground(ctx);
         this.drawTitle(ctx);
         this.drawTrack(ctx);
         this.drawPlayerInfo(ctx);
         this.drawNetworkStatus(ctx);
         this.drawSurrenderButton(ctx);
+        this.drawFeedbackEffects(ctx);
         this.drawScoreAnimations(ctx);
         this.drawChatBubbles(ctx);
 
@@ -62,7 +182,7 @@ export class UI {
             const alpha = Math.max(0, (this.game.overtimePromptEndTime - Date.now()) / 1000);
             ctx.globalAlpha = Math.min(1, alpha);
             
-            ctx.fillText('加时赛: 双方各 +3子', CENTER_X, CENTER_Y - 50);
+            ctx.fillText(t('overtimeBonus'), CENTER_X, CENTER_Y - 50);
             ctx.restore();
         }
 
@@ -72,8 +192,13 @@ export class UI {
 
         if (this.game.gameOver) {
             this.drawGameOver(ctx);
-        } else if (this.game.opponentTemporarilyDisconnected) {
-            this.drawDisconnectOverlay(ctx);
+        } else {
+            if (this.game.opponentTemporarilyDisconnected) {
+                this.drawDisconnectOverlay(ctx);
+            }
+            if (this.game.isServerSettledGame() && this.game.connectionStatus && this.game.connectionStatus !== 'connected') {
+                this.drawConnectionOverlay(ctx);
+            }
         }
     }
 
@@ -82,19 +207,36 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawBackground(ctx) {
-        // 星空背景
-        const time = Date.now() * 0.001;
-        for (let i = 0; i < 50; i++) {
-            const x = (Math.sin(i * 0.3 + time * 0.5) + 1) * CANVAS_WIDTH / 2;
-            const y = (Math.cos(i * 0.5 + time * 0.3) + 1) * CANVAS_HEIGHT / 2;
-            const size = Math.sin(i + time) * 0.5 + 1;
-            const alpha = Math.sin(i * 0.7 + time) * 0.3 + 0.3;
+        if (drawUIAsset(ctx, 'background', 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)) {
+            return;
+        }
 
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
+        const bg = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+        bg.addColorStop(0, '#8fe4ff');
+        bg.addColorStop(0.44, '#fff3a9');
+        bg.addColorStop(1, '#73df9f');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        const time = Date.now() * 0.001;
+        ctx.save();
+        for (let i = 0; i < 18; i++) {
+            const x = ((i * 97 + Math.sin(time * 0.55 + i) * 18) % (CANVAS_WIDTH + 90)) - 45;
+            const y = 120 + ((i * 71 + Math.cos(time * 0.42 + i) * 12) % 700);
+            const w = 38 + (i % 4) * 12;
+            const h = 82 + (i % 3) * 18;
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#fff8bc';
+            this.drawRoundRect(ctx, x, y, w, h, w / 2);
             ctx.fill();
         }
+        ctx.restore();
+
+        const ground = ctx.createLinearGradient(0, BOARD_Y + BOARD_HEIGHT - 20, 0, CANVAS_HEIGHT);
+        ground.addColorStop(0, 'rgba(69, 164, 112, 0)');
+        ground.addColorStop(1, 'rgba(35, 123, 74, 0.26)');
+        ctx.fillStyle = ground;
+        ctx.fillRect(0, BOARD_Y + BOARD_HEIGHT - 20, CANVAS_WIDTH, CANVAS_HEIGHT - BOARD_Y - BOARD_HEIGHT + 20);
     }
 
     /**
@@ -102,38 +244,49 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawTitle(ctx) {
-        // 左上角：游戏名 + 版本
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = '#f0e68c';
-        ctx.font = 'bold 18px sans-serif';
-        ctx.fillText('PELLO', 15, 10);
-        ctx.fillStyle = '#555';
-        ctx.font = '11px sans-serif';
-        ctx.fillText(`弹棋 ${VERSION}`, 15, 32);
+        const x = 14;
+        const y = 16;
+        const w = CANVAS_WIDTH - 28;
+        const h = 58;
+        if (!drawUIAsset(ctx, 'topbar', x, y, w, h)) {
+            this.drawSoftPanel(ctx, x, y, w, h, 18, 'rgba(255,255,255,0.84)');
+        }
 
-        // 顶部居中：模式标签
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = this.palette.ink;
+        ctx.font = '900 23px sans-serif';
+        ctx.fillText('PELLO', x + 14, y + 26);
+        ctx.fillStyle = this.palette.muted;
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`v${VERSION}`, x + 88, y + 29);
+
+        const mode = this.getModeLabel();
         ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        const pillX = CENTER_X - 68;
+        const pillY = y + 10;
+        const pillW = 136;
+        const pillH = 38;
+        if (!drawUIAsset(ctx, 'buttonBlue', pillX, pillY - 2, pillW, pillH + 8)) {
+            const modeGrad = ctx.createLinearGradient(pillX, pillY, pillX, pillY + pillH);
+            modeGrad.addColorStop(0, this.palette.blue);
+            modeGrad.addColorStop(1, '#1977b7');
+            ctx.fillStyle = modeGrad;
+            this.drawRoundRect(ctx, pillX, pillY, pillW, pillH, 12);
+            ctx.fill();
+        }
         ctx.font = 'bold 12px sans-serif';
-        if (this.game.gameMode === 'bot') {
-            ctx.fillStyle = AI_DIFFICULTY[this.game.ai.difficulty].color;
-            ctx.fillText(`Bot (${AI_DIFFICULTY[this.game.ai.difficulty].name})`, CENTER_X, 15);
-        } else if (this.game.gameMode === 'online') {
-            ctx.fillStyle = '#4CAF50';
-            ctx.fillText('在线对战', CENTER_X, 15);
-        }
-        
-        // 模式标签正下方：回合
-        ctx.fillStyle = '#f0e68c';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, 35);
-        if (this.game.gameMode === 'local') {
-            ctx.save();
-            ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
-            ctx.rotate(Math.PI);
-            ctx.fillText(`回合 ${this.game.roundNumber}`, CENTER_X, 35);
-            ctx.restore();
-        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(mode, CENTER_X, pillY + pillH / 2);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = this.palette.ink;
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(t('roundLabel', { round: this.game.roundNumber }), x + w - 22, y + 20);
+        ctx.fillStyle = this.palette.muted;
+        ctx.font = '10px sans-serif';
+        ctx.fillText(this.getEconomyLabel(), x + w - 22, y + 42);
     }
 
     /**
@@ -144,33 +297,25 @@ export class UI {
         const stepHeight = TRACK_HEIGHT / TRACK_STEPS;
         const isBottom = this.game.perspective === 'bottom';
         const halfSteps = (TRACK_STEPS - 1) / 2; // 6
-        const labels = isBottom
-            ? ['B胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'A胜']
-            : ['A胜', '5', '4', '3', '2', '1', '0', '1', '2', '3', '4', '5', 'B胜'];
+        const topSlot = this.getScreenSlot('top');
+        const bottomSlot = this.getScreenSlot('bottom');
 
-        ctx.fillStyle = '#f0e68c';
-        ctx.font = 'bold 14px sans-serif';
+        const topStroke = this.game.getPlayerColor(topSlot);
+        const bottomStroke = this.game.getPlayerColor(bottomSlot);
+
+        const panelX = 5;
+        const panelY = TRACK_Y - 54;
+        const panelW = 42;
+        const panelH = TRACK_HEIGHT + 104;
+        this.drawSoftPanel(ctx, panelX, panelY, panelW, panelH, 16, 'rgba(255,255,255,0.78)', 'panel');
+
+        ctx.save();
+        ctx.fillStyle = this.palette.ink;
+        ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('跑', TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 30);
-        ctx.fillText('道', TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 15);
-
-        let topStroke = this.game.getPlayerColor('B');
-        let bottomStroke = this.game.getPlayerColor('A');
-        if (!isBottom) {
-            const temp = topStroke;
-            topStroke = bottomStroke;
-            bottomStroke = temp;
-        }
-
-        const hexToRgba = (hex, alpha) => {
-            const r = parseInt(hex.slice(1,3), 16);
-            const g = parseInt(hex.slice(3,5), 16);
-            const b = parseInt(hex.slice(5,7), 16);
-            return `rgba(${r},${g},${b},${alpha})`;
-        };
-
-        const topColor = hexToRgba(topStroke, 0.4);
-        const bottomColor = hexToRgba(bottomStroke, 0.4);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t('raceTitle'), TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 38);
+        ctx.restore();
 
         for (let i = 0; i < TRACK_STEPS; i++) {
             const y = TRACK_Y + i * stepHeight;
@@ -178,20 +323,26 @@ export class UI {
 
             let fillColor;
             if (position > 0) {
-                fillColor = topColor;
+                fillColor = `rgba(${this.hexToRgb(topStroke)}, 0.34)`;
             } else if (position < 0) {
-                fillColor = bottomColor;
+                fillColor = `rgba(${this.hexToRgb(bottomStroke)}, 0.34)`;
             } else {
-                fillColor = 'rgba(200,200,200,0.3)';
+                fillColor = 'rgba(255,255,255,0.46)';
             }
 
             ctx.fillStyle = fillColor;
-            ctx.beginPath(); ctx.roundRect(TRACK_X, y, TRACK_WIDTH, stepHeight - 2, 4); ctx.fill();
-            ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+            this.drawRoundRect(ctx, TRACK_X, y, TRACK_WIDTH, stepHeight - 3, 9);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.46)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
 
-            ctx.fillStyle = '#ccc'; ctx.font = '13px sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(labels[i], TRACK_X + TRACK_WIDTH / 2, y + stepHeight / 2);
+            ctx.fillStyle = position === 0 ? this.palette.ink : 'rgba(20,54,66,0.66)';
+            ctx.font = position === 0 ? 'bold 12px sans-serif' : '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const label = position === 0 ? '0' : String(Math.abs(position));
+            ctx.fillText(label, TRACK_X + TRACK_WIDTH / 2, y + stepHeight / 2);
         }
 
         const visualPosition = isBottom ? this.game.runnerDisplayPosition : -this.game.runnerDisplayPosition;
@@ -199,21 +350,20 @@ export class UI {
         const runnerY = TRACK_Y + runnerIndex * stepHeight + stepHeight / 2;
         const runnerX = TRACK_X + TRACK_WIDTH / 2;
 
-        // 小人发光
         ctx.save();
-        ctx.shadowColor = '#f0e68c';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.palette.gold;
+        ctx.shadowBlur = 14;
         ctx.beginPath();
-        ctx.arc(runnerX, runnerY, 12, 0, Math.PI * 2);
-        ctx.fillStyle = '#f0e68c';
+        ctx.arc(runnerX, runnerY, 13, 0, Math.PI * 2);
+        ctx.fillStyle = this.palette.gold;
         ctx.fill();
         ctx.restore();
 
-        ctx.strokeStyle = '#333';
+        ctx.strokeStyle = '#143642';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = '#143642';
         ctx.beginPath();
         ctx.arc(runnerX - 4, runnerY - 3, 2, 0, Math.PI * 2);
         ctx.arc(runnerX + 4, runnerY - 3, 2, 0, Math.PI * 2);
@@ -221,6 +371,30 @@ export class UI {
         ctx.beginPath();
         ctx.arc(runnerX, runnerY + 3, 4, 0, Math.PI);
         ctx.stroke();
+
+        this.runnerImpacts = this.runnerImpacts.filter(impact => {
+            impact.timer--;
+            const alpha = impact.timer / impact.max;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(runnerX, runnerY, 16 + (1 - alpha) * 18, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            return impact.timer > 0;
+        });
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillStyle = topStroke;
+        ctx.fillText(t('finishTop'), TRACK_X + TRACK_WIDTH / 2, TRACK_Y - 20);
+        ctx.fillStyle = bottomStroke;
+        ctx.fillText(t('finishBottom'), TRACK_X + TRACK_WIDTH / 2, TRACK_Y + TRACK_HEIGHT + 28);
+        ctx.restore();
     }
 
     /**
@@ -228,73 +402,78 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawPlayerInfo(ctx) {
-        const isBottom = this.game.perspective === 'bottom';
-        const myIsTurn = this.game.isMyTurn();
-        
-        // 自己在下方
-        const myColor = this.game.getPlayerColor(isBottom ? 'A' : 'B');
-        const myLeft = isBottom ? this.game.piecesLeftA : this.game.piecesLeftB;
-        const myName = isBottom ? '你 (A)' : '你 (B)';
+        this.drawPlayerCard(ctx, 'top', 84);
+        this.drawPlayerCard(ctx, 'bottom', CANVAS_HEIGHT - 122);
+    }
 
-        ctx.textBaseline = 'top';
+    drawPlayerCard(ctx, position, y) {
+        const slot = this.getScreenSlot(position);
+        const color = this.game.getPlayerColor(slot);
+        const active = this.isSlotTurn(slot) && !this.game.gameOver && !this.game.dice.phase;
+        const x = 58;
+        const w = 334;
+        const h = position === 'top' ? 50 : 60;
+        const rgb = this.hexToRgb(color);
+
+        ctx.save();
+        ctx.shadowColor = active ? `rgba(${rgb}, 0.5)` : 'rgba(20,54,66,0.12)';
+        ctx.shadowBlur = active ? 14 : 6;
+        if (!drawUIAsset(ctx, 'playerCard', x, y, w, h)) {
+            this.drawSoftPanel(ctx, x, y, w, h, 16, active ? 'rgba(255,255,255,0.96)' : 'rgba(255,255,255,0.82)');
+        }
+
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = active ? 10 : 5;
+        ctx.fillStyle = color;
+        this.drawRoundRect(ctx, x + 12, y + 10, 32, 32, 11);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.beginPath();
+        ctx.arc(x + 22, y + 19, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(slot, x + 28, y + 26);
+
         ctx.textAlign = 'left';
-        ctx.fillStyle = myColor; ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(myName, 30, CANVAS_HEIGHT - 45); // 移到底部，在滑杆下方
-        ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
-        ctx.fillText(`剩余: ${myLeft}`, 30, CANVAS_HEIGHT - 25);
-        
-        if (myIsTurn && !this.game.gameOver && !this.game.dice.phase) {
-            ctx.textAlign = 'right';
-            ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800'; 
+        ctx.fillStyle = this.palette.ink;
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(this.getSlotName(slot, position), x + 56, y + 19);
+
+        ctx.fillStyle = this.palette.muted;
+        ctx.font = '12px sans-serif';
+        ctx.fillText(t('piecesShort', { count: this.getPiecesLeft(slot) }), x + 56, y + 36);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = active ? color : this.palette.muted;
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(this.getTurnText(slot, position), x + w - 18, y + 18);
+
+        if (active) {
+            const timerColor = this.game.turnTimeLeft <= 10 ? this.palette.danger : this.palette.orange;
+            ctx.fillStyle = timerColor;
             ctx.font = 'bold 16px sans-serif';
-            if (this.game.gameMode === 'local') {
-                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, CANVAS_HEIGHT - 45);
-            } else {
-                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
-            }
+            ctx.fillText(t('timerShort', { seconds: this.game.turnTimeLeft }), x + w - 18, y + 38);
+        } else if (position === 'bottom' && !this.game.gameOver && !this.game.dice.phase) {
+            ctx.fillStyle = this.palette.muted;
+            ctx.font = '12px sans-serif';
+            ctx.fillText(t('waitTurnHint'), x + w - 18, y + 42);
         }
 
-        // 对手在上方
-        const opColor = this.game.getPlayerColor(isBottom ? 'B' : 'A');
-        const opLeft = isBottom ? this.game.piecesLeftB : this.game.piecesLeftA;
-        let opName = isBottom ? '对手 (B)' : '对手 (A)';
-        if (this.game.gameMode === 'online' && this.game.opponentName) opName = this.game.opponentName;
-        const opIsTurn = !myIsTurn;
-
-        if (this.game.gameMode === 'local') {
-            ctx.save();
-            ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
-            ctx.rotate(Math.PI);
-            
-            ctx.textBaseline = 'top';
-            ctx.textAlign = 'left';
-            ctx.fillStyle = opColor; ctx.font = 'bold 16px sans-serif';
-            ctx.fillText('你 (B)', 30, CANVAS_HEIGHT - 45);
-            ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
-            ctx.fillText(`剩余: ${opLeft}`, 30, CANVAS_HEIGHT - 25);
-            
-            if (opIsTurn && !this.game.gameOver && !this.game.dice.phase) {
-                ctx.textAlign = 'right';
-                ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800';
-                ctx.font = 'bold 16px sans-serif';
-                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, CANVAS_HEIGHT - 45);
-            }
-            ctx.restore();
-        } else {
-            ctx.textBaseline = 'top';
-            ctx.textAlign = 'left';
-            ctx.fillStyle = opColor; ctx.font = 'bold 16px sans-serif';
-            ctx.fillText(opName, 30, BOARD_Y - 55);
-            ctx.fillStyle = '#aaa'; ctx.font = '14px sans-serif';
-            ctx.fillText(`剩余: ${opLeft}`, 30, BOARD_Y - 35);
-            
-            if (opIsTurn && !this.game.gameOver && !this.game.dice.phase) {
-                ctx.textAlign = 'right';
-                ctx.fillStyle = this.game.turnTimeLeft <= 10 ? '#f44336' : '#FF9800';
-                ctx.font = 'bold 16px sans-serif';
-                ctx.fillText(`思考时间: ${this.game.turnTimeLeft}s`, CANVAS_WIDTH - 30, BOARD_Y - 55);
-            }
+        if (position === 'bottom' && active && !this.game.isAnimating) {
+            ctx.textAlign = 'center';
+            ctx.fillStyle = `rgba(${rgb}, 0.86)`;
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(t('aimHint'), CENTER_X, BOARD_Y + BOARD_HEIGHT + 86);
         }
+        ctx.restore();
     }
 
     /**
@@ -303,18 +482,38 @@ export class UI {
      */
     drawNetworkStatus(ctx) {
         if (this.game.gameMode === 'bot' && this.game.ai.isThinking) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.font = '16px sans-serif';
-            ctx.textAlign = 'center';
             const dots = '.'.repeat(Math.floor(Date.now() / 500) % 4);
-            ctx.fillText(`AI 思考中${dots}`, CENTER_X, CANVAS_HEIGHT - 25);
+            const y = 140;
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            this.drawRoundRect(ctx, CENTER_X - 94, y, 188, 30, 14);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 107, 107, 0.45)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#d9480f';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(t('aiThinking', { dots }), CENTER_X, y + 15);
+            ctx.restore();
         }
 
-        if (this.game.isOnlineGame()) {
-            ctx.fillStyle = '#4CAF50';
-            ctx.font = '12px sans-serif';
+        if (this.game.isServerSettledGame()) {
+            const status = this.game.connectionStatus || 'connected';
+            const connected = status === 'connected';
+            const label = connected ? t('connected') : t('reconnecting');
+            const color = connected ? this.palette.green : '#ffb020';
+            ctx.save();
+            ctx.fillStyle = `rgba(${this.hexToRgb(color)}, 0.16)`;
+            this.drawRoundRect(ctx, CENTER_X - 80, CANVAS_HEIGHT - 26, 160, 18, 9);
+            ctx.fill();
+            ctx.fillStyle = color;
+            ctx.font = 'bold 10px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('已连接', CENTER_X, CANVAS_HEIGHT - 25);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, CENTER_X, CANVAS_HEIGHT - 17);
+            ctx.restore();
         }
     }
 
@@ -328,48 +527,29 @@ export class UI {
         if (this.game.gameMode === 'local') {
             this.game.surrenderBtn = null;
             return; // Hide surrender in local mode
-        } else if (this.game.gameMode === 'bot' && this.game.currentPlayer === 'B') {
+        } else if (this.game.gameMode === 'bot' && this.game.isBotTurn()) {
             this.game.surrenderBtn = null;
             return; // Bot doesn't surrender
         }
         
-        let isTop = false;
-        
-        const btnW = 60;
-        const btnH = 28;
-        let btnX, btnY;
+        const btnW = 86;
+        const btnH = 34;
+        const btnX = CANVAS_WIDTH - 100;
+        const btnY = 188;
 
-        if (isTop) {
-            // Local Player B (screen flipped): their top-right is bottom-left
-            btnX = 20;
-            btnY = CANVAS_HEIGHT - 12 - btnH;
-        } else {
-            // Local Player A or Online Player: top-right
-            btnX = CANVAS_WIDTH - 20 - btnW;
-            btnY = 12;
-        }
-
-        ctx.fillStyle = 'rgba(244, 67, 54, 0.2)';
-        ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 5);
+        ctx.save();
+        ctx.fillStyle = 'rgba(239, 83, 80, 0.14)';
+        this.drawRoundRect(ctx, btnX, btnY, btnW, btnH, 13);
         ctx.fill();
-        ctx.strokeStyle = '#f44336';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(239, 83, 80, 0.65)';
+        ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.fillStyle = '#f44336';
-        ctx.font = '12px sans-serif';
+        ctx.fillStyle = this.palette.danger;
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        ctx.save();
-        if (isTop) {
-            ctx.translate(btnX + btnW / 2, btnY + btnH / 2);
-            ctx.rotate(Math.PI);
-            ctx.fillText('投降', 0, 0);
-        } else {
-            ctx.fillText('投降', btnX + btnW / 2, btnY + btnH / 2);
-        }
+        ctx.fillText(t('surrender'), btnX + btnW / 2, btnY + btnH / 2);
         ctx.restore();
 
         this.game.surrenderBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
@@ -385,8 +565,229 @@ export class UI {
         this.scoreAnimations.push({
             x, y,
             score,
-            timer: 100,
+            timer: 140,
+            max: 140,
             startY: y
+        });
+    }
+
+    addMissAnimation(x, y) {
+        this.missAnimations.push({ x, y, timer: 72, max: 72, startY: y });
+    }
+
+    addLaunchCue(x, y, power) {
+        this.launchCues.push({
+            x,
+            y,
+            power: Math.max(0, Math.min(1, power)),
+            timer: 28,
+            max: 28
+        });
+    }
+
+    addWallBounce(x, y, intensity = 1) {
+        this.wallBounces.push({
+            x,
+            y,
+            intensity: Math.max(0.5, Math.min(2.2, intensity)),
+            timer: 24,
+            max: 24
+        });
+    }
+
+    addSettleCue(x, y) {
+        this.settleCues.push({ x, y, timer: 32, max: 32 });
+    }
+
+    addScoreZonePulse(score) {
+        if (score <= 0) return;
+        const radius = {
+            2: SCORING_ZONES.square.radius,
+            3: SCORING_ZONES.pentagon.radius,
+            4: SCORING_ZONES.hexagon.radius,
+            5: SCORING_ZONES.center.radius
+        }[score] || SCORING_ZONES.square.radius;
+        this.zonePulses.push({
+            radius,
+            score,
+            timer: score === 5 ? 52 : 38,
+            max: score === 5 ? 52 : 38
+        });
+    }
+
+    addRunnerImpact(score) {
+        if (score <= 0) return;
+        this.runnerImpacts.push({
+            score,
+            timer: 28 + score * 3,
+            max: 28 + score * 3
+        });
+    }
+
+    drawFeedbackEffects(ctx) {
+        this.drawScoreZonePulses(ctx);
+        this.drawLaunchCues(ctx);
+        this.drawWallBounces(ctx);
+        this.drawSettleCues(ctx);
+        this.drawMissAnimations(ctx);
+    }
+
+    drawScoreZonePulses(ctx) {
+        this.zonePulses = this.zonePulses.filter(pulse => {
+            pulse.timer--;
+            const t = 1 - pulse.timer / pulse.max;
+            const alpha = pulse.timer / pulse.max;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.66;
+            ctx.strokeStyle = pulse.score === 5 ? '#ffd700' : '#ffffff';
+            ctx.fillStyle = pulse.score === 5
+                ? `rgba(255, 215, 0, ${0.1 * alpha})`
+                : `rgba(255, 255, 255, ${0.07 * alpha})`;
+            ctx.lineWidth = pulse.score === 5 ? 3.5 : 2.5;
+            ctx.shadowColor = pulse.score === 5 ? '#ffd700' : '#ffffff';
+            ctx.shadowBlur = pulse.score === 5 ? 12 : 7;
+            this.drawScorePulseShape(ctx, pulse.score, pulse.radius + t * 10);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            return pulse.timer > 0;
+        });
+    }
+
+    drawScorePulseShape(ctx, score, radius) {
+        if (score === 2) {
+            ctx.beginPath();
+            ctx.roundRect(CENTER_X - radius, CENTER_Y - radius, radius * 2, radius * 2, 10);
+            return;
+        }
+
+        if (score === 4) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = -Math.PI / 2 + (Math.PI * 2 * i) / 6;
+                const x = CENTER_X + Math.cos(angle) * radius;
+                const y = CENTER_Y + Math.sin(angle) * radius;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            return;
+        }
+
+        ctx.beginPath();
+        ctx.arc(CENTER_X, CENTER_Y, radius, 0, Math.PI * 2);
+    }
+
+    drawLaunchCues(ctx) {
+        this.launchCues = this.launchCues.filter(cue => {
+            cue.timer--;
+            const t = 1 - cue.timer / cue.max;
+            const alpha = cue.timer / cue.max;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.72;
+            const hot = cue.power > 0.7;
+            ctx.fillStyle = hot ? `rgba(255, 138, 61, ${0.07 * alpha})` : `rgba(255, 255, 255, ${0.08 * alpha})`;
+            ctx.strokeStyle = hot ? '#ff8a3d' : '#ffffff';
+            ctx.lineWidth = 1.8 + cue.power * 2;
+            ctx.shadowColor = hot ? '#ff8a3d' : '#8fe4ff';
+            ctx.shadowBlur = hot ? 10 : 7;
+            ctx.beginPath();
+            ctx.arc(cue.x, cue.y, 20 + t * (20 + cue.power * 12), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.globalAlpha = alpha * 0.54;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cue.x, cue.y, 10 + t * 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            return cue.timer > 0;
+        });
+    }
+
+    drawWallBounces(ctx) {
+        this.wallBounces = this.wallBounces.filter(bounce => {
+            bounce.timer--;
+            const t = 1 - bounce.timer / bounce.max;
+            const alpha = bounce.timer / bounce.max;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.72;
+            ctx.strokeStyle = '#9ee7ff';
+            ctx.fillStyle = `rgba(158, 231, 255, ${0.12 * alpha})`;
+            ctx.shadowColor = '#9ee7ff';
+            ctx.shadowBlur = 8;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(bounce.x, bounce.y, 10 + t * 22 * bounce.intensity, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 4; i++) {
+                const angle = (Math.PI / 2) * i + t * 0.8;
+                const inner = 8 + t * 8;
+                const outer = 16 + t * 13 * bounce.intensity;
+                ctx.beginPath();
+                ctx.moveTo(bounce.x + Math.cos(angle) * inner, bounce.y + Math.sin(angle) * inner);
+                ctx.lineTo(bounce.x + Math.cos(angle) * outer, bounce.y + Math.sin(angle) * outer);
+                ctx.stroke();
+            }
+            ctx.restore();
+            return bounce.timer > 0;
+        });
+    }
+
+    drawSettleCues(ctx) {
+        this.settleCues = this.settleCues.filter(cue => {
+            cue.timer--;
+            const progress = 1 - cue.timer / cue.max;
+            const alpha = cue.timer / cue.max;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.72;
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * alpha})`;
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 7;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(cue.x, cue.y, 26 + progress * 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#143642';
+            ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+            ctx.lineWidth = 4;
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.strokeText(t('settled'), cue.x, cue.y - 36);
+            ctx.fillText(t('settled'), cue.x, cue.y - 36);
+            ctx.restore();
+            return cue.timer > 0;
+        });
+    }
+
+    drawMissAnimations(ctx) {
+        this.missAnimations = this.missAnimations.filter(anim => {
+            anim.timer--;
+            const alpha = anim.timer / anim.max;
+            const y = anim.startY - (1 - alpha) * 36;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = 'rgba(20,54,66,0.24)';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 12;
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.strokeText(t('miss'), anim.x, y);
+            ctx.fillText(t('miss'), anim.x, y);
+            ctx.restore();
+            return anim.timer > 0;
         });
     }
 
@@ -396,18 +797,33 @@ export class UI {
      */
     drawScoreAnimations(ctx) {
         this.scoreAnimations = this.scoreAnimations.filter(anim => {
-            anim.timer -= 2;
-            anim.y = anim.startY - (100 - anim.timer) * 0.8;
+            anim.timer -= 1.35;
+            anim.y = anim.startY - (anim.max - anim.timer) * 0.42;
 
-            const alpha = anim.timer / 100;
+            const alpha = Math.max(0, anim.timer / anim.max);
+            const pop = 1 + Math.sin((1 - alpha) * Math.PI) * 0.16;
             ctx.save();
             ctx.globalAlpha = alpha;
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 36px sans-serif';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             ctx.shadowColor = '#ffd700';
             ctx.shadowBlur = 10;
-            ctx.fillText(`+${anim.score}`, anim.x, anim.y);
+
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.88)';
+            ctx.beginPath();
+            ctx.arc(anim.x, anim.y, 22 * pop, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.84)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `900 ${Math.round(24 * pop)}px sans-serif`;
+            ctx.strokeStyle = 'rgba(143, 90, 0, 0.42)';
+            ctx.lineWidth = 4;
+            const label = `+${anim.score}`;
+            ctx.strokeText(label, anim.x, anim.y + 1);
+            ctx.fillText(label, anim.x, anim.y + 1);
             ctx.restore();
 
             return anim.timer > 0;
@@ -420,6 +836,57 @@ export class UI {
      */
     drawChatBubbles(ctx) {
         if (!this.game.chat || !this.game.chat.chatMessages) return;
+
+        this.game.chat.chatMessages.forEach(msg => {
+            const isMe = msg.playerIndex === this.game.network.playerIndex;
+            const text = msg.text;
+            ctx.save();
+            ctx.font = 'bold 14px sans-serif';
+            const metrics = ctx.measureText(text);
+            const w = Math.min(264, Math.max(112, metrics.width + 34));
+            const h = 38;
+            const x = isMe ? CANVAS_WIDTH - w - 58 : 58;
+            const y = isMe ? CANVAS_HEIGHT - 178 : 142;
+            const color = isMe ? this.game.getPlayerColor(this.getMySlot()) : this.game.getPlayerColor(this.getOpponentSlot());
+            const rgb = this.hexToRgb(color);
+
+            ctx.shadowColor = `rgba(${rgb}, 0.24)`;
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetY = 5;
+            const bubble = ctx.createLinearGradient(x, y, x, y + h);
+            bubble.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+            bubble.addColorStop(1, 'rgba(235, 255, 249, 0.92)');
+            ctx.fillStyle = bubble;
+            ctx.strokeStyle = `rgba(${rgb}, 0.46)`;
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 13);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            if (isMe) {
+                ctx.moveTo(x + w - 28, y + h);
+                ctx.lineTo(x + w - 14, y + h + 10);
+                ctx.lineTo(x + w - 46, y + h);
+            } else {
+                ctx.moveTo(x + 28, y);
+                ctx.lineTo(x + 14, y - 10);
+                ctx.lineTo(x + 46, y);
+            }
+            ctx.fillStyle = isMe ? 'rgba(235, 255, 249, 0.94)' : 'rgba(255, 255, 255, 0.96)';
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = this.palette.ink;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x + w / 2, y + h / 2, w - 22);
+            ctx.restore();
+        });
+        return;
 
         ctx.font = 'bold 16px sans-serif';
         this.game.chat.chatMessages.forEach(msg => {
@@ -474,218 +941,284 @@ export class UI {
         });
     }
 
-    drawPendingWin(ctx) {
+    getPendingWinText() {
+        const mySlot = this.getMySlot();
+        const isWinner = this.game.winner === mySlot;
+        const winText = this.game.gameMode === 'local'
+            ? (this.game.winner === 'A' ? t('blueSide') : t('redSide'))
+            : (isWinner ? t('you') : t('opponent'));
+        const loseText = this.game.gameMode === 'local'
+            ? (this.game.winner === 'A' ? t('redSide') : t('blueSide'))
+            : (isWinner ? t('opponent') : t('you'));
+
+        if (this.game.pendingWinReason === 'surrender') return t('pendingSurrender', { loser: loseText });
+        if (this.game.pendingWinReason === 'runner') return t('pendingRunner', { winner: winText });
+        if (this.game.pendingWinReason === 'timeout') return t('pendingTimeout', { loser: loseText });
+        if (this.game.pendingWinReason === 'allUsed') return t('pendingAllUsed');
+        if (this.game.pendingWinReason === 'overtime') return t('pendingOvertime');
+        return '';
+    }
+
+    drawPendingWinRedesigned(ctx) {
         if (!this.game.pendingWinReason) return;
-        
+
+        const isWinner = this.game.winner === this.getMySlot();
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, CANVAS_HEIGHT / 2 - 60, CANVAS_WIDTH, 120);
-        
+        ctx.fillStyle = 'rgba(20, 54, 66, 0.68)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        const panelX = 24;
+        const panelY = CENTER_Y - 66;
+        const panelW = CANVAS_WIDTH - 48;
+        this.drawSoftPanel(ctx, panelX, panelY, panelW, 144, 22, 'rgba(255,255,255,0.95)', false);
+
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 48px sans-serif';
-        
-        let msg = '';
-        const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
-        const isLocal = this.game.gameMode === 'local';
+        ctx.shadowColor = isWinner ? this.palette.gold : '#ffffff';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = isWinner ? '#a46a00' : this.palette.ink;
+        ctx.font = '900 30px sans-serif';
+        ctx.fillText(this.getPendingWinText(), CENTER_X, CENTER_Y - 8);
 
-        let winText = '';
-        let loseText = '';
-        if (isLocal) {
-            winText = this.game.winner === 'A' ? '蓝方' : '红方';
-            loseText = this.game.winner === 'A' ? '红方' : '蓝方';
-        } else {
-            winText = isWinner ? '你' : '对手';
-            loseText = isWinner ? '对手' : '你';
-        }
-
-        if (this.game.pendingWinReason === 'surrender') {
-            msg = `${loseText}投降了！`;
-        } else if (this.game.pendingWinReason === 'runner') {
-            msg = `${winText}到达终点！`;
-        } else if (this.game.pendingWinReason === 'timeout') {
-            msg = `${loseText}超时判负！`;
-        } else if (this.game.pendingWinReason === 'allUsed') {
-            msg = '棋子用尽！';
-        } else if (this.game.pendingWinReason === 'overtime') {
-            msg = '平局！即将进入加时赛';
-        }
-        
-        ctx.fillText(msg, CENTER_X, CENTER_Y);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = this.palette.muted;
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(this.game.competitiveMatch ? t('serverConfirming') : t('gameEnded'), CENTER_X, CENTER_Y + 36);
         ctx.restore();
     }
 
-    /**
-     * 绘制游戏结束画面（胜利/平局 + 重新开始按钮）
-     * @param {CanvasRenderingContext2D} ctx
-     */
-    drawGameOver(ctx) {
-        // 半透明覆盖层
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    drawGameOverRedesigned(ctx) {
+        const winner = this.game.winner;
+        const mySlot = this.getMySlot();
+        const isWinner = winner && winner === mySlot;
+        const resultColor = winner ? (isWinner ? this.palette.gold : this.palette.danger) : '#ffffff';
+        const title = winner ? (isWinner ? t('victory') : t('defeat')) : t('draw');
+        const subtitle = winner
+            ? (isWinner ? t('winMessage') : t('loseMessage'))
+            : t('drawMessage');
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 26, 34, 0.78)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-        // 胜利/平局信息
-        ctx.save();
-        ctx.textAlign = 'center';
-        
-        if (this.game.winner) {
-            if (this.game.gameMode === 'local') {
-                const isBlueWin = this.game.winner === 'A';
-                
-                // Bottom Half (A's perspective)
-                ctx.save();
-                this.drawGameOverTextHalf(ctx, isBlueWin, false);
-                ctx.restore();
+        const panelX = 44;
+        const panelY = this.game.competitiveMatch ? 188 : 210;
+        const panelW = CANVAS_WIDTH - 88;
+        const panelH = this.game.competitiveMatch ? 250 : 350;
+        this.drawSoftPanel(ctx, panelX, panelY, panelW, panelH, 24, 'rgba(255,255,255,0.95)', false);
 
-                // Top Half (B's perspective)
-                ctx.save();
-                ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
-                ctx.rotate(Math.PI);
-                this.drawGameOverTextHalf(ctx, isBlueWin, true);
-                ctx.restore();
-            } else {
-                const isWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
-                ctx.shadowColor = isWinner ? '#ffd700' : '#f44336';
-                ctx.shadowBlur = 20;
-                ctx.fillStyle = isWinner ? '#ffd700' : '#f44336';
-                ctx.font = 'bold 64px sans-serif';
-                ctx.fillText(isWinner ? 'VICTORY' : 'DEFEAT', CENTER_X, CENTER_Y - 80);
-                
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#fff';
-                ctx.font = '24px sans-serif';
-                ctx.fillText(isWinner ? '恭喜！你赢得了比赛！' : '很遗憾，你输了比赛。', CENTER_X, CENTER_Y - 20);
-            }
-        } else {
-            if (this.game.gameMode === 'local') {
-                // Bottom Half
-                ctx.save();
-                this.drawGameOverTieHalf(ctx);
-                ctx.restore();
-                // Top Half
-                ctx.save();
-                ctx.translate(CANVAS_WIDTH, CANVAS_HEIGHT);
-                ctx.rotate(Math.PI);
-                this.drawGameOverTieHalf(ctx);
-                ctx.restore();
-            } else {
-                ctx.shadowColor = '#fff';
-                ctx.shadowBlur = 20;
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 64px sans-serif';
-                ctx.fillText('DRAW', CENTER_X, CENTER_Y - 80);
-                ctx.shadowBlur = 0;
-                ctx.font = '24px sans-serif';
-                ctx.fillText('平局！', CENTER_X, CENTER_Y - 20);
-            }
-        }
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = resultColor;
+        ctx.shadowBlur = winner ? 18 : 10;
+        ctx.fillStyle = resultColor;
+        ctx.font = '900 56px sans-serif';
+        ctx.fillText(title, CENTER_X, panelY + 70);
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = this.palette.ink;
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText(subtitle, CENTER_X, panelY + 124);
+
+        ctx.fillStyle = this.palette.muted;
+        ctx.font = '14px sans-serif';
+        ctx.fillText(t('scoreLine', { a: this.game.scoreA || 0, b: this.game.scoreB || 0 }), CENTER_X, panelY + 156);
+        ctx.fillText(this.getEconomyLabel(), CENTER_X, panelY + 184);
+
         ctx.restore();
 
-        // 重新开始按钮
-        const btnX = CENTER_X - 100;
-        const btnY = CENTER_Y + 60;
-        const btnW = 200;
-        const btnH = 60;
+        this.drawCompetitiveSettlement(ctx);
 
+        if (this.game.competitiveMatch) {
+            this.drawCompetitiveExitButton(ctx);
+            return;
+        }
+
+        const btnX = CENTER_X - 112;
+        const btnY = panelY + 208;
+        const btnW = 224;
+        const btnH = 56;
+
+        ctx.save();
         if (this.game.showRestartAgreed) {
-            ctx.fillStyle = this.game.getPlayerColor(this.game.currentPlayer);    ctx.font = 'bold 24px sans-serif';
-            ctx.fillText('双方已同意，即将开始...', CENTER_X, btnY + 30);
-            this.game.restartBtn = null;
-        } else if (this.game.waitingForRestart) {
-            ctx.fillStyle = '#aaa';
-            ctx.textAlign = 'center';
-            ctx.font = '20px sans-serif';
-            ctx.fillText('等待对方同意...', CENTER_X, btnY + 30);
-            this.game.restartBtn = null;
-        } else if (this.game.opponentLeft) {
-            ctx.fillStyle = '#f44336';
-            ctx.textAlign = 'center';
-            ctx.font = 'bold 20px sans-serif';
-            ctx.fillText('对方已经退出房间', CENTER_X, btnY - 20);
-
-            ctx.fillStyle = '#666';
-            ctx.beginPath();
-            ctx.roundRect(btnX, btnY, btnW, btnH, 12);
-            ctx.fill();
-
-            ctx.fillStyle = '#aaa';
+            ctx.fillStyle = this.palette.green;
+            ctx.font = 'bold 18px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.font = 'bold 22px sans-serif';
-            ctx.fillText('再来一局', CENTER_X, btnY + 30);
-            
+            ctx.fillText(t('bothRestarting'), CENTER_X, btnY + 28);
+            this.game.restartBtn = null;
+        } else if (this.game.waitingForRestart) {
+            ctx.fillStyle = this.palette.muted;
+            ctx.font = 'bold 18px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(t('waitingOpponentRestart'), CENTER_X, btnY + 28);
+            this.game.restartBtn = null;
+        } else if (this.game.opponentLeft) {
+            ctx.fillStyle = this.palette.danger;
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(t('opponentLeft'), CENTER_X, btnY + 28);
             this.game.restartBtn = null;
         } else {
-            if (this.game.opponentWantsRestart) {
-                ctx.fillStyle = '#4CAF50';
-                ctx.textAlign = 'center';
-                ctx.font = 'bold 20px sans-serif';
-                ctx.fillText('对方邀请再来一局', CENTER_X, btnY - 20);
-            }
-
             const grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
-            grad.addColorStop(0, '#4a90d9');
-            grad.addColorStop(1, '#3a7bc8');
+            grad.addColorStop(0, this.palette.orange);
+            grad.addColorStop(1, '#e76b1d');
             ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.roundRect(btnX, btnY, btnW, btnH, 12);
+            this.drawRoundRect(ctx, btnX, btnY, btnW, btnH, 16);
             ctx.fill();
-            ctx.strokeStyle = '#8bbdff';
+            ctx.strokeStyle = 'rgba(255,255,255,0.72)';
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            ctx.fillStyle = '#fff';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.font = 'bold 22px sans-serif';
-            ctx.fillText(this.game.opponentWantsRestart ? '同意并开始' : '再来一局', CENTER_X, btnY + 30);
-
+            ctx.fillText(this.game.opponentWantsRestart ? t('agreeStart') : t('playAgain'), CENTER_X, btnY + btnH / 2);
             this.game.restartBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
         }
 
-        // 退出游戏按钮
-        const exitBtnY = btnY + btnH + 20;
-        ctx.fillStyle = '#444';
-        ctx.beginPath();
-        ctx.roundRect(btnX, exitBtnY, btnW, 40, 8);
+        const exitY = btnY + btnH + 16;
+        ctx.fillStyle = 'rgba(20,54,66,0.82)';
+        this.drawRoundRect(ctx, btnX, exitY, btnW, 42, 14);
         ctx.fill();
-
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillText(t('exitGame'), CENTER_X, exitY + 21);
+        this.game.exitBtn = { x: btnX, y: exitY, w: btnW, h: 42 };
+        ctx.restore();
+    }
+
+    drawPendingWin(ctx) {
+        this.drawPendingWinRedesigned(ctx);
+    }
+
+    drawGameOver(ctx) {
+        this.drawGameOverRedesigned(ctx);
+    }
+
+    drawCompetitiveSettlement(ctx) {
+        if (!this.game.competitiveMatch) return;
+
+        const match = this.game.competitiveMatch;
+        const settlementMessage = this.game.competitiveSettlement;
+        const settlement = settlementMessage?.settlement;
+        const beforeWallet = this.game.competitiveEntryWallet;
+        const wallet = settlementMessage?.wallet || this.game.competitiveWallet || beforeWallet;
+        const error = this.game.competitiveSettlementError;
+        const confirmed = settlementMessage?.status === 'settled' && settlement;
+        const myParticipant = this.getMyCompetitiveParticipant(match);
+        const myAccountId = myParticipant?.accountId;
+        const fallbackWinner = this.game.winner === (this.game.perspective === 'bottom' ? 'A' : 'B');
+        const isWinner = confirmed && myAccountId
+            ? settlement.winnerAccountId === myAccountId
+            : fallbackWinner;
+
+        const beforeBalance = beforeWallet?.balance ?? wallet?.balance ?? 0;
+        const finalBalance = wallet?.balance ?? beforeBalance;
+        const netChange = confirmed
+            ? finalBalance - beforeBalance
+            : (isWinner ? match.winnerPayout - match.stake : -match.stake);
+        const reward = confirmed && isWinner ? settlement.winnerPayout : 0;
+        const displayBalance = confirmed
+            ? this.getAnimatedSettlementBalance(beforeBalance, finalBalance)
+            : finalBalance;
+
+        const panelX = 24;
+        const panelY = CENTER_Y + 4;
+        const panelW = CANVAS_WIDTH - 48;
+        const panelH = 224;
+
+        ctx.save();
+        this.drawSoftPanel(ctx, panelX, panelY, panelW, panelH, 22, 'rgba(255,255,255,0.96)', false);
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillStyle = confirmed ? '#8a5a00' : error ? '#d9480f' : '#2d6775';
+        const status = confirmed ? t('serverConfirmed') : error ? t('settlementFailed') : t('serverConfirming');
+        ctx.fillText(status, CENTER_X, panelY + 26);
+
+        ctx.font = 'bold 38px sans-serif';
+        ctx.fillStyle = confirmed
+            ? (netChange >= 0 ? '#16884d' : '#d9480f')
+            : '#143642';
+        const headline = confirmed ? this.formatCoinAmount(netChange) : t('pending');
+        ctx.fillText(headline, CENTER_X, panelY + 72, panelW - 40);
+
         ctx.font = 'bold 18px sans-serif';
-        ctx.fillText('退出游戏', CENTER_X, exitBtnY + 20);
+        ctx.fillStyle = '#143642';
+        const balanceText = confirmed
+            ? t('balance', { balance: displayBalance })
+            : t('entryWinShort', { stake: match.stake, win: match.winnerPayout });
+        ctx.fillText(balanceText, CENTER_X, panelY + 106, panelW - 40);
 
-        this.game.exitBtn = { x: btnX, y: exitBtnY, w: btnW, h: 40 };
+        const rewardText = isWinner ? `+${confirmed ? reward : match.winnerPayout}` : '+0';
+        this.drawSettlementLine(ctx, panelX + 36, panelY + 142, t('entryFee'), `-${match.stake}`, '#d9480f');
+        this.drawSettlementLine(ctx, panelX + 36, panelY + 172, t('winnerReward'), rewardText, isWinner ? '#16884d' : '#767d87');
+        this.drawSettlementLine(ctx, panelX + 36, panelY + 202, t('systemSink'), `${settlement?.systemSink ?? match.systemSink}`, '#767d87');
+
+        if (error) {
+            ctx.fillStyle = '#d9480f';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(error.slice(0, 44), CENTER_X, panelY + panelH - 10);
+        }
+
+        ctx.restore();
     }
 
-    drawGameOverTextHalf(ctx, isBlueWin, isTop) {
-        ctx.shadowColor = isBlueWin ? this.game.getPlayerColor('A') : this.game.getPlayerColor('B');
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = isBlueWin ? this.game.getPlayerColor('A') : this.game.getPlayerColor('B');
-        ctx.font = 'bold 64px sans-serif';
-        ctx.fillText(isBlueWin ? '蓝方胜利！' : '红方胜利！', CENTER_X, CANVAS_HEIGHT - 350);
-        
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#fff';
-        ctx.font = '24px sans-serif';
-        const sa = this.game.scoreA || 0;
-        const sb = this.game.scoreB || 0;
-        ctx.fillText(`得分比 ${sa} : ${sb}`, CENTER_X, CANVAS_HEIGHT - 290);
+    drawCompetitiveExitButton(ctx) {
+        const btnX = CENTER_X - 118;
+        const btnY = CENTER_Y + 252;
+        const btnW = 236;
+        const btnH = 54;
+
+        this.drawImageButton(ctx, btnX, btnY, btnW, btnH, t('backHome'), '#35b779', 20);
+
+        this.game.restartBtn = null;
+        this.game.exitBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
     }
 
-    drawGameOverTieHalf(ctx) {
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 64px sans-serif';
-        ctx.fillText('DRAW', CENTER_X, CANVAS_HEIGHT - 350);
-        ctx.shadowBlur = 0;
-        ctx.font = '24px sans-serif';
-        ctx.fillText('平局！', CENTER_X, CANVAS_HEIGHT - 290);
+    drawSettlementLine(ctx, x, y, label, value, valueColor) {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#47707c';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(label, x, y);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = valueColor;
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText(value, CANVAS_WIDTH - 62, y);
+    }
+
+    getMyCompetitiveParticipant(match) {
+        const playerId = this.game.network?.playerId;
+        return match.participants?.find(participant => participant.playerId === playerId)
+            || match.participants?.find(participant => !participant.profile?.isAi)
+            || match.participants?.find(participant => participant.slot === (this.game.perspective === 'bottom' ? 'A' : 'B'))
+            || null;
+    }
+
+    getAnimatedSettlementBalance(from, to) {
+        const startedAt = this.game.competitiveSettlementReceivedAt || Date.now();
+        const elapsed = Math.max(0, Date.now() - startedAt);
+        const t = Math.min(1, elapsed / 900);
+        const eased = 1 - Math.pow(1 - t, 3);
+        return Math.round(from + (to - from) * eased);
+    }
+
+    formatCoinDelta(amount) {
+        if (amount > 0) return `+${amount}`;
+        if (amount < 0) return `${amount}`;
+        return '0';
+    }
+
+    formatCoinAmount(amount) {
+        return t('coins', { value: this.formatCoinDelta(amount) });
     }
 
     /**
@@ -693,30 +1226,50 @@ export class UI {
      * @param {CanvasRenderingContext2D} ctx
      */
     drawDisconnectOverlay(ctx) {
-        const bannerW = 300;
-        const bannerH = 80;
+        const bannerW = 330;
+        const bannerH = 96;
         const bannerX = CENTER_X - bannerW / 2;
-        const bannerY = 80;
+        const bannerY = 92;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.beginPath();
-        ctx.roundRect(bannerX, bannerY, bannerW, bannerH, 10);
-        ctx.fill();
-
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'center';
-        
-        // 简单的闪烁动画
+        ctx.save();
+        this.drawSoftPanel(ctx, bannerX, bannerY, bannerW, bannerH, 18, 'rgba(255,255,255,0.96)');
         const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / 300));
         ctx.globalAlpha = alpha;
-        ctx.fillText('对方已断线，等待重连中...', CENTER_X, bannerY + 30);
-        
-        ctx.globalAlpha = 1.0;
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#aaa';
-        ctx.fillText('（60秒内未重连将自动判负）', CENTER_X, bannerY + 55);
+        ctx.fillStyle = '#d9480f';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t('reconnecting'), CENTER_X, bannerY + 34);
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#47707c';
+        ctx.font = '13px sans-serif';
+        ctx.fillText(t('waitingResultConfirmation'), CENTER_X, bannerY + 66);
+        ctx.restore();
     }
 
+    drawConnectionOverlay(ctx) {
+        const bannerW = 320;
+        const bannerH = 74;
+        const bannerX = CENTER_X - bannerW / 2;
+        const bannerY = CANVAS_HEIGHT - 118;
+        const status = this.game.connectionStatus || 'offline';
+        const title = status === 'offline' ? t('offline') : t('reconnecting');
+
+        ctx.save();
+        this.drawSoftPanel(ctx, bannerX, bannerY, bannerW, bannerH, 16, 'rgba(255,255,255,0.96)');
+        const alpha = 0.65 + 0.35 * Math.abs(Math.sin(Date.now() / 280));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = status === 'offline' ? '#d9480f' : '#8a5a00';
+        ctx.font = 'bold 17px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, CENTER_X, bannerY + 28);
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#47707c';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(t('waitingResultConfirmation'), CENTER_X, bannerY + 52);
+        ctx.restore();
+    }
 
 }

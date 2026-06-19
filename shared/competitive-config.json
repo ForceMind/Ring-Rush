@@ -1,0 +1,41 @@
+{
+  "currency": "coins",
+  "initialCoins": 120,
+  "tables": [
+    {
+      "id": "bronze_12",
+      "label": "Bronze 1v1",
+      "stake": 12,
+      "prizePool": 24,
+      "winnerPayout": 20,
+      "systemSink": 4,
+      "matchmakingTimeoutMs": 15000
+    }
+  ],
+  "ai": {
+    "dailyRewardLimit": 120,
+    "profiles": [
+      {
+        "id": "rookie",
+        "label": "Rookie AI",
+        "ratingMin": 0,
+        "ratingMax": 899,
+        "difficulty": "easy"
+      },
+      {
+        "id": "rival",
+        "label": "Rival AI",
+        "ratingMin": 900,
+        "ratingMax": 1199,
+        "difficulty": "medium"
+      },
+      {
+        "id": "ace",
+        "label": "Ace AI",
+        "ratingMin": 1200,
+        "ratingMax": 9999,
+        "difficulty": "hard"
+      }
+    ]
+  }
+}
