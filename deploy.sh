@@ -14,11 +14,12 @@ set -euo pipefail
 SERVICE_NAME="${SERVICE_NAME:-pello}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVER_DIR="${PROJECT_DIR}/server"
-PORT="${PORT:-3000}"
+REQUESTED_PORT="${PORT:-3003}"
+PORT="${REQUESTED_PORT}"
 HOST="${HOST:-0.0.0.0}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://pello.xincreates.com}"
 DOMAIN_NAME="${DOMAIN_NAME:-pello.xincreates.com}"
-SETUP_NGINX="${SETUP_NGINX:-1}"
+SETUP_NGINX="${SETUP_NGINX:-0}"
 SSL_EMAIL="${SSL_EMAIL:-}"
 DATA_FILE="${PELLO_COMPETITIVE_STORE:-${SERVER_DIR}/data/competitive-state.json}"
 REPO_APK_PATH="${PROJECT_DIR}/public/download/Pello.apk"
@@ -42,6 +43,113 @@ fi
 echo "== Pello deploy =="
 echo "Project: ${PROJECT_DIR}"
 echo "Public URL: ${PUBLIC_BASE_URL}"
+echo "Requested port: ${REQUESTED_PORT}"
+
+port_in_use() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -tuln | grep -qE "[:.]${port}[[:space:]]"
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -tuln | grep -qE "[:.]${port}[[:space:]]"
+  else
+    return 1
+  fi
+}
+
+pids_for_port() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -H -ltnp 2>/dev/null | awk -v port=":${port}" '$4 ~ port "$" { print $0 }' | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | sort -u
+  elif command -v lsof >/dev/null 2>&1; then
+    lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null | sort -u
+  fi
+}
+
+is_project_pello_pid() {
+  local pid="$1"
+  local cwd=""
+  local cmdline=""
+  [ -d "/proc/${pid}" ] || return 1
+  cwd="$(readlink -f "/proc/${pid}/cwd" 2>/dev/null || true)"
+  cmdline="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+
+  case "${cwd}" in
+    "${PROJECT_DIR}"|"${PROJECT_DIR}"/*) return 0 ;;
+  esac
+
+  if [[ "${cmdline}" == *"server/server.js"* && "${cmdline}" == *"${PROJECT_DIR}"* ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
+stop_pid_gracefully() {
+  local pid="$1"
+  if ! kill -0 "${pid}" 2>/dev/null; then
+    return
+  fi
+  echo "Stopping old Pello process PID ${pid}"
+  kill "${pid}" 2>/dev/null || true
+  for _ in 1 2 3 4 5; do
+    if ! kill -0 "${pid}" 2>/dev/null; then
+      return
+    fi
+    sleep 0.2
+  done
+  kill -9 "${pid}" 2>/dev/null || true
+}
+
+stop_previous_pello() {
+  echo "Stopping previous Pello service if present..."
+  systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
+
+  local pids=""
+  if command -v pgrep >/dev/null 2>&1; then
+    pids="$(pgrep -f 'server/server.js' 2>/dev/null || true)"
+  fi
+
+  for pid in ${pids}; do
+    if is_project_pello_pid "${pid}"; then
+      stop_pid_gracefully "${pid}"
+    fi
+  done
+}
+
+choose_single_port() {
+  local candidate="${REQUESTED_PORT}"
+
+  while port_in_use "${candidate}"; do
+    local pids
+    pids="$(pids_for_port "${candidate}" || true)"
+    local has_foreign=0
+
+    if [ -n "${pids}" ]; then
+      for pid in ${pids}; do
+        if is_project_pello_pid "${pid}"; then
+          stop_pid_gracefully "${pid}"
+        else
+          has_foreign=1
+        fi
+      done
+    else
+      has_foreign=1
+    fi
+
+    if ! port_in_use "${candidate}"; then
+      break
+    fi
+
+    if [ "${has_foreign}" -eq 1 ]; then
+      echo "Port ${candidate} is occupied by another service; trying next port."
+    else
+      echo "Port ${candidate} is still busy after stopping old Pello; trying next port."
+    fi
+    candidate=$((candidate + 1))
+  done
+
+  PORT="${candidate}"
+}
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is not installed. Installing Node.js 20..."
@@ -76,16 +184,8 @@ npm run build
 
 mkdir -p "$(dirname "${DATA_FILE}")"
 
-while true; do
-  if command -v ss >/dev/null 2>&1; then
-    ss -tuln | grep -q ":${PORT} " || break
-  elif command -v netstat >/dev/null 2>&1; then
-    netstat -tuln | grep -q ":${PORT} " || break
-  else
-    break
-  fi
-  PORT=$((PORT + 1))
-done
+stop_previous_pello
+choose_single_port
 
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
@@ -176,6 +276,7 @@ echo ""
 echo "Deployment complete."
 echo "Service: ${SERVICE_NAME}"
 echo "Port: ${PORT}"
+echo "Cloudflare tunnel target: http://127.0.0.1:${PORT}"
 echo "Website: ${PUBLIC_BASE_URL}/"
 echo "Game: ${PUBLIC_BASE_URL}/online.html"
 echo "Health: ${PUBLIC_BASE_URL}/api/competitive/health"
@@ -185,7 +286,9 @@ echo "APK file: ${APK_PATH}"
 if [ ! -f "${APK_PATH}" ]; then
   echo "Warning: APK file does not exist yet. Put the APK at ${REPO_APK_PATH} or set PELLO_APK_PATH."
 fi
-if [ -z "${SSL_EMAIL}" ]; then
+if [ "${SETUP_NGINX}" = "0" ]; then
+  echo "Nginx: skipped. Cloudflare Tunnel should point to http://127.0.0.1:${PORT}."
+elif [ -z "${SSL_EMAIL}" ]; then
   echo "HTTPS certificate: skipped. Set SSL_EMAIL=you@example.com before running the script if this server manages TLS."
 fi
 echo ""

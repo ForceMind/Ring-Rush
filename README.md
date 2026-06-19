@@ -76,12 +76,14 @@ From the server, pull this branch and run:
 sudo bash deploy.sh
 ```
 
-The script installs dependencies, builds the website/game with `VITE_PELLO_SERVER_URL=https://pello.xincreates.com`, writes a systemd service, and configures an nginx reverse proxy for `pello.xincreates.com`.
+The script installs dependencies, builds the website/game with `VITE_PELLO_SERVER_URL=https://pello.xincreates.com`, stops the previous Pello service/processes from this project, finds a safe single Node port, and writes a systemd service.
 
-If this server also manages HTTPS certificates, run it with an email address:
+Default production mode is Cloudflare Tunnel friendly: the script does not configure nginx and prints the tunnel target, for example `http://127.0.0.1:3003`.
+
+If this server should use nginx instead of Cloudflare Tunnel, opt in explicitly:
 
 ```bash
-sudo SSL_EMAIL=admin@example.com bash deploy.sh
+sudo SETUP_NGINX=1 SSL_EMAIL=admin@example.com bash deploy.sh
 ```
 
 The APK route first serves `public/download/Pello.apk`, then falls back to `android/app/build/outputs/apk/debug/app-debug.apk`. Replace `public/download/Pello.apk` when you generate a newer internal-test build.
@@ -90,10 +92,11 @@ Optional environment variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `PORT` | HTTP/WebSocket port. Default `3000`. |
+| `PORT` | Preferred HTTP/WebSocket port. Default `3003`. If another non-Pello service owns it, the deploy script tries the next free port. |
 | `HOST` | Bind host. Default `0.0.0.0`. |
 | `PUBLIC_BASE_URL` | Public website/backend URL compiled into the web app. Default `https://pello.xincreates.com`. |
 | `DOMAIN_NAME` | nginx server name. Default `pello.xincreates.com`. |
+| `SETUP_NGINX` | Configure nginx only when set to `1`. Default `0` for Cloudflare Tunnel. |
 | `SSL_EMAIL` | Enables certbot HTTPS setup when provided. |
 | `PELLO_COMPETITIVE_STORE` | Competitive account/match JSON store path. |
 | `PELLO_APK_PATH` | APK file served by `/download/Pello.apk`. |

@@ -1,6 +1,6 @@
 param(
     [string]$PublicBaseUrl = "https://pello.xincreates.com",
-    [int]$Port = 3000,
+    [int]$Port = 3003,
     [string]$HostName = "0.0.0.0",
     [string]$DataFile = "",
     [string]$ApkPath = "",

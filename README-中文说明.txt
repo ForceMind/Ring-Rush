@@ -38,9 +38,17 @@ Android 内部测试 APK：
 1. 从 GitHub 拉取 codex/pello 分支。
 2. 在项目根目录执行：sudo bash deploy.sh
 3. 默认公网域名：https://pello.xincreates.com
-4. 如果服务器负责 HTTPS 证书：sudo SSL_EMAIL=你的邮箱 bash deploy.sh
+4. 默认优先端口：3003
+5. 脚本会先停止同项目的旧 Pello 服务或进程，再选择端口。
+6. 如果 3003 被其他服务占用，脚本会自动尝试下一个空端口，不会停止其他服务。
+7. 默认不配置 nginx，适合 Cloudflare Tunnel。
+8. Cloudflare Tunnel 需要指向脚本打印的地址，例如：http://127.0.0.1:3003
+
+如果服务器要自己用 nginx 和证书：
+- sudo SETUP_NGINX=1 SSL_EMAIL=你的邮箱 bash deploy.sh
 
 注意：
+- Pello 服务只应该占用脚本最终打印的一个 Node 端口。
 - 官网公开页面只展示游戏介绍、截图、在线试玩和 APK 下载，不展示部署说明。
 - 当前 APK 是内部测试安装包，正式上架前还需要 release 签名和 AAB。
 - 当前竞技数据默认使用 JSON 文件保存，大规模上线前建议替换为数据库。

@@ -80,12 +80,18 @@ Competitive account and match state lives in `server/src/competitive`.
 sudo bash deploy.sh
 ```
 
-The script defaults to `https://pello.xincreates.com`, builds the website/game with the locked server URL, installs a systemd service, and configures nginx for `pello.xincreates.com`.
+The script defaults to `https://pello.xincreates.com` and preferred port `3003`. It builds the website/game with the locked server URL, stops old Pello service/processes from this project, chooses one safe Node port, and installs a systemd service.
 
-If this server should issue the HTTPS certificate itself:
+For Cloudflare Tunnel, point the tunnel to the printed local target, for example:
 
 ```bash
-sudo SSL_EMAIL=admin@example.com bash deploy.sh
+http://127.0.0.1:3003
+```
+
+If this server should use nginx and issue the HTTPS certificate itself:
+
+```bash
+sudo SETUP_NGINX=1 SSL_EMAIL=admin@example.com bash deploy.sh
 ```
 
 The downloadable internal-test APK is expected at `public/download/Pello.apk`; the route falls back to the Android debug build output if that file is missing.
