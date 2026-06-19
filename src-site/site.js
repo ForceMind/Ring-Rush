@@ -7,13 +7,10 @@ const healthNode = document.querySelector('[data-health-status]');
 if (healthNode) {
     fetch('/api/competitive/health', { cache: 'no-store' })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('offline')))
-        .then((payload) => {
-            const table = payload.tables?.[0];
-            healthNode.textContent = table
-                ? `服务器在线：${table.stake} 金币入场，赢家 ${table.winnerPayout} 金币`
-                : '服务器在线';
+        .then(() => {
+            healthNode.textContent = '在线服务已准备，可以开始试玩。';
         })
         .catch(() => {
-            healthNode.textContent = '服务器未连接，部署后自动显示状态';
+            healthNode.textContent = '在线服务正在准备中，稍后再试。';
         });
 }

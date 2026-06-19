@@ -15,11 +15,12 @@ All notable changes are tracked here.
 
 ### Changed
 
+- Redesigned the public website from a visual mockup into a gameplay-only sharing page, focused on drag shooting, collision positioning, AI practice, screenshots, online play, and APK download.
 - Kept `online.html` as the web game entry and changed `index.html` into the public website.
 - Configured Capacitor `server.appStartPath` to `/online.html` so the Android app still opens the game UI.
 - Configured deployment defaults for `https://pello.xincreates.com`.
 - Changed `deploy.sh` to Cloudflare Tunnel mode by default: preferred port `3003`, no default nginx setup, previous same-project Pello process cleanup, and one printed tunnel target port.
-- Removed deployment and debug-build wording from the public website.
+- Removed economy, deployment, server, and debug-build wording from the public website.
 - Rewrote core documentation to describe the current website, backend, Android, deployment, economy, AI, and testing flow.
 
 ### Fixed

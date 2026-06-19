@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Pello 是一款休闲弹棋 1v1 金币对战游戏，支持 Android APK 下载、在线对战、AI 训练和本地练习。">
-    <title>Pello - 休闲弹棋 1v1 金币对战</title>
+    <meta name="description" content="Pello 是一款休闲弹棋对战游戏，支持 Android APK 下载、网页版试玩、AI 练习和本地练习。">
+    <title>Pello - 休闲弹棋对战</title>
     <link rel="icon" href="/site/pello-icon.png">
     <link rel="stylesheet" href="/src-site/site.css">
 </head>
@@ -17,55 +17,58 @@
         <nav class="nav-links" aria-label="Primary">
             <a href="#how">玩法</a>
             <a href="#screens">截图</a>
-            <a href="#live">Live</a>
-            <a href="#download">试玩</a>
+            <a href="#live">试玩</a>
         </nav>
         <div class="header-actions">
-            <a class="ghost-link" href="/online.html">在线对战</a>
+            <a class="ghost-link" href="/online.html">在线试玩</a>
             <a class="solid-link" href="/download/Pello.apk">下载 APK</a>
         </div>
     </header>
 
     <main>
         <section class="hero" aria-label="Pello introduction">
-            <div class="hero-media" aria-hidden="true"></div>
-            <div class="hero-content">
-                <p class="eyebrow">Android-first casual arena</p>
+            <div class="hero-copy">
+                <p class="eyebrow">Casual flick battle</p>
                 <h1>Pello</h1>
-                <p class="hero-copy">休闲弹棋 1v1 金币对战。12 金币入场，赢家获得 20 金币；匹配不到真人时，可以切到实力相当的 AI 对战。</p>
+                <p class="hero-lead">拖拽、发射、碰撞、抢占得分区。几秒钟学会，一局里每一次停留和反弹都可能改变胜负。</p>
                 <div class="hero-actions">
                     <a class="primary-action" href="/download/Pello.apk">下载 Android APK</a>
-                    <a class="secondary-action" href="/online.html">网页版在线对战</a>
+                    <a class="secondary-action" href="/online.html">网页版在线试玩</a>
                 </div>
-                <dl class="hero-stats" aria-label="Game highlights">
-                    <div><dt>1v1</dt><dd>真人匹配</dd></div>
-                    <div><dt>AI</dt><dd>训练与补位</dd></div>
-                    <div><dt>金币</dt><dd>入场与奖励</dd></div>
-                </dl>
+                <div class="hero-tags" aria-label="Game highlights">
+                    <span>拖拽发射</span>
+                    <span>碰撞抢位</span>
+                    <span>AI 练习</span>
+                </div>
+            </div>
+            <div class="hero-visual" aria-hidden="true">
+                <div class="phone-frame">
+                    <img src="/site/screenshots/player-turn.png" alt="">
+                </div>
             </div>
         </section>
 
         <section id="how" class="section gameplay">
             <div class="section-heading">
-                <p class="eyebrow">Core loop</p>
-                <h2>轻量上手，局内有真实弹射策略</h2>
-                <p>拖拽棋子发射，停留在得分区推动赛道角色前进。碰撞、停留和加分反馈会清晰提示每次出手的结果。</p>
+                <p class="eyebrow">How it plays</p>
+                <h2>弹出去，停得准，推到终点</h2>
+                <p>玩法介绍聚焦真实操作：发射力度、棋子碰撞、停留得分、赛道推进和 AI 训练。</p>
             </div>
             <div class="feature-grid">
                 <article class="feature-card">
                     <span class="feature-number">01</span>
-                    <h3>金币对局</h3>
-                    <p>默认青铜桌 12 金币入场，奖池 24 金币，赢家拿 20 金币，平台服务费 4 金币。</p>
+                    <h3>拖拽发射</h3>
+                    <p>按住棋子向后拉，松手后沿着力度和方向飞出，手机上也能快速上手。</p>
                 </article>
                 <article class="feature-card">
                     <span class="feature-number">02</span>
-                    <h3>真人或 AI</h3>
-                    <p>真人匹配优先；长时间匹配不到人时，系统可按战绩匹配 AI。练习入口支持简单、中等、困难。</p>
+                    <h3>碰撞抢位</h3>
+                    <p>撞开对手、保住自己的停留点，棋盘不是装饰，而是每回合的战术空间。</p>
                 </article>
                 <article class="feature-card">
                     <span class="feature-number">03</span>
-                    <h3>移动端 UI</h3>
-                    <p>棋盘、滑块、赛道和回合信息按手机竖屏设计，状态栏和挖孔区域会自动避让。</p>
+                    <h3>AI 练习</h3>
+                    <p>没人在线时可以直接练习，也可以用不同难度熟悉力度和得分区。</p>
                 </article>
             </div>
         </section>
@@ -73,80 +76,50 @@
         <section id="screens" class="section screenshots">
             <div class="section-heading">
                 <p class="eyebrow">Screenshots</p>
-                <h2>真实 APP 截图</h2>
-                <p>以下截图来自当前 Android/移动端 UI 验收画面，用于展示首页、对战中和结算状态。</p>
+                <h2>真实游戏画面</h2>
+                <p>直接展示首页、发射回合和结束反馈，让朋友看到实际可玩的样子。</p>
             </div>
             <div class="screenshot-grid">
                 <figure>
-                    <img src="/site/screenshots/home.png" alt="Pello 中文首页截图">
-                    <figcaption>首页与模式入口</figcaption>
+                    <img src="/site/screenshots/home.png" alt="Pello 首页截图">
+                    <figcaption>选择模式</figcaption>
                 </figure>
                 <figure>
                     <img src="/site/screenshots/player-turn.png" alt="Pello 玩家回合截图">
-                    <figcaption>玩家回合与滑块</figcaption>
+                    <figcaption>拖拽发射</figcaption>
                 </figure>
                 <figure>
-                    <img src="/site/screenshots/gameover.png" alt="Pello 胜利结算截图">
-                    <figcaption>胜利结束框</figcaption>
+                    <img src="/site/screenshots/gameover.png" alt="Pello 结束反馈截图">
+                    <figcaption>结束反馈</figcaption>
                 </figure>
             </div>
         </section>
 
         <section id="live" class="section live-section">
-            <div class="section-heading">
-                <p class="eyebrow">Live preview</p>
-                <h2>网页里直接进入对战</h2>
-                <p>不安装也能先玩网页版；想要完整的手机体验，可以下载安装 Android 包。</p>
-            </div>
             <div class="live-layout">
                 <div class="phone-shell">
                     <iframe src="/online.html" title="Pello live online preview"></iframe>
                 </div>
                 <div class="live-copy">
-                    <h3>手机和网页都能开局</h3>
-                    <p>打开网页可以直接进入在线对战；安装 Android 包后，可以用更接近正式 APP 的竖屏体验进行 1v1、AI 训练和本地练习。</p>
+                    <p class="eyebrow">Play now</p>
+                    <h2>不用安装也能先试玩</h2>
+                    <p>网页版可以直接进入游戏入口，适合快速分享；Android 包提供更完整的竖屏手感。</p>
                     <ul class="check-list">
-                        <li>真人 1v1 在线匹配</li>
-                        <li>匹配等待时可进入 AI 对战</li>
-                        <li>简单 / 中等 / 困难 AI 训练</li>
-                        <li>金币入场、胜利奖励和结算反馈</li>
+                        <li>进入大厅后可以直接开始在线对战</li>
+                        <li>也可以先选择 AI 练习熟悉力度</li>
+                        <li>手机安装包保留声音、音乐和震动体验</li>
                     </ul>
-                    <a class="primary-action compact" href="/online.html">打开完整在线对战</a>
-                </div>
-            </div>
-        </section>
-
-        <section id="download" class="section play-section">
-            <div class="section-heading">
-                <p class="eyebrow">Play now</p>
-                <h2>现在就可以试玩</h2>
-                <p>选择安装 Android 包，或者直接打开网页版。两种方式都连接到同一个 Pello 对战服务。</p>
-            </div>
-            <div class="play-grid">
-                <div class="friend-panel">
-                    <span>推荐体验顺序</span>
-                    <div class="friend-steps">
-                        <article>
-                            <strong>1</strong>
-                            <h3>先打开网页版</h3>
-                            <p>不用安装，直接进入在线对战入口，适合快速体验玩法和匹配流程。</p>
-                        </article>
-                        <article>
-                            <strong>2</strong>
-                            <h3>再安装 Android 包</h3>
-                            <p>获得完整竖屏 APP 体验，包括设置、声音、震动和更贴近手机的操作手感。</p>
-                        </article>
+                    <div class="download-card">
+                        <img src="/site/pello-icon.png" alt="">
+                        <div>
+                            <h3>Android 试玩包</h3>
+                            <p data-health-status>正在检测在线服务...</p>
+                        </div>
                     </div>
-                </div>
-                <div class="download-panel">
-                    <img src="/site/pello-icon.png" alt="">
-                    <h3>Android 试玩包</h3>
-                    <p>下载 Pello.apk 后安装即可试玩。安卓手机如果提示未知来源安装，请在系统设置里允许浏览器安装应用。</p>
-                    <div class="download-actions">
-                        <a class="solid-link wide" href="/download/Pello.apk">下载 APK</a>
-                        <a class="ghost-link wide" href="/online.html">在线试玩</a>
+                    <div class="hero-actions">
+                        <a class="primary-action" href="/download/Pello.apk">下载 APK</a>
+                        <a class="secondary-action" href="/online.html">在线试玩</a>
                     </div>
-                    <p class="status-line" data-health-status>正在检测服务器状态...</p>
                 </div>
             </div>
         </section>
@@ -154,7 +127,7 @@
 
     <footer class="site-footer">
         <span>Pello v0.10.5</span>
-        <span>© <span data-year></span> Pello. Built for casual 1v1 matches.</span>
+        <span>© <span data-year></span> Pello</span>
     </footer>
 
     <script type="module" src="/src-site/site.js"></script>
