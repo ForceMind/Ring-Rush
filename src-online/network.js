@@ -380,6 +380,16 @@ export class NetworkManager {
                 if (this.onMessage) this.onMessage(message);
                 break;
             case 'reconnect_failed':
+                if (message.code) {
+                    this.accountId = null;
+                    this.sessionToken = null;
+                    this.removeStoredValue('pelloAccountId');
+                    this.removeStoredValue('pelloSessionToken');
+                    this.removeStoredValue('ringRushPlayerId');
+                    this.requestCompetitiveProfile();
+                    break;
+                }
+
                 this.accountId = message.accountId || this.accountId;
                 this.sessionToken = message.sessionToken || this.sessionToken;
                 this.saveStoredValue('ringRushPlayerId', this.playerId);
@@ -479,7 +489,6 @@ export class NetworkManager {
                     this.saveStoredValue('pelloSessionToken', this.sessionToken);
                 }
                 if (this.onCompetitiveProfile) this.onCompetitiveProfile(message);
-                if (this.onMessage) this.onMessage(message);
                 break;
             case 'matchmaking_queued':
                 this.wallet = message.wallet || this.wallet;

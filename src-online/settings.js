@@ -1,9 +1,27 @@
+import { Capacitor } from '@capacitor/core';
+
 export const SETTINGS_STORAGE_KEY = 'pelloAppSettings';
+
+export function isNativeApp() {
+    const capacitor = (typeof window !== 'undefined' && window.Capacitor) || Capacitor;
+    if (!capacitor) return false;
+    if (typeof capacitor.isNativePlatform === 'function') {
+        return capacitor.isNativePlatform();
+    }
+    if (typeof capacitor.getPlatform === 'function') {
+        return ['android', 'ios'].includes(capacitor.getPlatform());
+    }
+    return false;
+}
+
+export function canUseVibration() {
+    return isNativeApp();
+}
 
 export const DEFAULT_SETTINGS = {
     audioEnabled: true,
     musicEnabled: true,
-    vibrationEnabled: true,
+    vibrationEnabled: canUseVibration(),
     serverUrl: ''
 };
 
@@ -13,7 +31,7 @@ function normalizeSettings(value = {}) {
     return {
         audioEnabled: value.audioEnabled !== false,
         musicEnabled: value.musicEnabled !== false,
-        vibrationEnabled: value.vibrationEnabled !== false,
+        vibrationEnabled: canUseVibration() && value.vibrationEnabled !== false,
         serverUrl: typeof value.serverUrl === 'string' ? value.serverUrl : ''
     };
 }

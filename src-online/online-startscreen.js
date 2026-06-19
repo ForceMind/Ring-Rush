@@ -1,8 +1,8 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT, CENTER_X, VERSION } from './constants.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, CENTER_X } from './constants.js';
 import { NetworkManager } from './network.js';
 import { locale, t } from './i18n.js';
 import { drawUIAsset, getButtonAsset } from './ui-assets.js';
-import { loadSettings, updateSetting } from './settings.js';
+import { canUseVibration, loadSettings, updateSetting } from './settings.js';
 
 const TABLE_ID = 'bronze_12';
 
@@ -65,7 +65,15 @@ export class OnlineStartScreen {
     }
 
     async connectToServer() {
-        if (this.network.isConnected || this.isConnecting) return;
+        if (this.network.isConnected) {
+            this.bindNetworkHandlers();
+            this.statusMessage = t('connected');
+            this.errorMessage = null;
+            this.network.requestCompetitiveProfile();
+            this.draw();
+            return;
+        }
+        if (this.isConnecting) return;
         this.isConnecting = true;
         this.errorMessage = null;
         this.statusMessage = t('connecting');
@@ -114,6 +122,8 @@ export class OnlineStartScreen {
             this.profile = message.profile;
             this.wallet = message.wallet;
             this.tables = message.tables || [];
+            this.errorMessage = null;
+            this.statusMessage = t('profileUpdated');
             this.draw();
         };
 
@@ -156,6 +166,10 @@ export class OnlineStartScreen {
         };
 
         this.network.onError = (message) => {
+            if (this.isIgnorableServerError(message)) {
+                this.errorMessage = null;
+                return;
+            }
             this.errorMessage = message;
             this.draw();
         };
@@ -163,6 +177,11 @@ export class OnlineStartScreen {
         this.network.onMessage = (message) => {
             this.handleNetworkMessage(message);
         };
+    }
+
+    isIgnorableServerError(message) {
+        const text = String(message || '');
+        return /competitive_profile/i.test(text) && /(unknown|未知)/i.test(text);
     }
 
     handleNetworkMessage(message) {
@@ -287,7 +306,7 @@ export class OnlineStartScreen {
         if (this.currentScreen === 'matchmaking') this.drawMatchmaking(ctx);
         if (this.currentScreen === 'versus') this.drawVersus(ctx);
         if (this.currentScreen === 'profile') this.drawProfile(ctx);
-        if (this.currentScreen === 'server_settings') this.drawSettings(ctx);
+        if (this.currentScreen === 'settings') this.drawSettings(ctx);
         if (this.currentScreen === 'practice_ai_select') this.drawAiDifficulty(ctx);
         if (this.currentScreen === 'legacy_rooms') this.drawLegacyRooms(ctx);
         if (this.currentScreen === 'in_room') this.drawInRoom(ctx);
@@ -330,14 +349,9 @@ export class OnlineStartScreen {
         ctx.font = 'bold 21px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText('PELLO', 24, 54);
-        ctx.fillStyle = '#47707c';
-        ctx.font = '10px sans-serif';
-        ctx.fillText(`v${VERSION}`, 88, 54);
 
-        this.drawButton(ctx, 140, 24, 92, 46, t('settings'), '#767d87', 'server_settings');
-
-        if (!drawUIAsset(ctx, 'coinPill', 244, 22, 196, 50)) {
-            this.drawPill(ctx, 244, 22, 196, 50, '#fff7cc', '#ffffff');
+        if (!drawUIAsset(ctx, 'coinPill', 202, 22, 238, 50)) {
+            this.drawPill(ctx, 202, 22, 238, 50, '#fff7cc', '#ffffff');
         }
         ctx.fillStyle = '#8a5a00';
         ctx.font = 'bold 18px sans-serif';
@@ -371,9 +385,9 @@ export class OnlineStartScreen {
 
         this.drawPuckPreview(ctx, 348, 293);
 
-        const canPlay = this.network.isConnected && this.wallet && this.wallet.available >= table.stake;
-        this.drawButton(ctx, 30, 414, 390, 68, canPlay ? t('playButton') : t('connecting'), '#ff8a3d', 'quick_match', !canPlay);
-        this.drawButton(ctx, 30, 502, 185, 52, t('aiMatch'), '#35b779', 'paid_ai_match', !canPlay);
+        const entryState = this.getEntryButtonState(table);
+        this.drawButton(ctx, 30, 414, 390, 68, entryState.label, '#ff8a3d', 'quick_match', entryState.disabled);
+        this.drawButton(ctx, 30, 502, 185, 52, t('aiMatch'), '#35b779', 'paid_ai_match', entryState.disabled);
         this.drawButton(ctx, 235, 502, 185, 52, t('practiceAi'), '#2d9cdb', 'practice_ai');
         this.drawButton(ctx, 30, 572, 185, 52, t('local2p'), '#7c68d9', 'practice_local');
         this.drawButton(ctx, 235, 572, 185, 52, t('rooms'), '#767d87', 'legacy_rooms', !this.network.isConnected);
@@ -393,6 +407,23 @@ export class OnlineStartScreen {
         ctx.textAlign = 'right';
         ctx.fillText(this.statusMessage, 404, 758);
         this.drawButton(ctx, 302, 694, 104, 42, t('details'), '#2d9cdb', 'profile', !this.network.accountId);
+        this.drawButton(ctx, 30, 812, 390, 54, t('settings'), '#767d87', 'settings');
+    }
+
+    getEntryButtonState(table) {
+        if (!this.network.isConnected) {
+            return {
+                label: this.isConnecting || this.network.connectionStatus === 'connecting' ? t('connecting') : t('connect'),
+                disabled: true
+            };
+        }
+        if (!this.wallet) {
+            return { label: t('loadingCoins'), disabled: true };
+        }
+        if (this.wallet.available < table.stake) {
+            return { label: t('notEnoughCoins'), disabled: true };
+        }
+        return { label: t('playButton'), disabled: false };
     }
 
     drawCoinConfirm(ctx) {
@@ -520,16 +551,6 @@ export class OnlineStartScreen {
     }
 
     drawSettings(ctx) {
-        const configured = this.network.getConfiguredServerBaseUrl();
-        const stored = this.network.getStoredServerBaseUrl();
-        const bundled = this.network.getBundledServerBaseUrl();
-        const locked = this.network.isServerBaseUrlLocked();
-        const httpUrl = this.network.getHttpBaseUrl();
-        const wsUrl = this.network.getServerUrl();
-        const backendLabel = locked
-            ? t('lockedBackend')
-            : stored ? t('customBackend') : bundled ? t('appBackend') : t('autoBackend');
-
         this.drawTopBar(ctx);
         this.drawButton(ctx, 24, 92, 96, 42, t('back'), '#767d87', 'back_home');
 
@@ -538,41 +559,23 @@ export class OnlineStartScreen {
         ctx.textAlign = 'center';
         ctx.fillText(t('settingsTitle'), CENTER_X, 138);
 
-        this.drawCard(ctx, 24, 176, 402, 246, '#ffffffdd', 'panel');
-        this.drawToggleRow(ctx, 54, 222, t('sound'), 'audioEnabled', this.settings.audioEnabled);
-        this.drawToggleRow(ctx, 54, 282, t('music'), 'musicEnabled', this.settings.musicEnabled);
-        this.drawToggleRow(ctx, 54, 342, t('vibration'), 'vibrationEnabled', this.settings.vibrationEnabled);
+        const rows = [
+            ['audioEnabled', t('sound'), this.settings.audioEnabled],
+            ['musicEnabled', t('music'), this.settings.musicEnabled]
+        ];
+        if (canUseVibration()) {
+            rows.push(['vibrationEnabled', t('vibration'), this.settings.vibrationEnabled]);
+        }
 
-        this.drawCard(ctx, 24, 448, 402, 260, '#ffffffdd', 'panel');
-        this.drawTextBackplate(ctx, 48, 518, 354, 34);
-        this.drawTextBackplate(ctx, 48, 568, 354, 34);
-        this.drawTextBackplate(ctx, 48, 650, 354, 34);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#143642';
-        ctx.font = 'bold 18px sans-serif';
-        ctx.fillText(`${t('server')} · ${backendLabel}`, 54, 494);
+        this.drawCard(ctx, 24, 190, 402, canUseVibration() ? 252 : 190, '#ffffffdd', 'panel');
+        rows.forEach((row, index) => {
+            this.drawToggleRow(ctx, 54, 250 + index * 66, row[1], row[0], row[2]);
+        });
 
         ctx.fillStyle = '#47707c';
-        ctx.font = '14px sans-serif';
-        ctx.fillText('HTTP', 54, 540);
-        this.drawServerText(ctx, httpUrl, 108, 540, CANVAS_WIDTH - 152);
-        ctx.fillText('WS', 54, 590);
-        this.drawServerText(ctx, wsUrl, 108, 590, CANVAS_WIDTH - 152);
-
-        ctx.fillStyle = '#2d6775';
-        ctx.font = '13px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(locked ? t('lockedBackendHint') : t('androidDebugHint'), 54, 646);
-        this.drawServerText(ctx, bundled || configured || 'http://192.168.1.23:3000', 54, 674, CANVAS_WIDTH - 98);
-
-        this.drawButton(ctx, 24, 730, 126, 52, t('setUrl'), '#2d9cdb', 'server_set', locked);
-        this.drawButton(ctx, 162, 730, 126, 52, t('useDefault'), '#767d87', 'server_reset', locked);
-        this.drawButton(ctx, 300, 730, 126, 52, t('connect'), '#35b779', 'server_connect');
-
-        ctx.fillStyle = this.network.isConnected ? '#16884d' : '#d9480f';
         ctx.font = 'bold 15px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(this.network.isConnected ? t('connected') : this.statusMessage, CENTER_X, 824);
+        ctx.fillText(t('settingsSavedAutomatically'), CENTER_X, 520);
     }
 
     drawToggleRow(ctx, x, y, label, key, enabled) {
@@ -1196,25 +1199,8 @@ export class OnlineStartScreen {
             } else if (btn.id === 'profile') {
                 this.currentScreen = 'profile';
                 await this.loadDashboard();
-            } else if (btn.id === 'server_settings') {
-                this.currentScreen = 'server_settings';
-                this.serverBaseUrl = this.network.getDisplayServerBaseUrl();
-                this.draw();
-            } else if (btn.id === 'server_set') {
-                await this.setServerUrl();
-            } else if (btn.id === 'server_reset') {
-                this.network.setServerBaseUrl('');
-                this.settings = updateSetting('serverUrl', '');
-                this.network.disconnect();
-                this.serverBaseUrl = this.network.getDisplayServerBaseUrl();
-                this.statusMessage = t('serverReset');
-                this.draw();
-            } else if (btn.id === 'server_connect') {
-                this.network.disconnect();
-                this.profile = null;
-                this.wallet = null;
-                await this.connectToServer();
-                this.currentScreen = 'server_settings';
+            } else if (btn.id === 'settings') {
+                this.currentScreen = 'settings';
                 this.draw();
             } else if (btn.id.startsWith('toggle_')) {
                 const key = btn.id.replace('toggle_', '');

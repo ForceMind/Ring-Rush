@@ -1,4 +1,4 @@
-import { loadSettings } from './settings.js';
+import { canUseVibration, loadSettings } from './settings.js';
 
 export class AudioManager {
     constructor() {
@@ -187,6 +187,7 @@ export class AudioManager {
 
     vibrate(type) {
         this.refreshSettings();
+        if (!canUseVibration()) return;
         if (!this.settings.vibrationEnabled) return;
         if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
 

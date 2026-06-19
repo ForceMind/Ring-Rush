@@ -23,6 +23,11 @@ All notable changes are tracked here.
 
 ### Fixed
 
+- Prevented `competitive_profile` wallet messages from being shown as unknown lobby messages.
+- Clarified wallet loading state on the home screen instead of showing a permanent connecting label.
+- Removed server URL controls from the in-app settings page.
+- Hid vibration settings and vibration feedback on the web build while keeping them available in the Android app.
+- Removed the duplicate version label next to the top title and moved settings access to the lower home screen.
 - Prevented the new website entry from breaking Android startup.
 - Clarified combined deployment: one Node service hosts website, web game, HTTP API, WebSocket backend, and APK download.
 
