@@ -66,7 +66,7 @@ This prevents the APK from opening the website landing page.
 - Static source hosting in development.
 - `/api/competitive/*` HTTP API.
 - WebSocket room and live match messages.
-- `/download/pello-debug.apk` APK streaming.
+- `/download/Pello.apk` APK streaming.
 
 Competitive account and match state lives in `server/src/competitive`.
 
@@ -88,7 +88,7 @@ If this server should issue the HTTPS certificate itself:
 sudo SSL_EMAIL=admin@example.com bash deploy.sh
 ```
 
-The downloadable internal-test APK is expected at `public/download/pello-debug.apk`; the route falls back to the Android debug build output if that file is missing.
+The downloadable internal-test APK is expected at `public/download/Pello.apk`; the route falls back to the Android debug build output if that file is missing.
 
 ## Release Checklist
 
@@ -99,7 +99,7 @@ The downloadable internal-test APK is expected at `public/download/pello-debug.a
 - Website loads `/`.
 - Web game loads `/online.html`.
 - `/api/competitive/health` returns `ok: true`.
-- `/download/pello-debug.apk` downloads the expected APK.
+- `/download/Pello.apk` downloads the expected APK.
 - Android app starts directly in the game UI.
 
 ## Known Boundaries

@@ -18,11 +18,11 @@
             <a href="#how">玩法</a>
             <a href="#screens">截图</a>
             <a href="#live">Live</a>
-            <a href="#deploy">部署</a>
+            <a href="#download">试玩</a>
         </nav>
         <div class="header-actions">
             <a class="ghost-link" href="/online.html">在线对战</a>
-            <a class="solid-link" href="/download/pello-debug.apk">下载 APK</a>
+            <a class="solid-link" href="/download/Pello.apk">下载 APK</a>
         </div>
     </header>
 
@@ -34,7 +34,7 @@
                 <h1>Pello</h1>
                 <p class="hero-copy">休闲弹棋 1v1 金币对战。12 金币入场，赢家获得 20 金币；匹配不到真人时，可以切到实力相当的 AI 对战。</p>
                 <div class="hero-actions">
-                    <a class="primary-action" href="/download/pello-debug.apk">下载 Android APK</a>
+                    <a class="primary-action" href="/download/Pello.apk">下载 Android APK</a>
                     <a class="secondary-action" href="/online.html">网页版在线对战</a>
                 </div>
                 <dl class="hero-stats" aria-label="Game highlights">
@@ -96,44 +96,56 @@
             <div class="section-heading">
                 <p class="eyebrow">Live preview</p>
                 <h2>网页里直接进入对战</h2>
-                <p>服务器部署后，官网、API 和 WebSocket 共用同一 Node 服务。网页入口会使用当前域名连接后端。</p>
+                <p>不安装也能先玩网页版；想要完整的手机体验，可以下载安装 Android 包。</p>
             </div>
             <div class="live-layout">
                 <div class="phone-shell">
                     <iframe src="/online.html" title="Pello live online preview"></iframe>
                 </div>
                 <div class="live-copy">
-                    <h3>同一个部署包，两个入口</h3>
-                    <p>访问 <strong>/</strong> 是官网，访问 <strong>/online.html</strong> 是在线游戏。Android APK 可通过官网下载，APP 内服务器地址由构建环境锁定。</p>
+                    <h3>手机和网页都能开局</h3>
+                    <p>打开网页可以直接进入在线对战；安装 Android 包后，可以用更接近正式 APP 的竖屏体验进行 1v1、AI 训练和本地练习。</p>
                     <ul class="check-list">
-                        <li>HTTP 静态网站和游戏资源</li>
-                        <li>WebSocket 实时对战</li>
-                        <li>竞技金币账户与结算 API</li>
-                        <li>APK 下载路由</li>
+                        <li>真人 1v1 在线匹配</li>
+                        <li>匹配等待时可进入 AI 对战</li>
+                        <li>简单 / 中等 / 困难 AI 训练</li>
+                        <li>金币入场、胜利奖励和结算反馈</li>
                     </ul>
                     <a class="primary-action compact" href="/online.html">打开完整在线对战</a>
                 </div>
             </div>
         </section>
 
-        <section id="deploy" class="section deploy">
+        <section id="download" class="section play-section">
             <div class="section-heading">
-                <p class="eyebrow">Deploy</p>
-                <h2>整站和后端一起部署</h2>
-                <p>生产环境推荐先写入服务器 URL，再构建网站和 APK。Node 服务会托管 dist 网站、在线游戏、API、WebSocket 和 APK 下载。</p>
+                <p class="eyebrow">Play now</p>
+                <h2>现在就可以试玩</h2>
+                <p>选择安装 Android 包，或者直接打开网页版。两种方式都连接到同一个 Pello 对战服务。</p>
             </div>
-            <div class="deploy-grid">
-                <div class="command-panel">
-                    <span>服务器配置</span>
-                    <code>sudo bash deploy.sh</code>
-                    <code>npm run build</code>
-                    <code>NODE_ENV=production PORT=3000 node server/server.js</code>
+            <div class="play-grid">
+                <div class="friend-panel">
+                    <span>推荐体验顺序</span>
+                    <div class="friend-steps">
+                        <article>
+                            <strong>1</strong>
+                            <h3>先打开网页版</h3>
+                            <p>不用安装，直接进入在线对战入口，适合快速体验玩法和匹配流程。</p>
+                        </article>
+                        <article>
+                            <strong>2</strong>
+                            <h3>再安装 Android 包</h3>
+                            <p>获得完整竖屏 APP 体验，包括设置、声音、震动和更贴近手机的操作手感。</p>
+                        </article>
+                    </div>
                 </div>
                 <div class="download-panel">
                     <img src="/site/pello-icon.png" alt="">
-                    <h3>Android 内测包</h3>
-                    <p>当前下载入口指向服务器上的 debug APK。正式发布前再处理 release 签名和 AAB。</p>
-                    <a class="solid-link wide" href="/download/pello-debug.apk">下载 APK</a>
+                    <h3>Android 试玩包</h3>
+                    <p>下载 Pello.apk 后安装即可试玩。安卓手机如果提示未知来源安装，请在系统设置里允许浏览器安装应用。</p>
+                    <div class="download-actions">
+                        <a class="solid-link wide" href="/download/Pello.apk">下载 APK</a>
+                        <a class="ghost-link wide" href="/online.html">在线试玩</a>
+                    </div>
                     <p class="status-line" data-health-status>正在检测服务器状态...</p>
                 </div>
             </div>

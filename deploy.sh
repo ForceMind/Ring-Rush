@@ -9,7 +9,7 @@ set -euo pipefail
 # - Web game at /online.html
 # - Competitive HTTP API
 # - WebSocket game backend
-# - APK download at /download/pello-debug.apk
+# - APK download at /download/Pello.apk
 
 SERVICE_NAME="${SERVICE_NAME:-pello}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -21,7 +21,7 @@ DOMAIN_NAME="${DOMAIN_NAME:-pello.xincreates.com}"
 SETUP_NGINX="${SETUP_NGINX:-1}"
 SSL_EMAIL="${SSL_EMAIL:-}"
 DATA_FILE="${PELLO_COMPETITIVE_STORE:-${SERVER_DIR}/data/competitive-state.json}"
-REPO_APK_PATH="${PROJECT_DIR}/public/download/pello-debug.apk"
+REPO_APK_PATH="${PROJECT_DIR}/public/download/Pello.apk"
 ANDROID_APK_PATH="${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk"
 APK_PATH="${PELLO_APK_PATH:-${REPO_APK_PATH}}"
 
@@ -179,11 +179,11 @@ echo "Port: ${PORT}"
 echo "Website: ${PUBLIC_BASE_URL}/"
 echo "Game: ${PUBLIC_BASE_URL}/online.html"
 echo "Health: ${PUBLIC_BASE_URL}/api/competitive/health"
-echo "APK: ${PUBLIC_BASE_URL}/download/pello-debug.apk"
+echo "APK: ${PUBLIC_BASE_URL}/download/Pello.apk"
 echo "Bundled app server: ${VITE_PELLO_SERVER_URL}"
 echo "APK file: ${APK_PATH}"
 if [ ! -f "${APK_PATH}" ]; then
-  echo "Warning: APK file does not exist yet. Put the debug APK at ${REPO_APK_PATH} or set PELLO_APK_PATH."
+  echo "Warning: APK file does not exist yet. Put the APK at ${REPO_APK_PATH} or set PELLO_APK_PATH."
 fi
 if [ -z "${SSL_EMAIL}" ]; then
   echo "HTTPS certificate: skipped. Set SSL_EMAIL=you@example.com before running the script if this server manages TLS."

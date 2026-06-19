@@ -6,11 +6,11 @@ All notable changes are tracked here.
 
 ### Added
 
-- Added a public website at `/` with game introduction, rule summary, screenshots, live web preview, APK download, online play link, and deployment notes.
+- Added a public website at `/` with game introduction, rule summary, screenshots, live web preview, APK download, and online play link.
 - Added website assets under `public/site`.
 - Added `src-site/site.css` and `src-site/site.js` for the website surface.
-- Added `/download/pello-debug.apk` server route for Android debug APK downloads.
-- Added repository APK artifact path `public/download/pello-debug.apk` for simple server pull-and-deploy testing.
+- Added `/download/Pello.apk` server route for Android APK downloads, while keeping `/download/pello-debug.apk` as a legacy alias.
+- Added repository APK artifact path `public/download/Pello.apk` for simple server pull-and-deploy testing.
 - Added static MIME support for JSON, WebP, JPEG, and APK files.
 
 ### Changed
@@ -18,6 +18,7 @@ All notable changes are tracked here.
 - Kept `online.html` as the web game entry and changed `index.html` into the public website.
 - Configured Capacitor `server.appStartPath` to `/online.html` so the Android app still opens the game UI.
 - Configured deployment defaults for `https://pello.xincreates.com`.
+- Removed deployment and debug-build wording from the public website.
 - Rewrote core documentation to describe the current website, backend, Android, deployment, economy, AI, and testing flow.
 
 ### Fixed

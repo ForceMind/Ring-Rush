@@ -8,7 +8,7 @@ Current focus: Android internal testing, online 1v1 matchmaking, AI fallback mat
 
 - Website: `/`
 - Web game: `/online.html`
-- Android debug APK download: `/download/pello-debug.apk`
+- Android APK download: `/download/Pello.apk`
 - Competitive health API: `/api/competitive/health`
 - WebSocket game server: same host and port as the website
 
@@ -54,7 +54,7 @@ npm run test:competitive
 npm run build
 ```
 
-Build Android debug APK:
+Build Android internal-test APK:
 
 ```powershell
 npm run android:build:debug:local
@@ -84,7 +84,7 @@ If this server also manages HTTPS certificates, run it with an email address:
 sudo SSL_EMAIL=admin@example.com bash deploy.sh
 ```
 
-The APK route first serves `public/download/pello-debug.apk`, then falls back to `android/app/build/outputs/apk/debug/app-debug.apk`. Replace `public/download/pello-debug.apk` when you generate a newer internal-test build.
+The APK route first serves `public/download/Pello.apk`, then falls back to `android/app/build/outputs/apk/debug/app-debug.apk`. Replace `public/download/Pello.apk` when you generate a newer internal-test build.
 
 Optional environment variables:
 
@@ -96,8 +96,8 @@ Optional environment variables:
 | `DOMAIN_NAME` | nginx server name. Default `pello.xincreates.com`. |
 | `SSL_EMAIL` | Enables certbot HTTPS setup when provided. |
 | `PELLO_COMPETITIVE_STORE` | Competitive account/match JSON store path. |
-| `PELLO_APK_PATH` | APK file served by `/download/pello-debug.apk`. |
-| `PELLO_APK_NAME` | Download filename. Default `pello-debug.apk`. |
+| `PELLO_APK_PATH` | APK file served by `/download/Pello.apk`. |
+| `PELLO_APK_NAME` | Download filename. Default `Pello.apk`. |
 | `VITE_PELLO_SERVER_URL` | Backend URL compiled into website/app. |
 | `VITE_PELLO_SERVER_LOCKED` | Locks server editing in app when `true`. |
 

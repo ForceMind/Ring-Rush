@@ -2,14 +2,14 @@ Pello / Ring Rush 中文说明
 
 项目目标：
 - 提供一个休闲弹棋 1v1 游戏。
-- 支持 Android APK、网页在线对战、本地 AI 训练。
+- 支持 Android APK、网页版在线对战、本地和 AI 训练。
 - 支持金币入场、赢家奖励、平台服务费。
-- 支持整站和后端服务一起部署。
+- 支持官网、在线游戏和后端服务一键部署。
 
 主要入口：
 - 官网：首页 /
 - 在线游戏：/online.html
-- APK 下载：/download/pello-debug.apk
+- APK 下载：/download/Pello.apk
 - 健康检查：/api/competitive/health
 
 本地启动：
@@ -29,20 +29,18 @@ Pello / Ring Rush 中文说明
 - npm run test:competitive
 - npm run build
 
-Android debug APK：
+Android 内部测试 APK：
 - npm run android:build:debug:local
-- 输出文件：android/app/build/outputs/apk/debug/app-debug.apk
+- 构建输出：android/app/build/outputs/apk/debug/app-debug.apk
+- 官网下载包：public/download/Pello.apk
 
 服务器部署：
-1. 写入服务器地址：
-   npm run app-server:write-env
-2. 构建网站和游戏：
-   npm run build
-3. 启动服务：
-   NODE_ENV=production PORT=3000 HOST=0.0.0.0 npm run server:start
-4. 反向代理需要同时支持 HTTP 和 WebSocket。
+1. 从 GitHub 拉取 codex/pello 分支。
+2. 在项目根目录执行：sudo bash deploy.sh
+3. 默认公网域名：https://pello.xincreates.com
+4. 如果服务器负责 HTTPS 证书：sudo SSL_EMAIL=你的邮箱 bash deploy.sh
 
 注意：
-- 当前 APK 下载路由默认读取 debug APK。
-- 正式发布 Play Store 前还需要 release 签名和 AAB。
+- 官网公开页面只展示游戏介绍、截图、在线试玩和 APK 下载，不展示部署说明。
+- 当前 APK 是内部测试安装包，正式上架前还需要 release 签名和 AAB。
 - 当前竞技数据默认使用 JSON 文件保存，大规模上线前建议替换为数据库。

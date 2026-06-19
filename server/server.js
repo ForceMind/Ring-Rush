@@ -42,12 +42,15 @@ const MIME_TYPES = {
 
 // 项目根目录（server 的上级目录）
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const DEFAULT_APK_DOWNLOAD_PATH = path.resolve(PROJECT_ROOT, 'public/download/pello-debug.apk');
+const DEFAULT_APK_DOWNLOAD_PATH = path.resolve(PROJECT_ROOT, 'public/download/Pello.apk');
+const LEGACY_APK_DOWNLOAD_PATH = path.resolve(PROJECT_ROOT, 'public/download/pello-debug.apk');
 const ANDROID_DEBUG_APK_PATH = path.resolve(PROJECT_ROOT, 'android/app/build/outputs/apk/debug/app-debug.apk');
 const APK_DOWNLOAD_PATH = process.env.PELLO_APK_PATH
     ? path.resolve(process.env.PELLO_APK_PATH)
-    : (fs.existsSync(DEFAULT_APK_DOWNLOAD_PATH) ? DEFAULT_APK_DOWNLOAD_PATH : ANDROID_DEBUG_APK_PATH);
-const APK_DOWNLOAD_NAME = process.env.PELLO_APK_NAME || 'pello-debug.apk';
+    : (fs.existsSync(DEFAULT_APK_DOWNLOAD_PATH)
+        ? DEFAULT_APK_DOWNLOAD_PATH
+        : (fs.existsSync(LEGACY_APK_DOWNLOAD_PATH) ? LEGACY_APK_DOWNLOAD_PATH : ANDROID_DEBUG_APK_PATH));
+const APK_DOWNLOAD_NAME = process.env.PELLO_APK_NAME || 'Pello.apk';
 
 // 创建 HTTP 服务器（用于提供静态文件）
 const server = http.createServer((req, res) => {
@@ -61,11 +64,12 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    if (req.method === 'GET' && req.url.split('?')[0] === '/download/pello-debug.apk') {
+    const downloadPath = req.url.split('?')[0];
+    if ((req.method === 'GET' || req.method === 'HEAD') && (downloadPath === '/download/Pello.apk' || downloadPath === '/download/pello-debug.apk')) {
         fs.stat(APK_DOWNLOAD_PATH, (statErr, stat) => {
             if (statErr || !stat.isFile()) {
                 res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-                res.end('APK not found. Add public/download/pello-debug.apk, build the Android APK, or set PELLO_APK_PATH.');
+                res.end('APK not found. Add public/download/Pello.apk, build the Android APK, or set PELLO_APK_PATH.');
                 return;
             }
 
@@ -75,6 +79,10 @@ const server = http.createServer((req, res) => {
                 'Content-Disposition': `attachment; filename="${APK_DOWNLOAD_NAME}"`,
                 'Cache-Control': 'no-store'
             });
+            if (req.method === 'HEAD') {
+                res.end();
+                return;
+            }
             fs.createReadStream(APK_DOWNLOAD_PATH).pipe(res);
         });
         return;

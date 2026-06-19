@@ -29,7 +29,7 @@ The project now also has a public website goal:
 - `/` is the website with game introduction, rule explanation, screenshots, live preview, APK download, and online play entry.
 - `/online.html` remains the actual web game.
 - Android starts from `/online.html` through Capacitor `server.appStartPath`.
-- The production Node service should serve the website, web game, HTTP API, WebSocket backend, and `/download/pello-debug.apk` from the same deployment.
+- The production Node service should serve the website, web game, HTTP API, WebSocket backend, and `/download/Pello.apk` from the same deployment.
 - Website documentation lives in `README.md`, `ARCHITECTURE.md`, `docs/DEVELOPMENT.md`, and `docs/DESIGN.md`.
 
 ## 3. Non-Negotiable Gameplay Rules
@@ -179,7 +179,7 @@ This pass is acceptable when:
 
 - `npm run build` passes.
 - `npm run test:competitive` passes.
-- Android debug APK builds.
+- Android internal-test APK builds.
 - Bot/AI color after dice agrees with current turn and piece colors.
 - In-game UI is visibly redesigned, not just home screen.
 - APP server config script prints copy-paste values.

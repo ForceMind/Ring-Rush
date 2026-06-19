@@ -40,7 +40,7 @@ if (-not $DataFile) {
 }
 
 if (-not $ApkPath) {
-    $repoApk = Join-Path $root "public\download\pello-debug.apk"
+    $repoApk = Join-Path $root "public\download\Pello.apk"
     $androidApk = Join-Path $root "android\app\build\outputs\apk\debug\app-debug.apk"
     $ApkPath = if (Test-Path $repoApk) { $repoApk } else { $androidApk }
 }
@@ -135,7 +135,7 @@ Write-Host "=== PELLO APP BACKEND CONFIG ==="
 Write-Host "APP_SERVER_HTTP=$httpBase"
 Write-Host "APP_SERVER_WS=$wsBase"
 Write-Host "APP_HEALTH_URL=$healthUrl"
-Write-Host "APP_APK_URL=$httpBase/download/pello-debug.apk"
+Write-Host "APP_APK_URL=$httpBase/download/Pello.apk"
 Write-Host "APP_CURRENCY=$($config.currency)"
 Write-Host "APP_INITIAL_COINS=$($config.initialCoins)"
 Write-Host "APP_COMPETITIVE_TABLE_ID=$($table.id)"
@@ -167,8 +167,8 @@ Write-Host "=== START COMMAND ==="
 Write-Host "npm run build"
 Write-Host "`$env:NODE_ENV=`"production`"; `$env:PORT=`"$Port`"; `$env:HOST=`"$HostName`"; `$env:PELLO_COMPETITIVE_STORE=`"$DataFile`"; `$env:PELLO_APK_PATH=`"$ApkPath`"; npm run server:start"
 Write-Host ""
-Write-Host "=== ANDROID DEBUG NOTE ==="
-Write-Host "For debug APKs, write the Vite env above before building. For a physical Android phone, use this computer's LAN URL, not localhost."
+Write-Host "=== ANDROID APP NOTE ==="
+Write-Host "For internal-test APKs, write the Vite env above before building. For a physical Android phone, use this computer's LAN URL, not localhost."
 Write-Host "Production APKs should keep VITE_PELLO_SERVER_LOCKED=true and use a public HTTPS backend URL."
 
 if ($serverProcess) {
