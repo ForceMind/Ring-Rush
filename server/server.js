@@ -42,6 +42,10 @@ const APK_DOWNLOAD_PATH = process.env.PELLO_APK_PATH
 const APK_DOWNLOAD_NAME = process.env.PELLO_APK_NAME || 'Pello.apk';
 const ADMIN_SOURCE_PATH = '/admin.html';
 const ADMIN_PUBLIC_PATH = normalizeAdminPath(process.env.PELLO_ADMIN_PATH);
+const ADMIN_PUBLIC_ALIASES = new Set([
+    ADMIN_PUBLIC_PATH,
+    adminPathWithoutHtml(ADMIN_PUBLIC_PATH)
+].filter(Boolean));
 
 class Room {
     constructor(id, hostPlayer) {
@@ -153,7 +157,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    if (ADMIN_PUBLIC_PATH && requestUrl.pathname === ADMIN_PUBLIC_PATH) {
+    if (ADMIN_PUBLIC_ALIASES.has(requestUrl.pathname)) {
         serveStaticFile(req, res, ADMIN_SOURCE_PATH, { privateCache: true, allowAdminSource: true });
         return;
     }
@@ -268,6 +272,11 @@ function normalizeAdminPath(rawPath) {
         return fallback;
     }
     return pathname;
+}
+
+function adminPathWithoutHtml(pathname) {
+    if (!pathname || !pathname.endsWith('.html')) return '';
+    return pathname.slice(0, -5);
 }
 
 function serveStaticFile(req, res, pathname, options = {}) {

@@ -217,6 +217,10 @@ if [[ ! "${ADMIN_PATH}" =~ ^/[A-Za-z0-9/_-]+(\.html)?$ ]]; then
   echo "Invalid admin path: ${ADMIN_PATH}. Use characters A-Z, a-z, 0-9, slash, underscore, dash, and optional .html."
   exit 1
 fi
+ADMIN_URL_PATH="${ADMIN_PATH}"
+if [[ "${ADMIN_URL_PATH}" == *.html ]]; then
+  ADMIN_URL_PATH="${ADMIN_URL_PATH%.html}"
+fi
 
 stop_previous_pello
 choose_single_port
@@ -315,7 +319,9 @@ echo "Port: ${PORT}"
 echo "Cloudflare tunnel target: http://127.0.0.1:${PORT}"
 echo "Website: ${PUBLIC_BASE_URL}/"
 echo "Game: ${PUBLIC_BASE_URL}/online.html"
-echo "Admin: ${PUBLIC_BASE_URL}${ADMIN_PATH}"
+echo "Admin: ${PUBLIC_BASE_URL}${ADMIN_URL_PATH}"
+echo "Admin alternate URL: ${PUBLIC_BASE_URL}${ADMIN_PATH}"
+echo "Admin login token: ${ADMIN_TOKEN}"
 echo "Admin token: ${ADMIN_TOKEN}"
 echo "Admin token file: ${ADMIN_TOKEN_FILE}"
 echo "Admin path: ${ADMIN_PATH}"
