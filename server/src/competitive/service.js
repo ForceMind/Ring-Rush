@@ -293,24 +293,44 @@ class CompetitiveService {
             totalBalance: wallets.reduce((sum, wallet) => sum + wallet.balance, 0),
             totalReserved: wallets.reduce((sum, wallet) => sum + wallet.reserved, 0),
             queuedUsers: queuedAccounts.size,
+            noRecordUsers: users.filter(user => this.isAdminNoRecordUser(user)).length,
             activeMatches: [...this.matches.values()].filter(match => match.state === 'active').length,
             settledMatches: [...this.matches.values()].filter(match => match.state === 'settled').length
         };
     }
 
     getAdminUsers(options = {}) {
-        const limit = this.normalizeLimit(options.limit, 100, 500);
+        const limit = this.normalizeLimit(options.limit, 50, 200);
+        const page = Math.max(1, Math.floor(Number(options.page) || 1));
+        const category = this.normalizeAdminCategory(options.category);
         const query = String(options.query || '').trim().toLowerCase();
-        return [...this.users.values()]
+        const rows = [...this.users.values()]
             .filter(user => !user.isAi)
             .filter(user => {
                 if (!query) return true;
                 return String(user.id).toLowerCase().includes(query)
                     || String(user.displayName || '').toLowerCase().includes(query);
             })
+            .map(user => this.publicAdminUser(user))
+            .filter(row => this.adminUserMatchesCategory(row, category))
             .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-            .slice(0, limit)
-            .map(user => this.publicAdminUser(user));
+        const total = rows.length;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const safePage = Math.min(page, totalPages);
+        const start = (safePage - 1) * limit;
+
+        return {
+            users: rows.slice(start, start + limit),
+            pagination: {
+                page: safePage,
+                limit,
+                total,
+                totalPages,
+                hasPrev: safePage > 1,
+                hasNext: safePage < totalPages
+            },
+            categories: this.getAdminCategoryCounts(query)
+        };
     }
 
     getAdminUser(accountId) {
@@ -324,9 +344,13 @@ class CompetitiveService {
 
     publicAdminUser(user) {
         const wallet = this.wallets.get(user.id) || { balance: 0, reserved: 0 };
-        const matches = [...this.matches.values()].filter(match => {
-            return match.participants.some(participant => participant.accountId === user.id);
-        });
+        const matches = this.getMatchesForAccount(user.id);
+        const ledgerRows = this.getLedgerRowsForAccount(user.id);
+        const queued = Boolean(this.findQueuedEntry(user.id));
+        const activeMatchId = this.findActiveMatchByAccount(user.id)?.id || null;
+        const noRecord = this.isAdminNoRecordUser(user);
+        const walletChanged = wallet.balance !== this.config.initialCoins || wallet.reserved !== 0
+            || ledgerRows.some(row => row.type !== 'grant.initial');
         return {
             id: user.id,
             displayName: user.displayName,
@@ -339,11 +363,95 @@ class CompetitiveService {
             aiRewardDay: user.aiRewardDay || null,
             aiRewardClaimed: user.aiRewardClaimed || 0,
             wallet: this.publicWallet(wallet),
-            queued: Boolean(this.findQueuedEntry(user.id)),
-            activeMatchId: this.findActiveMatchByAccount(user.id)?.id || null,
+            queued,
+            activeMatchId,
+            noRecord,
+            walletChanged,
+            category: this.getAdminPrimaryCategory({ queued, activeMatchId, noRecord, matches, walletChanged }),
             matchCount: matches.length,
-            ledgerCount: this.ledger.filter(row => row.accountId === user.id).length
+            ledgerCount: ledgerRows.length
         };
+    }
+
+    getAdminCategoryCounts(query = '') {
+        const counts = {
+            all: 0,
+            no_record: 0,
+            has_record: 0,
+            queued: 0,
+            active: 0,
+            wallet_changed: 0
+        };
+        const normalizedQuery = String(query || '').trim().toLowerCase();
+        for (const user of this.users.values()) {
+            if (user.isAi) continue;
+            if (normalizedQuery
+                && !String(user.id).toLowerCase().includes(normalizedQuery)
+                && !String(user.displayName || '').toLowerCase().includes(normalizedQuery)) {
+                continue;
+            }
+            const row = this.publicAdminUser(user);
+            counts.all += 1;
+            if (row.noRecord) counts.no_record += 1;
+            if (row.matchCount > 0 || row.games > 0) counts.has_record += 1;
+            if (row.queued) counts.queued += 1;
+            if (row.activeMatchId) counts.active += 1;
+            if (row.walletChanged) counts.wallet_changed += 1;
+        }
+        return counts;
+    }
+
+    normalizeAdminCategory(value) {
+        const category = String(value || 'all').trim();
+        const allowed = new Set(['all', 'no_record', 'has_record', 'queued', 'active', 'wallet_changed']);
+        return allowed.has(category) ? category : 'all';
+    }
+
+    adminUserMatchesCategory(row, category) {
+        if (category === 'no_record') return row.noRecord;
+        if (category === 'has_record') return row.matchCount > 0 || row.games > 0;
+        if (category === 'queued') return row.queued;
+        if (category === 'active') return Boolean(row.activeMatchId);
+        if (category === 'wallet_changed') return row.walletChanged;
+        return true;
+    }
+
+    getAdminPrimaryCategory({ queued, activeMatchId, noRecord, matches, walletChanged }) {
+        if (activeMatchId) return 'active';
+        if (queued) return 'queued';
+        if (noRecord) return 'no_record';
+        if ((matches || []).length > 0) return 'has_record';
+        if (walletChanged) return 'wallet_changed';
+        return 'all';
+    }
+
+    getMatchesForAccount(accountId) {
+        return [...this.matches.values()].filter(match => {
+            return match.participants.some(participant => participant.accountId === accountId);
+        });
+    }
+
+    getLedgerRowsForAccount(accountId) {
+        return this.ledger.filter(row => row.accountId === accountId);
+    }
+
+    isAdminNoRecordUser(userOrId) {
+        const user = typeof userOrId === 'string' ? this.users.get(userOrId) : userOrId;
+        if (!user || user.isAi) return false;
+        const wallet = this.wallets.get(user.id);
+        if (!wallet) return false;
+        const ledgerRows = this.getLedgerRowsForAccount(user.id);
+        const hasOnlyInitialLedger = ledgerRows.every(row => row.type === 'grant.initial');
+        return (user.games || 0) === 0
+            && (user.wins || 0) === 0
+            && (user.losses || 0) === 0
+            && (user.streak || 0) === 0
+            && this.getMatchesForAccount(user.id).length === 0
+            && !this.findQueuedEntry(user.id)
+            && !this.findActiveMatchByAccount(user.id)
+            && wallet.balance === this.config.initialCoins
+            && wallet.reserved === 0
+            && hasOnlyInitialLedger;
     }
 
     requireAdminUser(accountId) {
@@ -409,6 +517,38 @@ class CompetitiveService {
         return {
             deleted: true,
             accountId,
+            stats: this.getAdminStats()
+        };
+    }
+
+    adminBulkDeleteNoRecordUsers(options = {}) {
+        const limit = this.normalizeLimit(options.limit, 1000, 5000);
+        const candidates = [...this.users.values()]
+            .filter(user => this.isAdminNoRecordUser(user))
+            .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        const deleteTargets = candidates.slice(0, limit);
+        const deletedIds = [];
+
+        for (const user of deleteTargets) {
+            this.cleanupAdminUserState(user.id, 'admin_bulk_delete_no_record');
+            this.users.delete(user.id);
+            this.wallets.delete(user.id);
+            this.ledger = this.ledger.filter(row => row.accountId !== user.id);
+            deletedIds.push(user.id);
+        }
+
+        if (deletedIds.length > 0) {
+            this.addLedger(null, 'admin.bulk_delete_no_record', 0, {
+                count: deletedIds.length,
+                sampleAccountIds: deletedIds.slice(0, 50)
+            });
+            this.persist();
+        }
+
+        return {
+            deletedCount: deletedIds.length,
+            deletedIds,
+            remainingNoRecordUsers: Math.max(0, candidates.length - deletedIds.length),
             stats: this.getAdminStats()
         };
     }

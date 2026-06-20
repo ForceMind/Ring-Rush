@@ -122,9 +122,81 @@ async function testAdminUserLifecycle() {
     assert.throws(() => service.getSnapshot(aliceSnapshot.profile.id), /Account not found/);
 }
 
+async function testAdminPaginationCategoriesAndBulkDelete() {
+    const service = new CompetitiveService();
+    const freshA = player('fresh-a');
+    const freshB = player('fresh-b');
+    const changed = player('changed');
+    const queued = player('queued');
+    const active = player('active');
+
+    const freshASnapshot = service.ensureAccountForPlayer(freshA);
+    const freshBSnapshot = service.ensureAccountForPlayer(freshB);
+    const changedSnapshot = service.ensureAccountForPlayer(changed);
+    const queuedSnapshot = service.ensureAccountForPlayer(queued);
+    const activeSnapshot = service.ensureAccountForPlayer(active);
+
+    service.adminUpdateWallet(changedSnapshot.profile.id, 'add', 1);
+    service.joinQuickMatch(queued, 'bronze_12');
+    service.startAiMatch(active, 'bronze_12');
+
+    let res = await callAdminApi(
+        service,
+        '/api/admin/users?category=no_record&limit=1&page=1',
+        'GET',
+        { 'x-pello-admin-token': 'secret' }
+    );
+    let payload = res.json();
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(payload.users.length, 1);
+    assert.strictEqual(payload.pagination.total, 2);
+    assert.strictEqual(payload.pagination.totalPages, 2);
+    assert.strictEqual(payload.categories.no_record, 2);
+    assert.strictEqual(payload.categories.queued, 1);
+    assert.strictEqual(payload.categories.active, 1);
+    assert.strictEqual(payload.categories.wallet_changed, 3);
+
+    res = await callAdminApi(
+        service,
+        '/api/admin/users?category=queued',
+        'GET',
+        { 'x-pello-admin-token': 'secret' }
+    );
+    payload = res.json();
+    assert.strictEqual(payload.users.length, 1);
+    assert.strictEqual(payload.users[0].id, queuedSnapshot.profile.id);
+
+    res = await callAdminApi(
+        service,
+        '/api/admin/users/bulk-delete-no-record',
+        'POST',
+        { 'x-pello-admin-token': 'secret' },
+        JSON.stringify({ limit: 5000 })
+    );
+    payload = res.json();
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(payload.result.deletedCount, 2);
+    assert.throws(() => service.getSnapshot(freshASnapshot.profile.id), /Account not found/);
+    assert.throws(() => service.getSnapshot(freshBSnapshot.profile.id), /Account not found/);
+    assert.doesNotThrow(() => service.getSnapshot(changedSnapshot.profile.id));
+    assert.doesNotThrow(() => service.getSnapshot(queuedSnapshot.profile.id));
+    assert.doesNotThrow(() => service.getSnapshot(activeSnapshot.profile.id));
+
+    res = await callAdminApi(
+        service,
+        '/api/admin/users?category=no_record',
+        'GET',
+        { 'x-pello-admin-token': 'secret' }
+    );
+    payload = res.json();
+    assert.strictEqual(payload.pagination.total, 0);
+    assert.strictEqual(payload.categories.no_record, 0);
+}
+
 async function run() {
     await testAdminAuth();
     await testAdminUserLifecycle();
+    await testAdminPaginationCategoriesAndBulkDelete();
     console.log('competitive admin api tests passed');
 }
 

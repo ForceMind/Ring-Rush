@@ -29,12 +29,37 @@
                 <span>搜索</span>
                 <input id="searchUsers" type="search" placeholder="用户 ID 或名称">
             </label>
+            <label>
+                <span>分类</span>
+                <select id="categoryFilter">
+                    <option value="all">全部用户</option>
+                    <option value="no_record">无战绩</option>
+                    <option value="has_record">有战绩</option>
+                    <option value="queued">排队中</option>
+                    <option value="active">比赛中</option>
+                    <option value="wallet_changed">余额变动</option>
+                </select>
+            </label>
+            <label>
+                <span>每页</span>
+                <select id="pageSize">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </label>
+            <button id="bulkDeleteNoRecord" type="button" class="danger-button">批量删除无战绩</button>
         </section>
 
         <section class="stats-grid" aria-label="Admin stats">
             <div class="stat">
                 <span>用户</span>
                 <strong id="statUsers">--</strong>
+            </div>
+            <div class="stat">
+                <span>无战绩</span>
+                <strong id="statNoRecord">--</strong>
             </div>
             <div class="stat">
                 <span>总金币</span>
@@ -53,8 +78,15 @@
         <section class="content-grid">
             <section class="panel users-panel" aria-label="User list">
                 <div class="panel-head">
-                    <h2>所有用户</h2>
-                    <span id="userCount">--</span>
+                    <div>
+                        <h2>用户列表</h2>
+                        <span id="userCount">--</span>
+                    </div>
+                    <div class="pager">
+                        <button id="prevPage" type="button">上一页</button>
+                        <span id="pageInfo">--</span>
+                        <button id="nextPage" type="button">下一页</button>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table>
@@ -63,6 +95,7 @@
                                 <th>用户</th>
                                 <th>金币</th>
                                 <th>战绩</th>
+                                <th>分类</th>
                                 <th>状态</th>
                                 <th>操作</th>
                             </tr>

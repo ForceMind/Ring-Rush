@@ -11,6 +11,7 @@ function statusForAdminError(err) {
     if (err.code === 'ADMIN_USER_NOT_FOUND') return 404;
     if (err.code === 'ADMIN_INVALID_AMOUNT') return 400;
     if (err.code === 'ADMIN_INVALID_ACTION') return 400;
+    if (err.code === 'ADMIN_INVALID_LIMIT') return 400;
     if (err.code === 'INVALID_JSON') return 400;
     return 500;
 }
@@ -116,14 +117,34 @@ function handleAdminApi(req, res, service, options = {}) {
         }
 
         if (req.method === 'GET' && url.pathname === '/api/admin/users') {
+            const result = service.getAdminUsers({
+                query: url.searchParams.get('q') || '',
+                category: url.searchParams.get('category') || 'all',
+                page: url.searchParams.get('page') || undefined,
+                limit: url.searchParams.get('limit') || undefined
+            });
             sendJson(res, 200, {
                 ok: true,
                 stats: service.getAdminStats(),
-                users: service.getAdminUsers({
-                    query: url.searchParams.get('q') || '',
-                    limit: url.searchParams.get('limit') || undefined
-                })
+                users: result.users,
+                pagination: result.pagination,
+                categories: result.categories
             }, 'GET, POST, OPTIONS', 'Content-Type, X-Pello-Admin-Token');
+            return true;
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/admin/users/bulk-delete-no-record') {
+            readJsonBody(req)
+                .then(body => {
+                    const result = service.adminBulkDeleteNoRecordUsers({
+                        limit: body.limit
+                    });
+                    sendJson(res, 200, {
+                        ok: true,
+                        result
+                    }, 'GET, POST, OPTIONS', 'Content-Type, X-Pello-Admin-Token');
+                })
+                .catch(err => sendAdminError(res, err));
             return true;
         }
 

@@ -23,7 +23,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
     font: inherit;
 }
 
@@ -47,7 +48,8 @@ button:disabled {
     opacity: 0.5;
 }
 
-input {
+input,
+select {
     width: 100%;
     min-height: 40px;
     border: 1px solid var(--line);
@@ -109,7 +111,7 @@ h2 {
 }
 
 .toolbar {
-    grid-template-columns: minmax(220px, 1fr) auto auto minmax(220px, 1fr);
+    grid-template-columns: minmax(220px, 1fr) auto auto minmax(220px, 1fr) 170px 110px auto;
     align-items: end;
     margin-bottom: 16px;
 }
@@ -119,7 +121,7 @@ h2 {
 }
 
 .stats-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     margin-bottom: 16px;
 }
 
@@ -170,6 +172,18 @@ h2 {
     color: var(--muted);
     font-size: 13px;
     font-weight: 800;
+}
+
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pager button {
+    min-height: 34px;
+    padding: 0 12px;
+    background: #2c6a7a;
 }
 
 .table-wrap {
@@ -223,6 +237,11 @@ td {
     color: var(--accent-2);
 }
 
+.badge.strong {
+    background: #e7f0ff;
+    color: #2456a8;
+}
+
 .row-actions {
     display: flex;
     gap: 8px;
@@ -232,6 +251,17 @@ td {
     min-height: 34px;
     padding: 0 12px;
     background: #2c6a7a;
+}
+
+.danger-button {
+    background: var(--danger);
+}
+
+.empty-cell {
+    height: 88px;
+    color: var(--muted);
+    text-align: center;
+    font-weight: 800;
 }
 
 .detail-panel {

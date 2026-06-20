@@ -44,7 +44,7 @@ npm run app-server:deploy:local
 
 `online.html` is the game app. It imports `src-online/online-main.js`, which starts the online start screen and switches into real-player, AI, or local game modes.
 
-`admin.html` is a token-protected management page. In production the server exposes it only through `PELLO_ADMIN_PATH`, a random path printed by deploy. It imports `src-admin/admin.js` and calls `/api/admin/*` with `X-Pello-Admin-Token`.
+`admin.html` is a token-protected management page. In production the server exposes it only through `PELLO_ADMIN_PATH`, a random path printed by deploy. It imports `src-admin/admin.js` and calls `/api/admin/*` with `X-Pello-Admin-Token`. User lists support pagination, category filters, and conservative no-record bulk deletion.
 
 The game keeps a fixed logical canvas size of `450x960`. HiDPI rendering only changes the backing store; game coordinates and input mapping remain in logical coordinates.
 

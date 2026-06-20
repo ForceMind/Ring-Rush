@@ -24,7 +24,7 @@ Capacitor is configured with `server.appStartPath=/online.html`, so the Android 
 - Mobile-safe UI with status bar/cutout spacing.
 - Local settings for sound, music, and vibration.
 - Website landing page with gameplay explanation, screenshots, static game preview, APK download, and online play link.
-- Token-protected admin page for user lookup, deletion, reset, and wallet adjustment. Production hides it behind a generated random path in addition to the admin token.
+- Token-protected admin page for paginated and categorized user lookup, deletion, no-record bulk cleanup, reset, and wallet adjustment. Production hides it behind a generated random path in addition to the admin token.
 
 ## Local Development
 

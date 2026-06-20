@@ -9,6 +9,7 @@ All notable changes are tracked here.
 - Added `admin.html` and `/api/admin/*` for token-protected user management.
 - Added deploy-generated random admin paths so production does not expose fixed `/admin.html`.
 - Added admin actions to list users, inspect ledger/matches, add coins, set/reset wallet balance, reset user stats, and delete users.
+- Added admin pagination, category filters, and conservative bulk deletion for users with no record.
 - Added a public website at `/` with game introduction, rule summary, screenshots, static game preview, APK download, and online play link.
 - Added website assets under `public/site`.
 - Added `src-site/site.css` and `src-site/site.js` for the website surface.
