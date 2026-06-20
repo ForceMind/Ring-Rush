@@ -1,9 +1,11 @@
 # Architecture
 
-Pello has one repository and three runtime surfaces:
+Pello has one repository and four runtime surfaces:
 
 - Website landing page.
-- Web/Android game client.
+- Web game client.
+- Android app client.
+- Token-protected admin page.
 - Node backend for static hosting, competitive API, and WebSocket matches.
 
 ## Request Flow
@@ -17,6 +19,7 @@ Node server/server.js
         |
         |-- dist/index.html          Website
         |-- dist/online.html         Web game
+        |-- dist/app.html            Android app UI
         |-- dist/admin.html          User admin, exposed through random PELLO_ADMIN_PATH in production
         |-- /download/Pello.apk
         |-- /api/competitive/*
@@ -29,18 +32,21 @@ Node server/server.js
 | Entry | Purpose |
 | --- | --- |
 | `index.html` | Website with intro, screenshots, static preview, APK download, and online play link. |
-| `online.html` | Actual game app. |
+| `online.html` | Browser-oriented web game. |
+| `app.html` | Android app game UI opened by Capacitor. |
 | `admin.html` | Token-protected user admin page. |
 | `src-site/` | Website-only CSS and browser script. |
 | `src-admin/` | Admin-only CSS and browser script. |
 | `src-online/` | Game client, matchmaking UI, Canvas game, AI, audio, input, network. |
+| `src-app/` | Android-only app shell, app start screen, app HUD, app board skin, atlas loader. |
+| `public/assets/app-ui/` | Android app PNG sprite atlas and manifest. |
 
-Vite builds both `index.html` and `online.html` into `dist`.
+Vite builds `index.html`, `online.html`, `app.html`, and `admin.html` into `dist`.
 Vite also builds `admin.html` into `dist`; it is not linked from the public website. In production, `server/server.js` serves it only through `PELLO_ADMIN_PATH`, so fixed `/admin.html` is not exposed.
 
 ## Android
 
-Capacitor packages the Vite `dist` output. `server.appStartPath` is set to `/online.html`, so the APK opens the game instead of the website.
+Capacitor packages the Vite `dist` output. `server.appStartPath` is set to `/app.html`, so the APK opens the dedicated app UI instead of the website or browser web game.
 
 ## Backend
 

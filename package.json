@@ -1,6 +1,6 @@
 {
   "name": "pello",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
     "android:build:debug:local": "powershell -ExecutionPolicy Bypass -File scripts/android-build-debug.ps1",
     "android:open": "cap open android",
     "ui:assets": "node scripts/generate-ui-assets.mjs",
+    "app:ui-assets": "powershell -ExecutionPolicy Bypass -File scripts/generate-app-ui-atlas.ps1",
     "app:assets": "powershell -ExecutionPolicy Bypass -File scripts/generate-app-assets.ps1",
     "app-server:config": "powershell -ExecutionPolicy Bypass -File scripts/deploy-app-server.ps1 -SkipBuild",
     "app-server:write-env": "powershell -ExecutionPolicy Bypass -File scripts/deploy-app-server.ps1 -SkipBuild -WriteEnv",

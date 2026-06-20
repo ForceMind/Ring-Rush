@@ -67,6 +67,17 @@ AI target priority:
 - The drag hint must live between the board and slider, not under cards.
 - End dialogs must leave at least 24 px between the bottom button and the panel edge.
 
+## Android App Visual Direction
+
+The Android app is now intentionally separate from the web game UI.
+
+- Visual direction: premium toy-board arcade.
+- Entry: `/app.html`, rendered by `src-app`.
+- Assets: generated PNG atlas in `public/assets/app-ui`, not runtime CSS/SVG UI drawing.
+- Dynamic text: Canvas-rendered from i18n so Chinese/English, coins, timers, names, and settlement values stay live.
+- Board rule: the app board skin can change, but logical board coordinates remain `450x960` with the same board rectangle and scoring geometry.
+- Web rule: `/online.html` stays the browser-oriented game UI and should not inherit app-only visual experiments.
+
 ## Feedback Effects
 
 Effects must clarify game state rather than hide the board.

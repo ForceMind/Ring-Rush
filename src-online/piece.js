@@ -31,6 +31,10 @@ export class Piece {
     }
 
     drawAt(ctx, sx, sy, highlight = false, perspective = 'bottom') {
+        if (this.game?.drawAppPiece?.(ctx, this, sx, sy, highlight, perspective)) {
+            return;
+        }
+
         const showColor = this.game.getPlayerColor(this.player);
         const showInner = this.game.getPlayerInnerColor(this.player);
 

@@ -1,7 +1,7 @@
 /**
  * Ring Rush - shared mobile game constants.
  */
-export const VERSION = '0.11.0';
+export const VERSION = '0.12.0';
 
 // Canvas
 export const CANVAS_WIDTH = 450;

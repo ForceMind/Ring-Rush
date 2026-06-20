@@ -6,8 +6,9 @@ Pello is being prepared for small Android internal testing. The product has thre
 
 - Public website at `/`.
 - Web game at `/online.html`.
+- Android app UI at `/app.html`.
 - User admin page at local `/admin.html`; production uses the random path printed by deploy.
-- Android app built with Capacitor, starting at `/online.html`.
+- Android app built with Capacitor, starting at `/app.html`.
 
 The backend is a Node HTTP/WebSocket service. In production it serves the built website, the online game, the competitive API, WebSocket messages, and the APK download route.
 
@@ -44,6 +45,8 @@ npm run app-server:deploy:local
 
 `online.html` is the game app. It imports `src-online/online-main.js`, which starts the online start screen and switches into real-player, AI, or local game modes.
 
+`app.html` is the Android-only game UI. It imports `src-app/app-main.js`, reuses the shared game logic from `src-online`, and swaps in app-specific start screen, HUD, board skin, input slider, piece sprites, and atlas-backed UI drawing.
+
 `admin.html` is a token-protected management page. In production the server exposes it only through `PELLO_ADMIN_PATH`, a random path printed by deploy. It imports `src-admin/admin.js` and calls `/api/admin/*` with `X-Pello-Admin-Token`. User lists support pagination, category filters, and conservative no-record bulk deletion.
 
 The game keeps a fixed logical canvas size of `450x960`. HiDPI rendering only changes the backing store; game coordinates and input mapping remain in logical coordinates.
@@ -55,12 +58,28 @@ The game keeps a fixed logical canvas size of `450x960`. HiDPI rendering only ch
 ```json
 {
   "server": {
-    "appStartPath": "/online.html"
+    "appStartPath": "/app.html"
   }
 }
 ```
 
-This prevents the APK from opening the website landing page.
+This prevents the APK from opening the website landing page or the browser-oriented online game UI.
+
+### App UI assets
+
+The Android app uses a generated PNG sprite atlas:
+
+```powershell
+npm run app:ui-assets
+```
+
+Outputs:
+
+- `public/assets/app-ui/atlas.png`
+- `public/assets/app-ui/manifest.json`
+- `design/app-ui/mockups/*.png`
+
+The atlas is intentionally separate from `public/assets/ui`, which is still used by the web game. Dynamic text remains Canvas-rendered for localization and live values.
 
 ### Backend
 
@@ -109,10 +128,11 @@ The downloadable internal-test APK is expected at `public/download/Pello.apk`; t
 - `npm run android:build:debug:local`
 - Website loads `/`.
 - Web game loads `/online.html`.
+- Android app preview loads `/app.html`.
 - `/api/competitive/health` returns `ok: true`.
 - `/download/Pello.apk` downloads the expected APK.
 - The printed random Admin URL accepts the printed admin token and can list users.
-- Android app starts directly in the game UI.
+- Android app starts directly in the dedicated app UI.
 
 ## Known Boundaries
 

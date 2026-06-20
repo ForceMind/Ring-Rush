@@ -8,12 +8,13 @@ Current focus: Android internal testing, online 1v1 matchmaking, AI fallback mat
 
 - Website: `/`
 - Web game: `/online.html`
+- Android app game UI: `/app.html`
 - Admin: local `/admin.html`; production uses the random path printed by deploy, such as `/admin-<random>.html`
 - Android APK download: `/download/Pello.apk`
 - Competitive health API: `/api/competitive/health`
 - WebSocket game server: same host and port as the website
 
-Capacitor is configured with `server.appStartPath=/online.html`, so the Android app opens the game UI even though the public website uses `index.html`.
+Capacitor is configured with `server.appStartPath=/app.html`, so the Android app opens the dedicated app UI instead of the public website or the web game UI.
 
 ## Features
 
@@ -23,6 +24,7 @@ Capacitor is configured with `server.appStartPath=/online.html`, so the Android 
 - Paid AI fallback controlled by matchmaking and player record, not by manual difficulty selection.
 - Mobile-safe UI with status bar/cutout spacing.
 - Local settings for sound, music, and vibration.
+- Dedicated Android UI using a generated PNG sprite atlas under `public/assets/app-ui`.
 - Website landing page with gameplay explanation, screenshots, static game preview, APK download, and online play link.
 - Token-protected admin page for paginated and categorized user lookup, deletion, no-record bulk cleanup, reset, and wallet adjustment. Production hides it behind a generated random path in addition to the admin token.
 
@@ -37,6 +39,7 @@ Open:
 
 - Website: `http://127.0.0.1:5173/`
 - Web game: `http://127.0.0.1:5173/online.html`
+- Android app UI preview: `http://127.0.0.1:5173/app.html`
 
 Run the backend separately when testing matchmaking:
 
@@ -115,12 +118,16 @@ Optional environment variables:
 ```text
 index.html                 Website landing page
 online.html                Web game entry
+app.html                   Android app entry used by Capacitor
 admin.html                 Token-protected user admin page
 src-site/                  Website CSS and small browser script
 src-admin/                 Admin page CSS and browser script
 src-online/                Mobile/web game client
+src-app/                   Android-only app shell, app start screen, app HUD, app atlas loader
 public/site/               Website images and screenshots
 public/assets/ui/          Game UI sliced assets
+public/assets/app-ui/      Android app sprite atlas and frame manifest
+design/app-ui/mockups/     App UI effect mockups and visual references
 server/server.js           Static site, API, WebSocket, APK download
 server/src/competitive/    Coin economy and matchmaking services
 server/tests/              Backend and game behavior tests

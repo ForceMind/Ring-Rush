@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         online: resolve(__dirname, 'online.html'),
+        app: resolve(__dirname, 'app.html'),
         admin: resolve(__dirname, 'admin.html')
       }
     }

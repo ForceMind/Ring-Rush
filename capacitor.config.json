@@ -4,7 +4,7 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "http",
-    "appStartPath": "/online.html"
+    "appStartPath": "/app.html"
   },
   "plugins": {
     "SystemBars": {

@@ -1,11 +1,10 @@
-import './app-config.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, VERSION } from './constants.js';
-import { Game } from './game.js';
-import { BotGame } from './game-bot.js';
-import { LocalGame } from './game-local.js';
-import { OnlineStartScreen } from './online-startscreen.js';
+import '../src-online/app-config.js';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, VERSION } from '../src-online/constants.js';
+import { AppBotGame, AppGame, AppLocalGame } from './app-game.js';
+import { AppStartScreen } from './app-startscreen.js';
 import { App as CapacitorApp } from '@capacitor/app';
-import { installCanvasLocalization, locale, t } from './i18n.js';
+import { installCanvasLocalization, locale, t } from '../src-online/i18n.js';
+import { loadAppAtlas } from './app-assets.js';
 
 let appBooted = false;
 
@@ -20,10 +19,9 @@ function installHiDpiCanvas(canvas) {
             canvas.height = height;
         }
         const ctx = canvas.getContext('2d');
-        if (ctx.setTransform) {
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
+        if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         canvas.dataset.pixelRatio = String(dpr);
     };
 
@@ -42,10 +40,11 @@ function bootApp() {
 
     const canvas = document.getElementById('gameCanvas');
     installHiDpiCanvas(canvas);
+    document.getElementById('version').textContent = `v${VERSION}`;
+    loadAppAtlas().catch(() => {});
+
     let game = null;
     let startScreen = null;
-
-    document.getElementById('version').textContent = `v${VERSION}`;
 
     function handleBackNavigation() {
         if (game && !game.isDestroyed) {
@@ -59,33 +58,24 @@ function bootApp() {
             }
             return true;
         }
-
-        if (startScreen && startScreen.handleBack()) {
-            return true;
-        }
-
+        if (startScreen && startScreen.handleBack()) return true;
         return false;
     }
 
     try {
         CapacitorApp.addListener('backButton', () => {
-            const handled = handleBackNavigation();
-            if (!handled) {
-                CapacitorApp.exitApp();
-            }
+            if (!handleBackNavigation()) CapacitorApp.exitApp();
         });
     } catch (error) {
         console.warn('Capacitor back button unavailable', error);
     }
 
     window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && handleBackNavigation()) {
-            event.preventDefault();
-        }
+        if (event.key === 'Escape' && handleBackNavigation()) event.preventDefault();
     });
 
     function attachHomeScreen(network = null) {
-        startScreen = new OnlineStartScreen(canvas, startCompetitiveGame, network);
+        startScreen = new AppStartScreen(canvas, startCompetitiveGame, network);
         startScreen.currentScreen = 'home';
         const screen = startScreen;
 
@@ -107,16 +97,13 @@ function bootApp() {
             game.cleanup();
             game = null;
         }
-
         attachHomeScreen(network);
     }
 
     function bindGameConnectionStatus(activeGame, network) {
         activeGame.connectionStatus = network.connectionStatus || (network.isConnected ? 'connected' : 'offline');
         network.onConnectionStatus = (status) => {
-            if (game === activeGame) {
-                activeGame.connectionStatus = status;
-            }
+            if (game === activeGame) activeGame.connectionStatus = status;
         };
     }
 
@@ -124,21 +111,20 @@ function bootApp() {
         const sourceScreen = startScreen;
         if (!sourceScreen) return;
         const network = sourceScreen.network;
-
         const msg = startMessage || sourceScreen.gameStartMessage;
         sourceScreen.cleanup();
         startScreen = null;
 
         if (mode === 'practice_ai') {
-            game = new BotGame(canvas);
+            game = new AppBotGame(canvas);
             game.init(startMessage?.difficulty || 'medium');
         } else if (mode === 'practice_local') {
-            game = new LocalGame(canvas);
+            game = new AppLocalGame(canvas);
             game.init();
         } else if (mode === 'competitive_ai') {
-            const aiParticipant = msg.match?.participants?.find(p => p.profile?.isAi);
+            const aiParticipant = msg.match?.participants?.find((p) => p.profile?.isAi);
             const difficulty = aiParticipant?.profile?.difficulty || 'medium';
-            game = new BotGame(canvas);
+            game = new AppBotGame(canvas);
             game.network = network;
             game.competitiveMatch = msg.match;
             game.competitiveEntryWallet = msg.wallet;
@@ -146,7 +132,7 @@ function bootApp() {
             bindGameConnectionStatus(game, network);
             game.init(difficulty);
         } else {
-            game = new Game(canvas);
+            game = new AppGame(canvas);
             if (msg) {
                 game.competitiveMatch = msg.match;
                 game.competitiveEntryWallet = msg.wallet;
@@ -168,7 +154,7 @@ function bootApp() {
                 game.competitiveSettlement = message;
                 game.competitiveSettlementReceivedAt = Date.now();
                 game.competitiveSettlementError = null;
-                const accountId = network.accountId || game.competitiveMatch?.participants?.find(p => p.playerId === network.playerId)?.accountId;
+                const accountId = network.accountId || game.competitiveMatch?.participants?.find((p) => p.playerId === network.playerId)?.accountId;
                 game.competitiveWallet = message.settlement?.wallets?.[accountId] || message.wallet || game.competitiveWallet;
             };
 
@@ -181,26 +167,17 @@ function bootApp() {
             game.onGameOver = ({ winner, reason, state }) => {
                 if (!game.competitiveMatch || game._competitiveResultSubmitted) return;
                 game._competitiveResultSubmitted = true;
-
-                const winnerParticipant = game.competitiveMatch.participants?.find(participant => {
+                const winnerParticipant = game.competitiveMatch.participants?.find((participant) => {
                     return participant.slot === winner || participant.accountId === winner;
                 });
                 const winnerRef = game.competitiveMatch.mode === 'ai'
                     ? (winnerParticipant?.profile?.isAi ? 'ai' : 'player')
                     : (winnerParticipant?.accountId || winner);
-
-                network.submitCompetitiveResult(
-                    game.competitiveMatch.id,
-                    winnerRef,
-                    reason || state?.pendingWinReason || 'normal',
-                    state || game.getState()
-                );
+                network.submitCompetitiveResult(game.competitiveMatch.id, winnerRef, reason || state?.pendingWinReason || 'normal', state || game.getState());
             };
         }
 
-        game.onExit = () => {
-            returnToHome(network);
-        };
+        game.onExit = () => returnToHome(network);
     }
 
     attachHomeScreen();

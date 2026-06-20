@@ -1,0 +1,64 @@
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #80dfcf;
+    color: #123842;
+    font-family: Inter, ui-rounded, "SF Pro Rounded", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+#appGameContainer {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    padding:
+        max(env(safe-area-inset-top), 16px)
+        max(env(safe-area-inset-right), 0px)
+        max(env(safe-area-inset-bottom), 10px)
+        max(env(safe-area-inset-left), 0px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(255, 239, 160, 0.7), transparent 28%),
+        radial-gradient(circle at 88% 8%, rgba(255, 128, 107, 0.32), transparent 26%),
+        linear-gradient(180deg, #8be9d6 0%, #f9e79a 58%, #8bdc9f 100%);
+}
+
+#gameCanvas {
+    display: block;
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 26px) * 15 / 32));
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 26px) * 15 / 32));
+    height: auto;
+    max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 26px);
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 26px);
+    aspect-ratio: 15 / 32;
+    border-radius: 22px;
+    background: #90e8d7;
+    box-shadow: 0 22px 48px rgba(17, 77, 71, 0.26);
+}
+
+#version {
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    color: rgba(18, 56, 66, 0.56);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+    pointer-events: none;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
