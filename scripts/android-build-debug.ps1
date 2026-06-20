@@ -37,6 +37,15 @@ $env:ANDROID_HOME = $androidHome
 $env:ANDROID_SDK_ROOT = $androidHome
 $env:Path = "$javaHome\bin;$androidHome\platform-tools;$androidHome\cmdline-tools\latest\bin;$env:Path"
 
+if (-not $env:VITE_PELLO_SERVER_URL) {
+    $env:VITE_PELLO_SERVER_URL = "https://pello.xincreates.com"
+}
+if (-not $env:VITE_PELLO_SERVER_LOCKED) {
+    $env:VITE_PELLO_SERVER_LOCKED = "true"
+}
+Write-Host "Android app server: $env:VITE_PELLO_SERVER_URL"
+Write-Host "Android app server locked: $env:VITE_PELLO_SERVER_LOCKED"
+
 $downloadDir = Join-Path $root "public\download"
 $downloadApk = Join-Path $downloadDir "Pello.apk"
 $backupApk = $null
