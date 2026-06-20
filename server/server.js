@@ -40,6 +40,8 @@ const APK_DOWNLOAD_PATH = process.env.PELLO_APK_PATH
     ? path.resolve(process.env.PELLO_APK_PATH)
     : (fs.existsSync(DEFAULT_APK_DOWNLOAD_PATH) ? DEFAULT_APK_DOWNLOAD_PATH : ANDROID_DEBUG_APK_PATH);
 const APK_DOWNLOAD_NAME = process.env.PELLO_APK_NAME || 'Pello.apk';
+const ADMIN_SOURCE_PATH = '/admin.html';
+const ADMIN_PUBLIC_PATH = normalizeAdminPath(process.env.PELLO_ADMIN_PATH);
 
 class Room {
     constructor(id, hostPlayer) {
@@ -151,6 +153,17 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (ADMIN_PUBLIC_PATH && requestUrl.pathname === ADMIN_PUBLIC_PATH) {
+        serveStaticFile(req, res, ADMIN_SOURCE_PATH, { privateCache: true, allowAdminSource: true });
+        return;
+    }
+
+    if (process.env.NODE_ENV === 'production' && requestUrl.pathname === ADMIN_SOURCE_PATH) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not found');
+        return;
+    }
+
     serveStaticFile(req, res, requestUrl.pathname);
 });
 
@@ -244,7 +257,20 @@ function sendApk(req, res) {
     });
 }
 
-function serveStaticFile(req, res, pathname) {
+function normalizeAdminPath(rawPath) {
+    const fallback = process.env.NODE_ENV === 'production' ? '' : ADMIN_SOURCE_PATH;
+    const raw = String(rawPath || fallback).trim();
+    if (!raw) return '';
+
+    const pathname = (raw.startsWith('/') ? raw : `/${raw}`).split(/[?#]/)[0];
+    if (!/^\/[A-Za-z0-9/_-]+(?:\.html)?$/.test(pathname)) {
+        console.warn(`Ignoring invalid PELLO_ADMIN_PATH: ${raw}`);
+        return fallback;
+    }
+    return pathname;
+}
+
+function serveStaticFile(req, res, pathname, options = {}) {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Method not allowed');
@@ -257,6 +283,12 @@ function serveStaticFile(req, res, pathname) {
     } catch (_) {
         res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Bad request');
+        return;
+    }
+
+    if (process.env.NODE_ENV === 'production' && urlPath === ADMIN_SOURCE_PATH && !options.allowAdminSource) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not found');
         return;
     }
 
@@ -287,7 +319,9 @@ function serveStaticFile(req, res, pathname) {
 
         res.writeHead(200, {
             'Content-Type': `${mimeType}; charset=utf-8`,
-            'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-store'
+            'Cache-Control': options.privateCache
+                ? 'no-store'
+                : (process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-store')
         });
         if (req.method === 'HEAD') {
             res.end();

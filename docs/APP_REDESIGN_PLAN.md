@@ -28,7 +28,7 @@ The project now also has a public website goal:
 
 - `/` is the website with game introduction, rule explanation, screenshots, static preview, APK download, and online play entry.
 - `/online.html` remains the actual web game.
-- `/admin.html` is the token-protected user management page.
+- `admin.html` is the token-protected user management page; production serves it through the random deploy-generated admin path.
 - Android starts from `/online.html` through Capacitor `server.appStartPath`.
 - The production Node service should serve the website, web game, admin page, HTTP API, WebSocket backend, and `/download/Pello.apk` from the same deployment.
 - Website documentation lives in `README.md`, `ARCHITECTURE.md`, `docs/DEVELOPMENT.md`, and `docs/DESIGN.md`.

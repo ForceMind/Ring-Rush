@@ -94,7 +94,7 @@ The website is not a marketing-only placeholder. It provides:
 
 The admin page is an operations tool, not a public game surface:
 
-- It lives at `/admin.html` and requires `PELLO_ADMIN_TOKEN`.
+- It is built from `admin.html`, served in production through the random `PELLO_ADMIN_PATH`, and requires `PELLO_ADMIN_TOKEN`.
 - It shows user wallet, reserved coins, rating, record, queue state, recent ledger, and recent matches.
 - Destructive actions require confirmation.
 - It should stay dense, readable, and low-animation so it does not add avoidable CPU load.

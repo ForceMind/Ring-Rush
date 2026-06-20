@@ -17,7 +17,7 @@ Node server/server.js
         |
         |-- dist/index.html          Website
         |-- dist/online.html         Web game
-        |-- dist/admin.html          User admin
+        |-- dist/admin.html          User admin, exposed through random PELLO_ADMIN_PATH in production
         |-- /download/Pello.apk
         |-- /api/competitive/*
         |-- /api/admin/*
@@ -36,7 +36,7 @@ Node server/server.js
 | `src-online/` | Game client, matchmaking UI, Canvas game, AI, audio, input, network. |
 
 Vite builds both `index.html` and `online.html` into `dist`.
-Vite also builds `admin.html` into `dist`; it is not linked from the public website.
+Vite also builds `admin.html` into `dist`; it is not linked from the public website. In production, `server/server.js` serves it only through `PELLO_ADMIN_PATH`, so fixed `/admin.html` is not exposed.
 
 ## Android
 
@@ -46,7 +46,7 @@ Capacitor packages the Vite `dist` output. `server.appStartPath` is set to `/onl
 
 `server/server.js` is intentionally a single Node process for the current internal-test phase:
 
-- Serves static files from `dist` in production.
+- Serves static files from `dist` in production, with the admin page gated behind `PELLO_ADMIN_PATH`.
 - Serves project files in development.
 - Streams the debug APK from `PELLO_APK_PATH` or Android build output.
 - Handles `/api/competitive/*`.

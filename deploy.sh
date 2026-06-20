@@ -24,6 +24,8 @@ SSL_EMAIL="${SSL_EMAIL:-}"
 DATA_FILE="${PELLO_COMPETITIVE_STORE:-${SERVER_DIR}/data/competitive-state.json}"
 ADMIN_TOKEN_FILE="${PELLO_ADMIN_TOKEN_FILE:-${SERVER_DIR}/data/admin-token.txt}"
 ADMIN_TOKEN="${PELLO_ADMIN_TOKEN:-}"
+ADMIN_PATH_FILE="${PELLO_ADMIN_PATH_FILE:-${SERVER_DIR}/data/admin-path.txt}"
+ADMIN_PATH="${PELLO_ADMIN_PATH:-}"
 REPO_APK_PATH="${PROJECT_DIR}/public/download/Pello.apk"
 ANDROID_APK_PATH="${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk"
 APK_PATH="${PELLO_APK_PATH:-${REPO_APK_PATH}}"
@@ -186,6 +188,7 @@ npm run build
 
 mkdir -p "$(dirname "${DATA_FILE}")"
 mkdir -p "$(dirname "${ADMIN_TOKEN_FILE}")"
+mkdir -p "$(dirname "${ADMIN_PATH_FILE}")"
 
 if [ -z "${ADMIN_TOKEN}" ]; then
   if [ -f "${ADMIN_TOKEN_FILE}" ]; then
@@ -195,6 +198,24 @@ if [ -z "${ADMIN_TOKEN}" ]; then
     printf "%s" "${ADMIN_TOKEN}" > "${ADMIN_TOKEN_FILE}"
     chmod 600 "${ADMIN_TOKEN_FILE}"
   fi
+fi
+
+if [ -z "${ADMIN_PATH}" ]; then
+  if [ -f "${ADMIN_PATH_FILE}" ]; then
+    ADMIN_PATH="$(cat "${ADMIN_PATH_FILE}")"
+  else
+    ADMIN_PATH="/admin-$(node -e "console.log(require('crypto').randomBytes(8).toString('hex'))").html"
+    printf "%s" "${ADMIN_PATH}" > "${ADMIN_PATH_FILE}"
+    chmod 600 "${ADMIN_PATH_FILE}"
+  fi
+fi
+
+if [[ "${ADMIN_PATH}" != /* ]]; then
+  ADMIN_PATH="/${ADMIN_PATH}"
+fi
+if [[ ! "${ADMIN_PATH}" =~ ^/[A-Za-z0-9/_-]+(\.html)?$ ]]; then
+  echo "Invalid admin path: ${ADMIN_PATH}. Use characters A-Z, a-z, 0-9, slash, underscore, dash, and optional .html."
+  exit 1
 fi
 
 stop_previous_pello
@@ -217,6 +238,7 @@ Environment=PELLO_COMPETITIVE_STORE=${DATA_FILE}
 Environment=PELLO_APK_PATH=${APK_PATH}
 Environment=PELLO_PUBLIC_URL=${PUBLIC_BASE_URL}
 Environment=PELLO_ADMIN_TOKEN=${ADMIN_TOKEN}
+Environment=PELLO_ADMIN_PATH=${ADMIN_PATH}
 ExecStart=$(command -v node) server/server.js
 Restart=on-failure
 RestartSec=5
@@ -293,9 +315,11 @@ echo "Port: ${PORT}"
 echo "Cloudflare tunnel target: http://127.0.0.1:${PORT}"
 echo "Website: ${PUBLIC_BASE_URL}/"
 echo "Game: ${PUBLIC_BASE_URL}/online.html"
-echo "Admin: ${PUBLIC_BASE_URL}/admin.html"
+echo "Admin: ${PUBLIC_BASE_URL}${ADMIN_PATH}"
 echo "Admin token: ${ADMIN_TOKEN}"
 echo "Admin token file: ${ADMIN_TOKEN_FILE}"
+echo "Admin path: ${ADMIN_PATH}"
+echo "Admin path file: ${ADMIN_PATH_FILE}"
 echo "Health: ${PUBLIC_BASE_URL}/api/competitive/health"
 echo "APK: ${PUBLIC_BASE_URL}/download/Pello.apk"
 echo "Bundled app server: ${VITE_PELLO_SERVER_URL}"

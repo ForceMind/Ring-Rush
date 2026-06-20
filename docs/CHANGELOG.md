@@ -7,6 +7,7 @@ All notable changes are tracked here.
 ### Added
 
 - Added `admin.html` and `/api/admin/*` for token-protected user management.
+- Added deploy-generated random admin paths so production does not expose fixed `/admin.html`.
 - Added admin actions to list users, inspect ledger/matches, add coins, set/reset wallet balance, reset user stats, and delete users.
 - Added a public website at `/` with game introduction, rule summary, screenshots, static game preview, APK download, and online play link.
 - Added website assets under `public/site`.
@@ -33,6 +34,7 @@ All notable changes are tracked here.
 - Replaced the website auto-running game preview with a static image link so the homepage no longer starts the full game client automatically.
 - Changed Android debug packaging to exclude `public/download/Pello.apk` during Capacitor sync, then copy the newly built APK back to the download path.
 - Updated app and website version to `0.11.0`.
+- Changed deployment output to print the random Admin URL and persist it in `server/data/admin-path.txt`.
 
 ### Fixed
 

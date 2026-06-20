@@ -9,7 +9,7 @@ Pello / Ring Rush 中文说明
 主要入口
 - 官网：/
 - 在线游戏：/online.html
-- 管理后台：/admin.html
+- 管理后台：本地为 /admin.html，生产环境使用部署脚本打印的随机地址。
 - APK 下载：/download/Pello.apk
 - 健康检查：/api/competitive/health
 
@@ -28,6 +28,8 @@ Pello / Ring Rush 中文说明
 
 管理后台
 - 部署脚本会生成或复用 PELLO_ADMIN_TOKEN。
+- 部署脚本会生成或复用 PELLO_ADMIN_PATH，例如 /admin-随机.html。
+- 生产环境不会公开固定 /admin.html，需要使用部署完成时打印的 Admin 地址。
 - 管理页需要输入 token 才能访问用户数据。
 - 可查看用户、删除用户、重置用户、增加金币、设置余额和重置余额。
 - 管理操作会先清理队列和活跃对局，避免保留错误的 reserved 金币。
@@ -52,7 +54,7 @@ Android 内部测试 APK
 5. 脚本会停止旧的 Pello 服务或旧 Pello 进程，但不会停止服务器上的其他服务。
 6. 默认不配置 nginx，适合 Cloudflare Tunnel。
 7. Cloudflare Tunnel 需要指向脚本打印的地址，例如：http://127.0.0.1:3003
-8. 脚本会打印官网、游戏、管理后台、健康检查、APK 地址和管理 token。
+8. 脚本会打印官网、游戏、随机管理后台地址、健康检查、APK 地址和管理 token。
 
 如果服务器要自己使用 nginx 和证书：
 - sudo SETUP_NGINX=1 SSL_EMAIL=你的邮箱 bash deploy.sh
