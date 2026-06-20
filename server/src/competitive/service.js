@@ -281,6 +281,203 @@ class CompetitiveService {
             .map(match => this.publicMatchForAccount(match, accountId));
     }
 
+    getAdminStats() {
+        const users = [...this.users.values()].filter(user => !user.isAi);
+        const wallets = users.map(user => this.wallets.get(user.id)).filter(Boolean);
+        const queuedAccounts = new Set();
+        for (const queue of this.queues.values()) {
+            for (const accountId of queue.keys()) queuedAccounts.add(accountId);
+        }
+        return {
+            totalUsers: users.length,
+            totalBalance: wallets.reduce((sum, wallet) => sum + wallet.balance, 0),
+            totalReserved: wallets.reduce((sum, wallet) => sum + wallet.reserved, 0),
+            queuedUsers: queuedAccounts.size,
+            activeMatches: [...this.matches.values()].filter(match => match.state === 'active').length,
+            settledMatches: [...this.matches.values()].filter(match => match.state === 'settled').length
+        };
+    }
+
+    getAdminUsers(options = {}) {
+        const limit = this.normalizeLimit(options.limit, 100, 500);
+        const query = String(options.query || '').trim().toLowerCase();
+        return [...this.users.values()]
+            .filter(user => !user.isAi)
+            .filter(user => {
+                if (!query) return true;
+                return String(user.id).toLowerCase().includes(query)
+                    || String(user.displayName || '').toLowerCase().includes(query);
+            })
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            .slice(0, limit)
+            .map(user => this.publicAdminUser(user));
+    }
+
+    getAdminUser(accountId) {
+        const user = this.requireAdminUser(accountId);
+        return {
+            ...this.publicAdminUser(user),
+            ledger: this.getLedger(accountId, { limit: 20 }),
+            matches: this.getMatchHistory(accountId, { limit: 20 })
+        };
+    }
+
+    publicAdminUser(user) {
+        const wallet = this.wallets.get(user.id) || { balance: 0, reserved: 0 };
+        const matches = [...this.matches.values()].filter(match => {
+            return match.participants.some(participant => participant.accountId === user.id);
+        });
+        return {
+            id: user.id,
+            displayName: user.displayName,
+            rating: user.rating,
+            games: user.games,
+            wins: user.wins,
+            losses: user.losses,
+            streak: user.streak,
+            createdAt: user.createdAt || null,
+            aiRewardDay: user.aiRewardDay || null,
+            aiRewardClaimed: user.aiRewardClaimed || 0,
+            wallet: this.publicWallet(wallet),
+            queued: Boolean(this.findQueuedEntry(user.id)),
+            activeMatchId: this.findActiveMatchByAccount(user.id)?.id || null,
+            matchCount: matches.length,
+            ledgerCount: this.ledger.filter(row => row.accountId === user.id).length
+        };
+    }
+
+    requireAdminUser(accountId) {
+        const user = this.users.get(accountId);
+        if (!user || user.isAi) {
+            throw this.error('ADMIN_USER_NOT_FOUND', 'User not found');
+        }
+        return user;
+    }
+
+    cleanupAdminUserState(accountId, reason) {
+        const queued = this.findQueuedEntry(accountId);
+        if (queued) {
+            this.cancelQueue(accountId, { release: true });
+        }
+
+        for (const match of this.matches.values()) {
+            if (!match.participants.some(participant => participant.accountId === accountId)) {
+                continue;
+            }
+
+            match.participants.forEach(participant => {
+                if (participant.accountId === accountId) {
+                    participant.playerId = null;
+                }
+            });
+
+            if (match.state === 'active') {
+                const humanParticipants = match.participants.filter(participant => {
+                    return participant.accountId !== AI_USER_ID && this.wallets.has(participant.accountId);
+                });
+                for (const participant of humanParticipants) {
+                    const wallet = this.wallets.get(participant.accountId);
+                    if (wallet.reserved > 0) {
+                        this.release(participant.accountId, wallet.reserved, {
+                            type: 'admin.match.release',
+                            matchId: match.id,
+                            reason
+                        });
+                    }
+                }
+                match.state = 'abandoned';
+                match.abandonedAt = this.now();
+                match.abandonReason = reason;
+            }
+        }
+
+        for (const [playerId, linkedAccountId] of this.playerAccounts.entries()) {
+            if (linkedAccountId === accountId) {
+                this.playerAccounts.delete(playerId);
+            }
+        }
+    }
+
+    adminDeleteUser(accountId) {
+        this.requireAdminUser(accountId);
+        this.cleanupAdminUserState(accountId, 'admin_delete_user');
+        this.users.delete(accountId);
+        this.wallets.delete(accountId);
+        this.ledger = this.ledger.filter(row => row.accountId !== accountId);
+        this.addLedger(null, 'admin.user_delete', 0, { accountId });
+        this.persist();
+        return {
+            deleted: true,
+            accountId,
+            stats: this.getAdminStats()
+        };
+    }
+
+    adminResetUser(accountId) {
+        const user = this.requireAdminUser(accountId);
+        this.cleanupAdminUserState(accountId, 'admin_reset_user');
+        user.rating = 1000;
+        user.games = 0;
+        user.wins = 0;
+        user.losses = 0;
+        user.streak = 0;
+        user.aiRewardDay = nowDayKey(this.now());
+        user.aiRewardClaimed = 0;
+
+        const wallet = this.requireWallet(accountId);
+        wallet.balance = this.config.initialCoins;
+        wallet.reserved = 0;
+        this.addLedger(accountId, 'admin.user_reset', 0, {
+            balanceAfter: wallet.balance,
+            reservedAfter: wallet.reserved
+        });
+        this.persist();
+        return this.getAdminUser(accountId);
+    }
+
+    adminUpdateWallet(accountId, action, amount = 0) {
+        this.requireAdminUser(accountId);
+        this.cleanupAdminUserState(accountId, 'admin_wallet_update');
+        const wallet = this.requireWallet(accountId);
+        const numericAmount = Number(amount);
+
+        if (action === 'add') {
+            if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+                throw this.error('ADMIN_INVALID_AMOUNT', 'A positive amount is required');
+            }
+            wallet.balance = Math.max(0, Math.round(wallet.balance + numericAmount));
+            wallet.reserved = 0;
+            this.addLedger(accountId, 'admin.wallet_add', Math.round(numericAmount), {
+                balanceAfter: wallet.balance,
+                reservedAfter: wallet.reserved
+            });
+        } else if (action === 'set') {
+            if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+                throw this.error('ADMIN_INVALID_AMOUNT', 'A non-negative amount is required');
+            }
+            const previousBalance = wallet.balance;
+            wallet.balance = Math.round(numericAmount);
+            wallet.reserved = 0;
+            this.addLedger(accountId, 'admin.wallet_set', wallet.balance - previousBalance, {
+                balanceAfter: wallet.balance,
+                reservedAfter: wallet.reserved
+            });
+        } else if (action === 'reset') {
+            const previousBalance = wallet.balance;
+            wallet.balance = this.config.initialCoins;
+            wallet.reserved = 0;
+            this.addLedger(accountId, 'admin.wallet_reset', wallet.balance - previousBalance, {
+                balanceAfter: wallet.balance,
+                reservedAfter: wallet.reserved
+            });
+        } else {
+            throw this.error('ADMIN_INVALID_ACTION', 'Unsupported wallet action');
+        }
+
+        this.persist();
+        return this.getAdminUser(accountId);
+    }
+
     publicLedgerRow(row) {
         const meta = row.meta || {};
         return {

@@ -16,6 +16,7 @@ function createCompetitiveLiveController(deps) {
                 type: 'competitive_profile',
                 profile: snapshot.profile,
                 wallet: snapshot.wallet,
+                accountId: snapshot.profile.id,
                 sessionToken: snapshot.sessionToken,
                 tables: snapshot.tables
             });
@@ -41,6 +42,7 @@ function createCompetitiveLiveController(deps) {
                     type: 'matchmaking_queued',
                     table: result.table,
                     wallet: result.wallet,
+                    accountId: player.accountId,
                     queuedAt: result.queuedAt
                 });
                 return;
@@ -63,6 +65,7 @@ function createCompetitiveLiveController(deps) {
             player.send({
                 type: 'matchmaking_canceled',
                 canceled: result.canceled,
+                accountId,
                 wallet: snapshot.wallet
             });
         } catch (err) {
@@ -176,6 +179,7 @@ function createCompetitiveLiveController(deps) {
                 match,
                 room: room ? room.toJSON() : null,
                 playerIndex: participant.slot,
+                accountId: participant.accountId,
                 wallet: snapshot.wallet
             });
         });
@@ -198,6 +202,7 @@ function createCompetitiveLiveController(deps) {
                 status: result.status,
                 match,
                 settlement: match.settlement,
+                accountId: participant.accountId,
                 wallet: snapshot.wallet
             });
         });

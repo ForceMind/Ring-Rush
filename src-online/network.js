@@ -143,6 +143,36 @@ export class NetworkManager {
         }
     }
 
+    getStoredAccountSession() {
+        try {
+            const sessionAccountId = sessionStorage.getItem('pelloAccountId');
+            const sessionToken = sessionStorage.getItem('pelloSessionToken');
+            if (sessionAccountId && sessionToken) {
+                return {
+                    accountId: sessionAccountId,
+                    sessionToken,
+                    playerId: sessionStorage.getItem('ringRushPlayerId') || null
+                };
+            }
+
+            const localAccountId = localStorage.getItem('pelloAccountId');
+            const localSessionToken = localStorage.getItem('pelloSessionToken');
+            if (localAccountId && localSessionToken) {
+                return {
+                    accountId: localAccountId,
+                    sessionToken: localSessionToken,
+                    playerId: localStorage.getItem('ringRushPlayerId') || null
+                };
+            }
+        } catch (_) {}
+
+        return {
+            accountId: null,
+            sessionToken: null,
+            playerId: null
+        };
+    }
+
     saveStoredValue(key, value) {
         if (!value) return;
         try {
@@ -160,6 +190,33 @@ export class NetworkManager {
         try {
             localStorage.removeItem(key);
         } catch (_) {}
+    }
+
+    clearStoredAccountSession() {
+        this.accountId = null;
+        this.sessionToken = null;
+        this.profile = null;
+        this.wallet = null;
+        this.removeStoredValue('pelloAccountId');
+        this.removeStoredValue('pelloSessionToken');
+        this.removeStoredValue('ringRushPlayerId');
+    }
+
+    isCurrentCompetitiveMatch(message) {
+        const matchId = message.match?.id || message.matchId;
+        if (!matchId) return true;
+        if (this.activeMatch?.id === matchId) return true;
+        return this.pendingCompetitiveResults.has(matchId);
+    }
+
+    getOwnWalletFromMessage(message) {
+        if (message.accountId && this.accountId && message.accountId !== this.accountId) {
+            return null;
+        }
+        if (this.accountId && message.settlement?.wallets?.[this.accountId]) {
+            return message.settlement.wallets[this.accountId];
+        }
+        return message.wallet || null;
     }
 
     setConnectionStatus(status, message = status) {
@@ -201,15 +258,13 @@ export class NetworkManager {
                 console.log('已连接到服务器');
                 
                 // 尝试用保存的 ID 重连身份
-                const savedId = this.getStoredValue('ringRushPlayerId');
-                const savedAccountId = this.getStoredValue('pelloAccountId');
-                const savedSessionToken = this.getStoredValue('pelloSessionToken');
-                if (savedId || savedAccountId) {
+                const savedSession = this.getStoredAccountSession();
+                if (savedSession.accountId && savedSession.sessionToken) {
                     this.send({
                         type: 'reconnect',
-                        playerId: savedId,
-                        accountId: savedAccountId,
-                        sessionToken: savedSessionToken
+                        playerId: savedSession.playerId,
+                        accountId: savedSession.accountId,
+                        sessionToken: savedSession.sessionToken
                     });
                 }
                 this.flushPendingCompetitiveResults();
@@ -381,11 +436,7 @@ export class NetworkManager {
                 break;
             case 'reconnect_failed':
                 if (message.code) {
-                    this.accountId = null;
-                    this.sessionToken = null;
-                    this.removeStoredValue('pelloAccountId');
-                    this.removeStoredValue('pelloSessionToken');
-                    this.removeStoredValue('ringRushPlayerId');
+                    this.clearStoredAccountSession();
                     this.requestCompetitiveProfile();
                     break;
                 }
@@ -491,26 +542,29 @@ export class NetworkManager {
                 if (this.onCompetitiveProfile) this.onCompetitiveProfile(message);
                 break;
             case 'matchmaking_queued':
-                this.wallet = message.wallet || this.wallet;
+                this.wallet = this.getOwnWalletFromMessage(message) || this.wallet;
                 if (this.onMatchmakingQueued) this.onMatchmakingQueued(message);
                 if (this.onMessage) this.onMessage(message);
                 break;
             case 'matchmaking_canceled':
-                this.wallet = message.wallet || this.wallet;
+                this.wallet = this.getOwnWalletFromMessage(message) || this.wallet;
                 if (this.onMatchmakingCanceled) this.onMatchmakingCanceled(message);
                 if (this.onMessage) this.onMessage(message);
                 break;
             case 'competitive_match_found':
                 this.activeMatch = message.match;
-                this.wallet = message.wallet || this.wallet;
+                this.wallet = this.getOwnWalletFromMessage(message) || this.wallet;
                 this.playerIndex = message.playerIndex || this.playerIndex;
                 if (message.room) this.roomId = message.room.id;
                 if (this.onCompetitiveMatch) this.onCompetitiveMatch(message);
                 if (this.onMessage) this.onMessage(message);
                 break;
             case 'competitive_settlement':
+                if (!this.isCurrentCompetitiveMatch(message)) {
+                    break;
+                }
                 this.activeMatch = message.match;
-                this.wallet = message.wallet || this.wallet;
+                this.wallet = this.getOwnWalletFromMessage(message) || this.wallet;
                 if (message.match?.id) {
                     this.pendingCompetitiveResults.delete(message.match.id);
                 }
@@ -518,6 +572,11 @@ export class NetworkManager {
                 if (this.onMessage) this.onMessage(message);
                 break;
             case 'competitive_error':
+                if (message.code === 'ACCOUNT_AUTH_INVALID') {
+                    this.clearStoredAccountSession();
+                    this.requestCompetitiveProfile();
+                    break;
+                }
                 if (this.onCompetitiveError) this.onCompetitiveError(message);
                 if (this.onError) this.onError(message.message);
                 break;

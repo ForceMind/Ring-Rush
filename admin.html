@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Pello Admin</title>
+    <link rel="icon" href="/site/pello-icon.png">
+    <link rel="stylesheet" href="/src-admin/admin.css">
+</head>
+<body>
+    <header class="admin-header">
+        <div>
+            <p class="eyebrow">Pello Admin</p>
+            <h1>用户管理</h1>
+        </div>
+        <div class="admin-version">v0.11.0</div>
+    </header>
+
+    <main class="admin-shell">
+        <section class="toolbar" aria-label="Admin authentication">
+            <label>
+                <span>管理 Token</span>
+                <input id="adminToken" type="password" autocomplete="off" placeholder="PELLO_ADMIN_TOKEN">
+            </label>
+            <button id="saveToken" type="button">保存</button>
+            <button id="refreshUsers" type="button">刷新</button>
+            <label class="search-box">
+                <span>搜索</span>
+                <input id="searchUsers" type="search" placeholder="用户 ID 或名称">
+            </label>
+        </section>
+
+        <section class="stats-grid" aria-label="Admin stats">
+            <div class="stat">
+                <span>用户</span>
+                <strong id="statUsers">--</strong>
+            </div>
+            <div class="stat">
+                <span>总金币</span>
+                <strong id="statBalance">--</strong>
+            </div>
+            <div class="stat">
+                <span>预留</span>
+                <strong id="statReserved">--</strong>
+            </div>
+            <div class="stat">
+                <span>比赛中</span>
+                <strong id="statMatches">--</strong>
+            </div>
+        </section>
+
+        <section class="content-grid">
+            <section class="panel users-panel" aria-label="User list">
+                <div class="panel-head">
+                    <h2>所有用户</h2>
+                    <span id="userCount">--</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>用户</th>
+                                <th>金币</th>
+                                <th>战绩</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <aside class="panel detail-panel" aria-label="Selected user detail">
+                <div class="panel-head">
+                    <h2>用户详情</h2>
+                    <span id="selectedId">未选择</span>
+                </div>
+                <div id="detailBody" class="detail-empty">选择一个用户查看流水和最近比赛。</div>
+                <div class="actions">
+                    <label>
+                        <span>金币数量</span>
+                        <input id="coinAmount" type="number" min="0" step="1" placeholder="例如 20">
+                    </label>
+                    <div class="action-row">
+                        <button id="addCoins" type="button">增加金币</button>
+                        <button id="setCoins" type="button">设置余额</button>
+                    </div>
+                    <div class="action-row danger-row">
+                        <button id="resetWallet" type="button">重置余额</button>
+                        <button id="resetUser" type="button">重置用户</button>
+                        <button id="deleteUser" type="button">删除用户</button>
+                    </div>
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src-admin/admin.js"></script>
+</body>
+</html>

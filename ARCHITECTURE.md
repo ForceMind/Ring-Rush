@@ -17,8 +17,10 @@ Node server/server.js
         |
         |-- dist/index.html          Website
         |-- dist/online.html         Web game
-        |-- /download/pello-debug.apk
+        |-- dist/admin.html          User admin
+        |-- /download/Pello.apk
         |-- /api/competitive/*
+        |-- /api/admin/*
         |-- WebSocket room and match messages
 ```
 
@@ -26,12 +28,15 @@ Node server/server.js
 
 | Entry | Purpose |
 | --- | --- |
-| `index.html` | Website with intro, screenshots, live preview, APK download, and online play link. |
+| `index.html` | Website with intro, screenshots, static preview, APK download, and online play link. |
 | `online.html` | Actual game app. |
+| `admin.html` | Token-protected user admin page. |
 | `src-site/` | Website-only CSS and browser script. |
+| `src-admin/` | Admin-only CSS and browser script. |
 | `src-online/` | Game client, matchmaking UI, Canvas game, AI, audio, input, network. |
 
 Vite builds both `index.html` and `online.html` into `dist`.
+Vite also builds `admin.html` into `dist`; it is not linked from the public website.
 
 ## Android
 
@@ -45,6 +50,7 @@ Capacitor packages the Vite `dist` output. `server.appStartPath` is set to `/onl
 - Serves project files in development.
 - Streams the debug APK from `PELLO_APK_PATH` or Android build output.
 - Handles `/api/competitive/*`.
+- Handles token-protected `/api/admin/*`.
 - Owns the WebSocket server.
 
 `server/src/competitive` contains account, wallet, ledger, matchmaking, AI fallback, and settlement services.

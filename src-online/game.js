@@ -43,6 +43,7 @@ export class Game {
         this.runnerAnimating = false;     // 小人是否在移动中
         this.currentScore = 0;
         this.settlePauseUntil = 0;
+        this.settlePauseMs = 140;
         this.settleCueShown = false;
         this.gameOver = false;
         this.winner = null;
@@ -580,7 +581,7 @@ export class Game {
                     this.triggerFeedback('settle', 0.6);
                     this.settleCueShown = true;
                 }
-                this.settlePauseUntil = Date.now() + 350;
+                this.settlePauseUntil = Date.now() + this.settlePauseMs;
                 return;
             }
 
@@ -1049,6 +1050,13 @@ export class Game {
     gameLoop(timestamp = performance.now()) {
         if (this.isDestroyed) return;
 
+        if (typeof document !== 'undefined' && document.hidden) {
+            this.lastTime = timestamp;
+            this.accumulator = 0;
+            requestAnimationFrame((ts) => this.gameLoop(ts));
+            return;
+        }
+
         if (!this.lastTime) this.lastTime = timestamp;
         let dt = timestamp - this.lastTime;
         this.lastTime = timestamp;
@@ -1062,9 +1070,15 @@ export class Game {
         const fixedTimeStep = 1000 / 60; // 60Hz fixed update
 
         // Update logic in fixed steps to ensure deterministic physics across different monitor refresh rates (e.g. 60Hz vs 144Hz)
-        while (this.accumulator >= fixedTimeStep) {
+        let steps = 0;
+        const maxSteps = 3;
+        while (this.accumulator >= fixedTimeStep && steps < maxSteps) {
             this.update();
             this.accumulator -= fixedTimeStep;
+            steps++;
+        }
+        if (steps === maxSteps && this.accumulator >= fixedTimeStep) {
+            this.accumulator = 0;
         }
 
         this.draw();

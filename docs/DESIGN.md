@@ -39,9 +39,8 @@ Default table:
 - Entry fee: 12 coins per player.
 - Pool: 24 coins.
 - Winner payout: 20 coins.
-- Platform fee: 4 coins.
 
-The UI must call this `平台服务费` / `Platform fee`.
+The remaining pool difference is internal settlement data and must not be shown to players. UI should only show entry cost and winner reward.
 
 ## AI
 
@@ -88,5 +87,14 @@ The website is not a marketing-only placeholder. It provides:
 - APK download.
 - Online play link.
 - Real screenshots.
-- Live embedded web game preview.
-- Deployment summary for the combined site/backend service.
+- Static game preview that links to `/online.html`.
+- No deployment, backend, or internal economy wording on the public page.
+
+## Admin Design
+
+The admin page is an operations tool, not a public game surface:
+
+- It lives at `/admin.html` and requires `PELLO_ADMIN_TOKEN`.
+- It shows user wallet, reserved coins, rating, record, queue state, recent ledger, and recent matches.
+- Destructive actions require confirmation.
+- It should stay dense, readable, and low-animation so it does not add avoidable CPU load.

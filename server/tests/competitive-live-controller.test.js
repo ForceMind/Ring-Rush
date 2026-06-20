@@ -16,6 +16,19 @@ function player(id) {
     };
 }
 
+function finalRunnerState(winnerSlot) {
+    return {
+        runnerPosition: winnerSlot === 'A' ? -6 : 6,
+        piecesLeftA: 4,
+        piecesLeftB: 4,
+        timeoutsA: 0,
+        timeoutsB: 0,
+        pendingWinReason: 'runner',
+        winner: winnerSlot,
+        gameOver: true
+    };
+}
+
 class Room {
     constructor(id, host) {
         this.id = id;
@@ -120,8 +133,59 @@ function testHumanQuickMatchCreatesCompetitiveRoom() {
     assert.ok(bobMatch);
     assert.strictEqual(aliceMatch.room.id, 1);
     assert.strictEqual(bobMatch.room.id, 1);
+    assert.strictEqual(aliceMatch.accountId, alice.accountId);
+    assert.strictEqual(bobMatch.accountId, bob.accountId);
     assert.strictEqual(aliceMatch.wallet.reserved, 12);
     assert.strictEqual(bobMatch.wallet.reserved, 12);
+}
+
+function testHumanSettlementMessagesUseParticipantWallets() {
+    const harness = createControllerHarness();
+    const alice = player('alice-settlement');
+    const bob = player('bob-settlement');
+    harness.players.set(alice.id, alice);
+    harness.players.set(bob.id, bob);
+
+    harness.service.ensureAccountForPlayer(alice);
+    harness.service.ensureAccountForPlayer(bob);
+    harness.controller.handleQuickMatch(alice, { tableId: 'bronze_12' });
+    harness.controller.handleQuickMatch(bob, { tableId: 'bronze_12' });
+
+    const matchId = harness.rooms.get(1).competitiveMatchId;
+    harness.controller.handleResult(alice, {
+        matchId,
+        winner: alice.accountId,
+        reason: 'runner',
+        state: finalRunnerState('A')
+    });
+    harness.controller.handleResult(bob, {
+        matchId,
+        winner: alice.accountId,
+        reason: 'runner',
+        state: finalRunnerState('A')
+    });
+
+    const aliceSettlements = alice.messages.filter(message => {
+        return message.type === 'competitive_settlement' && message.match.id === matchId && message.status === 'settled';
+    });
+    const bobSettlements = bob.messages.filter(message => {
+        return message.type === 'competitive_settlement' && message.match.id === matchId && message.status === 'settled';
+    });
+    const aliceSettlement = aliceSettlements.at(-1);
+    const bobSettlement = bobSettlements.at(-1);
+
+    assert.ok(aliceSettlement);
+    assert.ok(bobSettlement);
+    assert.strictEqual(aliceSettlement.accountId, alice.accountId);
+    assert.strictEqual(bobSettlement.accountId, bob.accountId);
+    assert.strictEqual(aliceSettlement.wallet.balance, 128);
+    assert.strictEqual(aliceSettlement.wallet.reserved, 0);
+    assert.strictEqual(bobSettlement.wallet.balance, 108);
+    assert.strictEqual(bobSettlement.wallet.reserved, 0);
+    assert.strictEqual(aliceSettlement.settlement.wallets[alice.accountId].balance, 128);
+    assert.strictEqual(aliceSettlement.settlement.wallets[bob.accountId].balance, 108);
+    assert.strictEqual(alice.activeMatchId, null);
+    assert.strictEqual(bob.activeMatchId, null);
 }
 
 function testAiFallbackRequiresMatchmakingTimeout() {
@@ -195,6 +259,7 @@ function testDisconnectTimeoutSettlesAiMatchLoss() {
 }
 
 testHumanQuickMatchCreatesCompetitiveRoom();
+testHumanSettlementMessagesUseParticipantWallets();
 testAiFallbackRequiresMatchmakingTimeout();
 testDisconnectTimeoutSettlesHumanMatchForOpponent();
 testDisconnectTimeoutSettlesAiMatchLoss();

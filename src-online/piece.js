@@ -42,11 +42,11 @@ export class Piece {
 
         if (this.glowIntensity > 0) {
             ctx.save();
-            ctx.globalAlpha = 0.1 + this.glowIntensity * 0.1;
+            ctx.globalAlpha = 0.08 + this.glowIntensity * 0.08;
             ctx.shadowColor = showColor;
-            ctx.shadowBlur = 9 * this.glowIntensity;
+            ctx.shadowBlur = 7 * this.glowIntensity;
             ctx.beginPath();
-            ctx.arc(sx, sy, this.radius + 3.5 * this.glowIntensity, 0, Math.PI * 2);
+            ctx.arc(sx, sy, this.radius + 2.5 * this.glowIntensity, 0, Math.PI * 2);
             ctx.fillStyle = showColor;
             ctx.fill();
             ctx.restore();
@@ -57,7 +57,7 @@ export class Piece {
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.arc(sx, sy, this.radius + (1 - alpha) * 18, 0, Math.PI * 2);
             ctx.stroke();
@@ -80,8 +80,8 @@ export class Piece {
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
-        ctx.strokeStyle = highlight ? '#ffffff' : 'rgba(20,54,66,0.38)';
-        ctx.lineWidth = highlight ? 4 : 2.5;
+        ctx.strokeStyle = highlight ? 'rgba(255,255,255,0.72)' : 'rgba(20,54,66,0.38)';
+        ctx.lineWidth = highlight ? 2.2 : 1.6;
         ctx.stroke();
         ctx.restore();
 
@@ -90,13 +90,13 @@ export class Piece {
         ctx.arc(sx, sy, this.radius * 0.5, 0, Math.PI * 2);
         ctx.fillStyle = showInner;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
         ctx.beginPath();
         ctx.arc(sx - this.radius * 0.36, sy - this.radius * 0.36, 2.4, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.68)';
+        ctx.fillStyle = 'rgba(255,255,255,0.56)';
         ctx.fill();
 
         ctx.beginPath();

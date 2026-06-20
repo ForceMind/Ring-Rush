@@ -1,12 +1,6 @@
 /**
- * Ring Rush v0.6.1 - 在线对战服务器
- *
- * 功能：
- * - 房间管理（创建/加入/离开）
- * - 玩家匹配
- * - 游戏状态同步
- * - 断线处理
- * - 支持任意部署环境（本地/公网）
+ * Pello v0.11.0 online game server.
+ * Serves the website, Android APK, competitive API, admin API, and WebSocket game rooms.
  */
 
 const WebSocket = require('ws');
@@ -18,163 +12,51 @@ const {
     CompetitiveService,
     FileCompetitiveStore,
     handleCompetitiveApi,
+    handleAdminApi,
     createCompetitiveLiveController
 } = require('./src/competitive');
 
-// 服务器配置
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
-// 静态文件 MIME 类型映射
 const MIME_TYPES = {
     '.html': 'text/html',
-    '.css':  'text/css',
-    '.js':   'application/javascript',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
     '.json': 'application/json',
-    '.png':  'image/png',
-    '.jpg':  'image/jpeg',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
     '.webp': 'image/webp',
-    '.svg':  'image/svg+xml',
-    '.ico':  'image/x-icon',
-    '.apk':  'application/vnd.android.package-archive'
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.apk': 'application/vnd.android.package-archive'
 };
 
-// 项目根目录（server 的上级目录）
-const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_APK_DOWNLOAD_PATH = path.resolve(PROJECT_ROOT, 'public/download/Pello.apk');
-const LEGACY_APK_DOWNLOAD_PATH = path.resolve(PROJECT_ROOT, 'public/download/pello-debug.apk');
 const ANDROID_DEBUG_APK_PATH = path.resolve(PROJECT_ROOT, 'android/app/build/outputs/apk/debug/app-debug.apk');
 const APK_DOWNLOAD_PATH = process.env.PELLO_APK_PATH
     ? path.resolve(process.env.PELLO_APK_PATH)
-    : (fs.existsSync(DEFAULT_APK_DOWNLOAD_PATH)
-        ? DEFAULT_APK_DOWNLOAD_PATH
-        : (fs.existsSync(LEGACY_APK_DOWNLOAD_PATH) ? LEGACY_APK_DOWNLOAD_PATH : ANDROID_DEBUG_APK_PATH));
+    : (fs.existsSync(DEFAULT_APK_DOWNLOAD_PATH) ? DEFAULT_APK_DOWNLOAD_PATH : ANDROID_DEBUG_APK_PATH);
 const APK_DOWNLOAD_NAME = process.env.PELLO_APK_NAME || 'Pello.apk';
 
-// 创建 HTTP 服务器（用于提供静态文件）
-const server = http.createServer((req, res) => {
-    if (handleCompetitiveApi(req, res, competitiveService)) {
-        return;
-    }
-
-    if (req.url === '/favicon.ico') {
-        res.writeHead(204);
-        res.end();
-        return;
-    }
-
-    const downloadPath = req.url.split('?')[0];
-    if ((req.method === 'GET' || req.method === 'HEAD') && (downloadPath === '/download/Pello.apk' || downloadPath === '/download/pello-debug.apk')) {
-        fs.stat(APK_DOWNLOAD_PATH, (statErr, stat) => {
-            if (statErr || !stat.isFile()) {
-                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-                res.end('APK not found. Add public/download/Pello.apk, build the Android APK, or set PELLO_APK_PATH.');
-                return;
-            }
-
-            res.writeHead(200, {
-                'Content-Type': MIME_TYPES['.apk'],
-                'Content-Length': stat.size,
-                'Content-Disposition': `attachment; filename="${APK_DOWNLOAD_NAME}"`,
-                'Cache-Control': 'no-store'
-            });
-            if (req.method === 'HEAD') {
-                res.end();
-                return;
-            }
-            fs.createReadStream(APK_DOWNLOAD_PATH).pipe(res);
-        });
-        return;
-    }
-
-    // 解析请求路径，默认 / 映射到 /index.html
-    let urlPath = req.url.split('?')[0];
-    if (urlPath === '/') urlPath = '/index.html';
-
-    // 判断运行环境决定静态文件根目录
-    const IS_PROD = process.env.NODE_ENV === 'production';
-    const SERVE_DIR = IS_PROD ? path.resolve(PROJECT_ROOT, 'dist') : PROJECT_ROOT;
-
-    // 使用 path.resolve 防止目录遍历攻击
-    const filePath = path.resolve(SERVE_DIR, '.' + urlPath);
-    if (!filePath.startsWith(SERVE_DIR)) {
-        res.writeHead(403);
-        res.end('Forbidden');
-        return;
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeType = MIME_TYPES[ext];
-
-    if (!mimeType) {
-        res.writeHead(404);
-        res.end('Not found');
-        return;
-    }
-
-    fs.readFile(filePath, (err, data) => {
-        if (err) {
-            res.writeHead(404);
-            res.end('Not found');
-            return;
-        }
-        res.writeHead(200, { 'Content-Type': mimeType });
-        res.end(data);
-    });
-});
-
-// 创建 WebSocket 服务器
-const wss = new WebSocket.Server({ server });
-
-// WebSocket 心跳检测（30 秒间隔）
-const HEARTBEAT_INTERVAL = 30000;
-const heartbeatTimer = setInterval(() => {
-    wss.clients.forEach((ws) => {
-        if (ws.isAlive === false) {
-            return ws.terminate();
-        }
-        ws.isAlive = false;
-        ws.ping();
-    });
-}, HEARTBEAT_INTERVAL);
-
-// 服务器关闭时清理心跳定时器
-wss.on('close', () => {
-    clearInterval(heartbeatTimer);
-});
-
-// 房间管理
-const rooms = new Map();
-let roomIdCounter = 1;
-
-// 玩家管理
-const players = new Map();
-const competitiveService = new CompetitiveService({
-    store: new FileCompetitiveStore(process.env.PELLO_COMPETITIVE_STORE)
-});
-let competitiveLive = null;
-
-// 速率限制配置
-const RATE_LIMIT_MAX = 100;       // 每秒最大消息数
-const RATE_LIMIT_WINDOW = 1000;  // 窗口大小（毫秒）
-
-// ===== 房间类 =====
 class Room {
     constructor(id, hostPlayer) {
         this.id = id;
-        this.name = `房间 ${id}`;
+        this.name = `Room ${id}`;
         this.host = hostPlayer;
         this.guest = null;
-        this.state = 'waiting';  // waiting, playing, finished
+        this.state = 'waiting';
         this.gameState = null;
         this.maxPlayers = 2;
+        this.diceRolls = {};
+        this.diceAcks = new Set();
+        this.restartRequests = new Set();
     }
 
     addPlayer(player) {
-        if (this.guest) {
-            return false;
-        }
+        if (this.guest) return false;
         this.guest = player;
         return true;
     }
@@ -183,25 +65,16 @@ class Room {
         if (this.host && this.host.id === playerId) {
             this.host = this.guest;
             this.guest = null;
-            if (this.host) {
-                this.host.playerIndex = 'A'; // New host is always A
-            }
+            if (this.host) this.host.playerIndex = 'A';
         } else if (this.guest && this.guest.id === playerId) {
             this.guest = null;
         }
 
-        if (!this.host && !this.guest) {
-            this.state = 'finished';
-        } else {
-            this.state = 'waiting';
-        }
+        this.state = this.host || this.guest ? 'waiting' : 'finished';
     }
 
     getPlayers() {
-        const result = [];
-        if (this.host) result.push(this.host);
-        if (this.guest) result.push(this.guest);
-        return result;
+        return [this.host, this.guest].filter(Boolean);
     }
 
     toJSON() {
@@ -214,12 +87,40 @@ class Room {
             hostName: this.host ? this.host.name : null,
             hostReady: this.host ? this.host.ready : false,
             guestName: this.guest ? this.guest.name : null,
-            guestReady: this.guest ? this.guest.ready : false
+            guestReady: this.guest ? this.guest.ready : false,
+            competitiveMatchId: this.competitiveMatchId || null,
+            stake: this.stake || null
         };
     }
 }
 
-competitiveLive = createCompetitiveLiveController({
+class Player {
+    constructor(id, ws, name) {
+        this.id = id;
+        this.ws = ws;
+        this.name = name;
+        this.accountId = null;
+        this.activeMatchId = null;
+        this.roomId = null;
+        this.playerIndex = null;
+        this.ready = false;
+        this.disconnectTimeout = null;
+    }
+
+    send(message) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(message));
+        }
+    }
+}
+
+const rooms = new Map();
+const players = new Map();
+let roomIdCounter = 1;
+const competitiveService = new CompetitiveService({
+    store: new FileCompetitiveStore(process.env.PELLO_COMPETITIVE_STORE)
+});
+const competitiveLive = createCompetitiveLiveController({
     service: competitiveService,
     players,
     rooms,
@@ -229,235 +130,331 @@ competitiveLive = createCompetitiveLiveController({
     broadcastRoomListUpdate
 });
 
-// ===== 玩家类 =====
-class Player {
-    constructor(id, ws, name) {
-        this.id = id;
-        this.ws = ws;
-        this.name = name;
-        this.accountId = null;
-        this.activeMatchId = null;
-        this.roomId = null;
-        this.playerIndex = null;  // 'A' 或 'B'
-        this.ready = false;
-        this.disconnectTimeout = null;
+const server = http.createServer((req, res) => {
+    if (handleAdminApi(req, res, competitiveService, { adminToken: process.env.PELLO_ADMIN_TOKEN })) {
+        return;
     }
 
-    send(message) {
-        if (this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify(message));
+    if (handleCompetitiveApi(req, res, competitiveService)) {
+        return;
+    }
+
+    const requestUrl = new URL(req.url, 'http://localhost');
+    if (requestUrl.pathname === '/favicon.ico') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
+    if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/download/Pello.apk') {
+        sendApk(req, res);
+        return;
+    }
+
+    serveStaticFile(req, res, requestUrl.pathname);
+});
+
+const wss = new WebSocket.Server({ server });
+const HEARTBEAT_INTERVAL = 30000;
+const RATE_LIMIT_MAX = 100;
+const RATE_LIMIT_WINDOW = 1000;
+
+const heartbeatTimer = setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (ws.isAlive === false) {
+            ws.terminate();
+            return;
         }
-    }
-}
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, HEARTBEAT_INTERVAL);
 
-// ===== 消息处理 =====
-wss.on('connection', (ws) => {
+wss.on('close', () => {
+    clearInterval(heartbeatTimer);
+});
+
+wss.on('connection', ws => {
     const playerId = generateId();
-    let player = new Player(playerId, ws, `玩家 ${playerId.slice(0, 4)}`);
+    let player = new Player(playerId, ws, `Player ${playerId.slice(0, 4)}`);
     players.set(playerId, player);
 
-    // 心跳追踪
     ws.isAlive = true;
-    ws.on('pong', () => { ws.isAlive = true; });
-
-    // 速率限制追踪
     ws.messageCount = 0;
     ws.messageWindowStart = Date.now();
+    ws.on('pong', () => { ws.isAlive = true; });
 
-    console.log(`玩家连接: ${player.name} (${playerId})`);
-
-    // 发送欢迎消息
     player.send({
         type: 'welcome',
-        playerId: playerId,
+        playerId,
         playerName: player.name
     });
-
-    // 发送房间列表
     sendRoomList(player);
 
-    // 处理消息
-    ws.on('message', (data) => {
-        // 速率限制检查
-        const now = Date.now();
-        if (now - ws.messageWindowStart > RATE_LIMIT_WINDOW) {
-            ws.messageCount = 0;
-            ws.messageWindowStart = now;
+    ws.on('message', data => {
+        if (!checkRateLimit(ws, player)) return;
+
+        let message;
+        try {
+            message = JSON.parse(data);
+        } catch (err) {
+            player.send({ type: 'error', message: 'Invalid message payload' });
+            return;
         }
-        ws.messageCount++;
-        if (ws.messageCount > RATE_LIMIT_MAX) {
-            player.send({ type: 'error', message: '消息发送过于频繁，请稍后再试' });
+
+        if (message.type === 'reconnect') {
+            player = handleReconnect(ws, player, message);
             return;
         }
 
         try {
-            const message = JSON.parse(data);
-            
-            if (message.type === 'reconnect') {
-                const oldPlayer = players.get(message.playerId);
-                if (oldPlayer && oldPlayer.disconnectTimeout) {
-                    clearTimeout(oldPlayer.disconnectTimeout);
-                    oldPlayer.disconnectTimeout = null;
-                    oldPlayer.ws = ws;
-                    players.delete(player.id);
-                    player = oldPlayer; // 更新闭包引用
-                    if (message.accountId && player.accountId !== message.accountId) {
-                        try {
-                            competitiveService.restoreAccount(player, message.accountId, message.sessionToken);
-                        } catch (err) {
-                            competitiveLive.sendError(player, err);
-                            return;
-                        }
-                    }
-                    
-                    const room = rooms.get(player.roomId);
-                    let opponentName = '对手';
-                    let opponentAlive = false;
-                    if (room) {
-                        if (player.playerIndex === 'A' && room.guest) opponentName = room.guest.name;
-                        if (player.playerIndex === 'B' && room.host) opponentName = room.host.name;
-                        
-                        const opponent = room.getPlayers().find(p => p.id !== player.id);
-                        opponentAlive = opponent && opponent.ws && opponent.ws.readyState === 1; // OPEN
-
-                        // 如果在游戏初期(骰子阶段)双方都断线，状态丢失，降级为等待状态
-                        if (room.state === 'playing' && !room.lastGameState && !opponentAlive) {
-                            room.state = 'waiting';
-                            room.diceRolls = {};
-                            room.diceAcks = new Set();
-                            room.restartRequests = new Set();
-                        }
-                    }
-                    
-                    player.send({ 
-                        type: 'reconnect_success', 
-                        room: room?.toJSON(),
-                        playerIndex: player.playerIndex,
-                        opponentName: opponentName,
-                        accountId: player.accountId
-                    });
-                    competitiveLive.sendSnapshot(player);
-                    
-                    broadcastToRoom(player.roomId, {
-                        type: 'opponent_reconnected',
-                        playerId: player.id
-                    }, player.id);
-
-                    if (room && room.state === 'playing') {
-                        if (room.lastGameState) {
-                            player.send({
-                                type: 'full_sync',
-                                state: room.lastGameState
-                            });
-                        } else if (opponentAlive) {
-                            broadcastToRoom(player.roomId, {
-                                type: 'request_sync',
-                                targetPlayerId: player.id
-                            }, player.id);
-                        }
-                    }
-                    
-                    return;
-                } else {
-                    if (message.accountId) {
-                        try {
-                            competitiveService.restoreAccount(player, message.accountId, message.sessionToken);
-                        } catch (err) {
-                            player.send({
-                                type: 'reconnect_failed',
-                                code: err.code || 'RECONNECT_FAILED',
-                                message: err.message || 'Cannot restore account'
-                            });
-                            competitiveLive.sendError(player, err);
-                            return;
-                        }
-                    }
-                    player.send({
-                        type: 'reconnect_failed',
-                        accountId: player.accountId
-                    });
-                    competitiveLive.sendSnapshot(player);
-                    return;
-                }
-            }
-            
             handleMessage(player, message);
-        } catch (e) {
-            console.error('消息解析错误:', e, player.name);
+        } catch (err) {
+            console.error('Message handling failed:', err);
+            player.send({ type: 'error', message: 'Message handling failed' });
         }
     });
 
-    // 断线处理
     ws.on('close', () => {
-        console.log(`玩家断线: ${player.name}`);
-        const room = player.roomId ? rooms.get(player.roomId) : null;
-        const shouldWaitForReconnect = (room && room.state === 'playing') || player.activeMatchId;
-        if (shouldWaitForReconnect) {
-            console.log(`玩家 ${player.name} 在付费对局中掉线，等待60秒重连...`);
-            player.disconnectTimeout = setTimeout(() => {
-                competitiveLive.handleDisconnectTimeout(player);
-                competitiveService.unlinkPlayer(player.id);
-                handleDisconnect(player);
-                players.delete(player.id);
-            }, 60000);
-
-            if (player.roomId) {
-                broadcastToRoom(player.roomId, {
-                    type: 'opponent_disconnected',
-                    playerId: player.id
-                }, player.id);
-            }
-            return;
-        }
-        competitiveService.unlinkPlayer(player.id);
-        handleDisconnect(player);
-        players.delete(player.id);
+        handleSocketClose(player);
     });
 });
 
-// 处理消息
+function sendApk(req, res) {
+    fs.stat(APK_DOWNLOAD_PATH, (statErr, stat) => {
+        if (statErr || !stat.isFile()) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('APK not found. Add public/download/Pello.apk, build the Android APK, or set PELLO_APK_PATH.');
+            return;
+        }
+
+        res.writeHead(200, {
+            'Content-Type': MIME_TYPES['.apk'],
+            'Content-Length': stat.size,
+            'Content-Disposition': `attachment; filename="${APK_DOWNLOAD_NAME}"`,
+            'Cache-Control': 'no-store'
+        });
+
+        if (req.method === 'HEAD') {
+            res.end();
+            return;
+        }
+
+        fs.createReadStream(APK_DOWNLOAD_PATH).pipe(res);
+    });
+}
+
+function serveStaticFile(req, res, pathname) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Method not allowed');
+        return;
+    }
+
+    let urlPath = pathname === '/' ? '/index.html' : pathname;
+    try {
+        urlPath = decodeURIComponent(urlPath);
+    } catch (_) {
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Bad request');
+        return;
+    }
+
+    const serveDir = process.env.NODE_ENV === 'production'
+        ? path.resolve(PROJECT_ROOT, 'dist')
+        : PROJECT_ROOT;
+    const filePath = path.resolve(serveDir, `.${urlPath}`);
+    if (filePath !== serveDir && !filePath.startsWith(serveDir + path.sep)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Forbidden');
+        return;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeType = MIME_TYPES[ext];
+    if (!mimeType) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not found');
+        return;
+    }
+
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Not found');
+            return;
+        }
+
+        res.writeHead(200, {
+            'Content-Type': `${mimeType}; charset=utf-8`,
+            'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-store'
+        });
+        if (req.method === 'HEAD') {
+            res.end();
+            return;
+        }
+        res.end(data);
+    });
+}
+
+function checkRateLimit(ws, player) {
+    const now = Date.now();
+    if (now - ws.messageWindowStart > RATE_LIMIT_WINDOW) {
+        ws.messageCount = 0;
+        ws.messageWindowStart = now;
+    }
+
+    ws.messageCount += 1;
+    if (ws.messageCount <= RATE_LIMIT_MAX) {
+        return true;
+    }
+
+    player.send({ type: 'error', message: 'Too many messages. Please wait.' });
+    return false;
+}
+
+function handleReconnect(ws, tempPlayer, message) {
+    const oldPlayer = players.get(message.playerId);
+    if (oldPlayer && oldPlayer.disconnectTimeout) {
+        clearTimeout(oldPlayer.disconnectTimeout);
+        oldPlayer.disconnectTimeout = null;
+        oldPlayer.ws = ws;
+        players.delete(tempPlayer.id);
+
+        if (message.accountId && oldPlayer.accountId !== message.accountId) {
+            try {
+                competitiveService.restoreAccount(oldPlayer, message.accountId, message.sessionToken);
+            } catch (err) {
+                competitiveLive.sendError(oldPlayer, err);
+                return oldPlayer;
+            }
+        }
+
+        const room = oldPlayer.roomId ? rooms.get(oldPlayer.roomId) : null;
+        let opponentName = 'Opponent';
+        let opponentAlive = false;
+        if (room) {
+            const opponent = room.getPlayers().find(p => p.id !== oldPlayer.id);
+            opponentName = opponent ? opponent.name : opponentName;
+            opponentAlive = Boolean(opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN);
+
+            if (room.state === 'playing' && !room.lastGameState && !opponentAlive) {
+                room.state = 'waiting';
+                room.diceRolls = {};
+                room.diceAcks = new Set();
+                room.restartRequests = new Set();
+            }
+        }
+
+        oldPlayer.send({
+            type: 'reconnect_success',
+            room: room ? room.toJSON() : null,
+            playerIndex: oldPlayer.playerIndex,
+            opponentName,
+            accountId: oldPlayer.accountId
+        });
+        competitiveLive.sendSnapshot(oldPlayer);
+
+        if (oldPlayer.roomId) {
+            broadcastToRoom(oldPlayer.roomId, {
+                type: 'opponent_reconnected',
+                playerId: oldPlayer.id
+            }, oldPlayer.id);
+        }
+
+        if (room && room.state === 'playing') {
+            if (room.lastGameState) {
+                oldPlayer.send({ type: 'full_sync', state: room.lastGameState });
+            } else if (opponentAlive) {
+                broadcastToRoom(oldPlayer.roomId, {
+                    type: 'request_sync',
+                    targetPlayerId: oldPlayer.id
+                }, oldPlayer.id);
+            }
+        }
+
+        return oldPlayer;
+    }
+
+    if (message.accountId) {
+        try {
+            competitiveService.restoreAccount(tempPlayer, message.accountId, message.sessionToken);
+        } catch (err) {
+            tempPlayer.send({
+                type: 'reconnect_failed',
+                code: err.code || 'RECONNECT_FAILED',
+                message: err.message || 'Cannot restore account'
+            });
+            competitiveLive.sendError(tempPlayer, err);
+            return tempPlayer;
+        }
+    }
+
+    tempPlayer.send({
+        type: 'reconnect_failed',
+        accountId: tempPlayer.accountId
+    });
+    competitiveLive.sendSnapshot(tempPlayer);
+    return tempPlayer;
+}
+
+function handleSocketClose(player) {
+    const room = player.roomId ? rooms.get(player.roomId) : null;
+    const shouldWaitForReconnect = Boolean((room && room.state === 'playing') || player.activeMatchId);
+    if (shouldWaitForReconnect) {
+        player.disconnectTimeout = setTimeout(() => {
+            competitiveLive.handleDisconnectTimeout(player);
+            competitiveService.unlinkPlayer(player.id);
+            handleDisconnect(player);
+            players.delete(player.id);
+        }, 60000);
+
+        if (player.roomId) {
+            broadcastToRoom(player.roomId, {
+                type: 'opponent_disconnected',
+                playerId: player.id
+            }, player.id);
+        }
+        return;
+    }
+
+    competitiveService.unlinkPlayer(player.id);
+    handleDisconnect(player);
+    players.delete(player.id);
+}
+
 function handleMessage(player, message) {
     switch (message.type) {
         case 'create_room':
             createRoom(player, message.roomName);
             break;
-
         case 'join_room':
             joinRoom(player, message.roomId);
             break;
-
         case 'leave_room':
             leaveRoom(player);
             break;
-
         case 'player_ready':
             handlePlayerReady(player);
             break;
-
         case 'cancel_ready':
             handleCancelReady(player);
             break;
-
         case 'start_game':
             handleStartGame(player);
             break;
-
         case 'dice_roll':
             handleDiceRoll(player);
             break;
-
         case 'dice_ack':
             handleDiceAck(player);
             break;
-
         case 'list_rooms':
             sendRoomList(player);
             break;
-
         case 'game_update':
             broadcastGameState(player, message.state);
             break;
-
         case 'piece_launch':
             broadcastToRoom(player.roomId, {
                 type: 'piece_launch',
@@ -465,7 +462,6 @@ function handleMessage(player, message) {
                 piece: message.piece
             }, player.id);
             break;
-
         case 'slider_sync':
             broadcastToRoom(player.roomId, {
                 type: 'slider_sync',
@@ -473,22 +469,9 @@ function handleMessage(player, message) {
                 player: message.player
             }, player.id);
             break;
-
         case 'full_sync':
-            // 收到全量同步数据，转发给重连的玩家
-            const roomObj = rooms.get(player.roomId);
-            if (roomObj) {
-                const targetId = message.targetPlayerId;
-                const targetPlayer = roomObj.getPlayers().find(p => p.id === targetId);
-                if (targetPlayer) {
-                    targetPlayer.send({
-                        type: 'full_sync',
-                        state: message.state
-                    });
-                }
-            }
+            forwardFullSync(player, message);
             break;
-
         case 'chat':
             broadcastToRoom(player.roomId, {
                 type: 'chat',
@@ -497,7 +480,6 @@ function handleMessage(player, message) {
                 text: message.text
             });
             break;
-
         case 'surrender':
             competitiveLive.handleSurrender(player);
             broadcastToRoom(player.roomId, {
@@ -505,52 +487,41 @@ function handleMessage(player, message) {
                 playerId: player.id
             }, player.id);
             break;
-
         case 'restart_request':
             handleRestartRequest(player);
             break;
-
         case 'competitive_profile':
             competitiveLive.sendSnapshot(player);
             break;
-
         case 'quick_match':
             competitiveLive.handleQuickMatch(player, message);
             break;
-
         case 'cancel_matchmaking':
             competitiveLive.handleCancelMatchmaking(player);
             break;
-
         case 'ai_match':
             competitiveLive.handleAiMatch(player, message);
             break;
-
         case 'competitive_result':
             competitiveLive.handleResult(player, message);
             break;
-
         case 'ping':
-            // 客户端心跳，回复 pong
             player.send({ type: 'pong' });
             break;
-
         default:
-            console.log('未知消息类型:', message.type, '来自:', player.name);
-            player.send({ type: 'error', message: `未知消息: ${message.type}` });
+            player.send({ type: 'error', message: `Unknown message: ${message.type}` });
     }
 }
 
-// 创建房间
 function createRoom(player, roomName) {
     if (player.roomId) {
-        player.send({ type: 'error', message: '你已经在房间中' });
+        player.send({ type: 'error', message: 'You are already in a room.' });
         return;
     }
 
     const roomId = roomIdCounter++;
     const room = new Room(roomId, player);
-    if (roomName) room.name = roomName;
+    if (roomName) room.name = String(roomName).slice(0, 40);
     rooms.set(roomId, room);
 
     player.roomId = roomId;
@@ -561,83 +532,63 @@ function createRoom(player, roomName) {
         room: room.toJSON(),
         playerIndex: 'A'
     });
-
-    console.log(`房间创建: ${room.name} (${roomId})`);
-
-    // 广播房间列表更新
     broadcastRoomListUpdate();
 }
 
-// 加入房间
 function joinRoom(player, roomId) {
     if (player.roomId) {
-        player.send({ type: 'error', message: '你已经在房间中' });
+        player.send({ type: 'error', message: 'You are already in a room.' });
         return;
     }
 
-    const room = rooms.get(roomId);
+    const numericRoomId = Number(roomId);
+    const room = rooms.get(numericRoomId);
     if (!room) {
-        player.send({ type: 'error', message: '房间不存在' });
+        player.send({ type: 'error', message: 'Room not found.' });
+        return;
+    }
+    if (room.state !== 'waiting' || !room.addPlayer(player)) {
+        player.send({ type: 'error', message: 'Room is not available.' });
         return;
     }
 
-    if (room.state !== 'waiting') {
-        player.send({ type: 'error', message: '房间已满或游戏已开始' });
-        return;
-    }
-
-    if (!room.addPlayer(player)) {
-        player.send({ type: 'error', message: '无法加入房间' });
-        return;
-    }
-
-    player.roomId = roomId;
+    player.roomId = numericRoomId;
     player.playerIndex = 'B';
 
-    // 通知加入成功
     player.send({
         type: 'room_joined',
         room: room.toJSON(),
         playerIndex: 'B'
     });
-
-    // 通知房主
-    room.host.send({
-        type: 'player_joined',
-        player: { id: player.id, name: player.name }
-    });
-
-    console.log(`玩家 ${player.name} 加入房间 ${room.name}`);
-
-    // 广播房间列表更新
+    if (room.host) {
+        room.host.send({
+            type: 'player_joined',
+            player: { id: player.id, name: player.name }
+        });
+    }
     broadcastRoomListUpdate();
 }
 
-// 离开房间
 function leaveRoom(player) {
     if (!player.roomId) return;
-
     const room = rooms.get(player.roomId);
     if (!room) return;
 
-    const wasHost = (room.host && room.host.id === player.id);
-    
-    // 通知其他玩家
+    const wasHost = Boolean(room.host && room.host.id === player.id);
     broadcastToRoom(player.roomId, {
         type: 'player_left',
         playerId: player.id,
         playerName: player.name
-    });
+    }, player.id);
 
     room.removePlayer(player.id);
     player.roomId = null;
     player.playerIndex = null;
+    player.ready = false;
 
-    // 如果房间空了，删除房间
     if (room.getPlayers().length === 0) {
         rooms.delete(room.id);
     } else if (wasHost && room.host) {
-        // 通知新房主
         room.host.send({
             type: 'host_transferred',
             room: room.toJSON(),
@@ -646,55 +597,36 @@ function leaveRoom(player) {
     }
 
     player.send({ type: 'room_left' });
-
-    // 广播房间列表更新
     broadcastRoomListUpdate();
 }
 
-// 玩家准备
 function handlePlayerReady(player) {
     if (!player.roomId) return;
-
     const room = rooms.get(player.roomId);
     if (!room) return;
 
-    // 设置玩家准备状态
     player.ready = true;
-
-    // 通知房间内其他玩家
     broadcastToRoom(player.roomId, {
         type: 'player_ready',
         playerId: player.id,
         playerIndex: player.playerIndex
     });
 
-    // 检查是否双方都准备好了，通知房主可以开始
-    if (room.host && room.guest) {
-        const hostReady = room.host.ready;
-        const guestReady = room.guest.ready;
-
-        if (hostReady && guestReady) {
-            // 通知房主可以开始游戏
-            room.host.send({
-                type: 'can_start_game',
-                roomId: room.id
-            });
-        }
+    if (room.host && room.guest && room.host.ready && room.guest.ready) {
+        room.host.send({
+            type: 'can_start_game',
+            roomId: room.id
+        });
     }
 }
 
-// 取消准备
 function handleCancelReady(player) {
     if (!player.roomId) return;
-
     const room = rooms.get(player.roomId);
     if (!room) return;
 
-    // 设置玩家未准备状态
     player.ready = false;
-    room.restartRequests = new Set(); // 取消准备时也清空重开请求
-
-    // 通知房间内其他玩家
+    room.restartRequests = new Set();
     broadcastToRoom(player.roomId, {
         type: 'cancel_ready',
         playerId: player.id,
@@ -702,128 +634,85 @@ function handleCancelReady(player) {
     });
 }
 
-// 请求重新开始游戏
 function handleRestartRequest(player) {
     if (!player.roomId) return;
     const room = rooms.get(player.roomId);
     if (!room) return;
 
-    if (!room.restartRequests) {
-        room.restartRequests = new Set();
-    }
-
+    if (!room.restartRequests) room.restartRequests = new Set();
     room.restartRequests.add(player.id);
-    console.log(`玩家 ${player.name} 请求重新开始。当前同意人数: ${room.restartRequests.size}`);
 
-    // 通知对方该玩家已请求重开
     broadcastToRoom(player.roomId, {
         type: 'opponent_restart_request',
         playerId: player.id
     }, player.id);
 
-    // 如果双方都同意
-    if (room.host && room.guest && 
-        room.restartRequests.has(room.host.id) && 
-        room.restartRequests.has(room.guest.id)) {
-        
+    if (room.host && room.guest
+        && room.restartRequests.has(room.host.id)
+        && room.restartRequests.has(room.guest.id)) {
         room.restartRequests.clear();
-        room.diceRolls = {}; // 清空骰子数据，准备开始
+        room.diceRolls = {};
         room.diceAcks = new Set();
-        console.log(`房间 ${room.id} 双方同意重新开始`);
-        
-        broadcastToRoom(player.roomId, {
-            type: 'restart_game'
-        });
-        
         room.state = 'playing';
+        broadcastToRoom(player.roomId, { type: 'restart_game' });
     }
 }
 
-// 房主开始游戏
 function handleStartGame(player) {
-    console.log('收到 start_game 消息，玩家:', player.name);
-    if (!player.roomId) {
-        console.log('玩家不在房间中');
-        return;
-    }
-
+    if (!player.roomId) return;
     const room = rooms.get(player.roomId);
-    if (!room) {
-        console.log('房间不存在');
-        return;
-    }
+    if (!room || !room.host || !room.guest) return;
 
-    console.log('房间状态:', room.state, '房主:', room.host.name, '客人:', room.guest ? room.guest.name : '无');
-
-    // 只有房主可以开始游戏
     if (room.host.id !== player.id) {
-        console.log('不是房主，无法开始游戏');
-        player.send({ type: 'error', message: '只有房主可以开始游戏' });
+        player.send({ type: 'error', message: 'Only the host can start.' });
+        return;
+    }
+    if (!room.host.ready || !room.guest.ready) {
+        player.send({ type: 'error', message: 'Both players must be ready.' });
         return;
     }
 
-    // 检查双方是否都准备好了
-    if (!room.host.ready || !room.guest || !room.guest.ready) {
-        console.log('双方未都准备，房主ready:', room.host.ready, '客ready:', room.guest ? room.guest.ready : '无');
-        player.send({ type: 'error', message: '双方都需要准备才能开始' });
-        return;
-    }
-
-    console.log('开始游戏');
-    // 开始游戏
     startGame(room);
 }
 
-// 掷骰子
 function handleDiceRoll(player) {
-    console.log(`[dice] ${player.name} 掷骰子, roomId: ${player.roomId}`);
     if (!player.roomId) return;
     const room = rooms.get(player.roomId);
     if (!room || room.state !== 'playing') return;
 
     if (!room.diceRolls) room.diceRolls = {};
-    if (room.diceRolls[player.playerIndex]) return; // 该玩家已出结果
+    if (room.diceRolls[player.playerIndex]) return;
 
-    // 为该玩家生成点数
     const roll = Math.floor(Math.random() * 6) + 1;
     room.diceRolls[player.playerIndex] = roll;
-    console.log(`[dice] ${player.name} 掷了 ${roll}`);
-
-    // 广播给所有人，该玩家已经掷了骰子，目标点数是 roll
     broadcastToRoom(room.id, {
         type: 'player_rolled',
         playerIndex: player.playerIndex,
         val: roll
     });
 
-    // 如果双方都掷了
-    if (room.diceRolls['A'] && room.diceRolls['B']) {
-        const aVal = room.diceRolls['A'];
-        const bVal = room.diceRolls['B'];
-        let first = aVal > bVal ? 'A' : bVal > aVal ? 'B' : null;
-        
+    if (room.diceRolls.A && room.diceRolls.B) {
+        const aVal = room.diceRolls.A;
+        const bVal = room.diceRolls.B;
+        const first = aVal > bVal ? 'A' : (bVal > aVal ? 'B' : null);
+
         if (!first) {
-            // 平局
             room.diceRolls = {};
-            console.log(`[dice] 平局 A=${aVal}, B=${bVal}`);
-            // 延迟发平局，确保先发player_rolled被处理
             setTimeout(() => {
                 broadcastToRoom(room.id, { type: 'dice_tie' });
             }, 100);
             return;
         }
-        
-        const results = { a: aVal, b: bVal, first };
-        console.log(`[dice] 结果: A=${aVal}, B=${bVal}, first=${first}`);
-        
-        // 延迟发结果
+
         setTimeout(() => {
-            broadcastToRoom(room.id, { type: 'dice_result', results });
+            broadcastToRoom(room.id, {
+                type: 'dice_result',
+                results: { a: aVal, b: bVal, first }
+            });
         }, 100);
     }
 }
 
-// 骰子结果确认
 function handleDiceAck(player) {
     if (!player.roomId) return;
     const room = rooms.get(player.roomId);
@@ -832,78 +721,74 @@ function handleDiceAck(player) {
     if (!room.diceAcks) room.diceAcks = new Set();
     room.diceAcks.add(player.id);
 
-    if (room.host && room.guest && 
-        room.diceAcks.has(room.host.id) && 
-        room.diceAcks.has(room.guest.id)) {
-        
+    if (room.host && room.guest
+        && room.diceAcks.has(room.host.id)
+        && room.diceAcks.has(room.guest.id)) {
         room.diceAcks.clear();
-        room.diceRolls = {}; // 清空骰子数据，准备开始
-        
-        console.log(`房间 ${room.id} 双方确认骰子结果，正式开始控制`);
+        room.diceRolls = {};
         broadcastToRoom(room.id, { type: 'game_start_sync' });
     }
 }
 
-// 开始游戏
 function startGame(room) {
     room.state = 'playing';
-    room.diceRolls = {}; 
+    room.diceRolls = {};
     room.diceAcks = new Set();
+    room.restartRequests = new Set();
 
     const roomPlayers = room.getPlayers();
-    roomPlayers.forEach(p => {
-        p.send({
+    roomPlayers.forEach(player => {
+        player.send({
             type: 'game_start',
             roomId: room.id,
-            playerIndex: p.playerIndex,
-            opponentName: p.playerIndex === 'A' ? room.guest.name : room.host.name
+            playerIndex: player.playerIndex,
+            opponentName: player.playerIndex === 'A' ? room.guest?.name : room.host?.name,
+            competitiveMatchId: room.competitiveMatchId || null
         });
     });
 }
 
-// 广播游戏状态
 function broadcastGameState(player, state) {
     if (!player.roomId) return;
-
     const room = rooms.get(player.roomId);
-    if (room) {
-        room.lastGameState = state;
-    }
+    if (room) room.lastGameState = state;
 
     broadcastToRoom(player.roomId, {
         type: 'game_state',
         playerId: player.id,
-        state: state
+        state
     }, player.id);
 }
 
-// 处理断线
+function forwardFullSync(player, message) {
+    if (!player.roomId) return;
+    const room = rooms.get(player.roomId);
+    if (!room) return;
+
+    const targetPlayer = room.getPlayers().find(p => p.id === message.targetPlayerId);
+    if (targetPlayer) {
+        targetPlayer.send({
+            type: 'full_sync',
+            state: message.state
+        });
+    }
+}
+
 function handleDisconnect(player) {
     if (player.roomId) {
         leaveRoom(player);
     }
 }
 
-// 发送房间列表
 function sendRoomList(player) {
-    const roomList = [];
-    rooms.forEach(room => {
-        roomList.push(room.toJSON());
-    });
-
     player.send({
         type: 'room_list',
-        rooms: roomList
+        rooms: [...rooms.values()].map(room => room.toJSON())
     });
 }
 
-// 广播房间列表更新
 function broadcastRoomListUpdate() {
-    const roomList = [];
-    rooms.forEach(room => {
-        roomList.push(room.toJSON());
-    });
-
+    const roomList = [...rooms.values()].map(room => room.toJSON());
     players.forEach(player => {
         if (!player.roomId) {
             player.send({
@@ -914,8 +799,8 @@ function broadcastRoomListUpdate() {
     });
 }
 
-// 广播消息到房间
 function broadcastToRoom(roomId, message, excludePlayerId = null) {
+    if (!roomId) return;
     const room = rooms.get(roomId);
     if (!room) return;
 
@@ -926,15 +811,13 @@ function broadcastToRoom(roomId, message, excludePlayerId = null) {
     });
 }
 
-// 生成唯一 ID
 function generateId() {
     return crypto.randomUUID().slice(0, 9);
 }
 
-// 启动服务器
 server.listen(PORT, HOST, () => {
-    console.log(`Ring Rush 服务器启动`);
+    console.log(`Pello server started`);
     console.log(`HTTP: http://${HOST}:${PORT}`);
     console.log(`WebSocket: ws://${HOST}:${PORT}`);
-    console.log(`访问地址: http://localhost:${PORT}`);
+    console.log(`Website: http://localhost:${PORT}`);
 });

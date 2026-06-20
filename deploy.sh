@@ -22,6 +22,8 @@ DOMAIN_NAME="${DOMAIN_NAME:-pello.xincreates.com}"
 SETUP_NGINX="${SETUP_NGINX:-0}"
 SSL_EMAIL="${SSL_EMAIL:-}"
 DATA_FILE="${PELLO_COMPETITIVE_STORE:-${SERVER_DIR}/data/competitive-state.json}"
+ADMIN_TOKEN_FILE="${PELLO_ADMIN_TOKEN_FILE:-${SERVER_DIR}/data/admin-token.txt}"
+ADMIN_TOKEN="${PELLO_ADMIN_TOKEN:-}"
 REPO_APK_PATH="${PROJECT_DIR}/public/download/Pello.apk"
 ANDROID_APK_PATH="${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk"
 APK_PATH="${PELLO_APK_PATH:-${REPO_APK_PATH}}"
@@ -183,6 +185,17 @@ export VITE_PELLO_SERVER_LOCKED="${VITE_PELLO_SERVER_LOCKED:-true}"
 npm run build
 
 mkdir -p "$(dirname "${DATA_FILE}")"
+mkdir -p "$(dirname "${ADMIN_TOKEN_FILE}")"
+
+if [ -z "${ADMIN_TOKEN}" ]; then
+  if [ -f "${ADMIN_TOKEN_FILE}" ]; then
+    ADMIN_TOKEN="$(cat "${ADMIN_TOKEN_FILE}")"
+  else
+    ADMIN_TOKEN="$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))")"
+    printf "%s" "${ADMIN_TOKEN}" > "${ADMIN_TOKEN_FILE}"
+    chmod 600 "${ADMIN_TOKEN_FILE}"
+  fi
+fi
 
 stop_previous_pello
 choose_single_port
@@ -203,6 +216,7 @@ Environment=PORT=${PORT}
 Environment=PELLO_COMPETITIVE_STORE=${DATA_FILE}
 Environment=PELLO_APK_PATH=${APK_PATH}
 Environment=PELLO_PUBLIC_URL=${PUBLIC_BASE_URL}
+Environment=PELLO_ADMIN_TOKEN=${ADMIN_TOKEN}
 ExecStart=$(command -v node) server/server.js
 Restart=on-failure
 RestartSec=5
@@ -279,6 +293,9 @@ echo "Port: ${PORT}"
 echo "Cloudflare tunnel target: http://127.0.0.1:${PORT}"
 echo "Website: ${PUBLIC_BASE_URL}/"
 echo "Game: ${PUBLIC_BASE_URL}/online.html"
+echo "Admin: ${PUBLIC_BASE_URL}/admin.html"
+echo "Admin token: ${ADMIN_TOKEN}"
+echo "Admin token file: ${ADMIN_TOKEN_FILE}"
 echo "Health: ${PUBLIC_BASE_URL}/api/competitive/health"
 echo "APK: ${PUBLIC_BASE_URL}/download/Pello.apk"
 echo "Bundled app server: ${VITE_PELLO_SERVER_URL}"

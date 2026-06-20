@@ -1160,7 +1160,6 @@ export class UI {
         const rewardText = isWinner ? `+${confirmed ? reward : match.winnerPayout}` : '+0';
         this.drawSettlementLine(ctx, panelX + 36, panelY + 142, t('entryFee'), `-${match.stake}`, '#d9480f');
         this.drawSettlementLine(ctx, panelX + 36, panelY + 172, t('winnerReward'), rewardText, isWinner ? '#16884d' : '#767d87');
-        this.drawSettlementLine(ctx, panelX + 36, panelY + 202, t('systemSink'), `${settlement?.systemSink ?? match.systemSink}`, '#767d87');
 
         if (error) {
             ctx.fillStyle = '#d9480f';

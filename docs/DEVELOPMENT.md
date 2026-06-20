@@ -6,6 +6,7 @@ Pello is being prepared for small Android internal testing. The product has thre
 
 - Public website at `/`.
 - Web game at `/online.html`.
+- User admin page at `/admin.html`.
 - Android app built with Capacitor, starting at `/online.html`.
 
 The backend is a Node HTTP/WebSocket service. In production it serves the built website, the online game, the competitive API, WebSocket messages, and the APK download route.
@@ -26,6 +27,7 @@ npm run dev
 npm run build
 npm run test:game-ai
 npm run test:competitive
+npm run test:apk-size
 ```
 
 ```powershell
@@ -41,6 +43,8 @@ npm run app-server:deploy:local
 `index.html` is the public website. It imports `src-site/site.css` and `src-site/site.js`.
 
 `online.html` is the game app. It imports `src-online/online-main.js`, which starts the online start screen and switches into real-player, AI, or local game modes.
+
+`admin.html` is a token-protected management page. It imports `src-admin/admin.js` and calls `/api/admin/*` with `X-Pello-Admin-Token`.
 
 The game keeps a fixed logical canvas size of `450x960`. HiDPI rendering only changes the backing store; game coordinates and input mapping remain in logical coordinates.
 
@@ -65,6 +69,7 @@ This prevents the APK from opening the website landing page.
 - Static `dist` hosting in production.
 - Static source hosting in development.
 - `/api/competitive/*` HTTP API.
+- `/api/admin/*` token-protected management API.
 - WebSocket room and live match messages.
 - `/download/Pello.apk` APK streaming.
 
@@ -80,7 +85,7 @@ Competitive account and match state lives in `server/src/competitive`.
 sudo bash deploy.sh
 ```
 
-The script defaults to `https://pello.xincreates.com` and preferred port `3003`. It builds the website/game with the locked server URL, stops old Pello service/processes from this project, chooses one safe Node port, and installs a systemd service.
+The script defaults to `https://pello.xincreates.com` and preferred port `3003`. It builds the website/game/admin pages with the locked server URL, stops old Pello service/processes from this project, chooses one safe Node port, generates or reuses `server/data/admin-token.txt`, and installs a systemd service.
 
 For Cloudflare Tunnel, point the tunnel to the printed local target, for example:
 
@@ -106,6 +111,7 @@ The downloadable internal-test APK is expected at `public/download/Pello.apk`; t
 - Web game loads `/online.html`.
 - `/api/competitive/health` returns `ok: true`.
 - `/download/Pello.apk` downloads the expected APK.
+- `/admin.html` accepts the printed admin token and can list users.
 - Android app starts directly in the game UI.
 
 ## Known Boundaries

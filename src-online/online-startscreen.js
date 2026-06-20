@@ -37,9 +37,15 @@ export class OnlineStartScreen {
         this.serverBaseUrl = this.network.getDisplayServerBaseUrl();
         this.handleClick = this.handleClick.bind(this);
         this.handleTouch = this.handleTouch.bind(this);
+        this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
         this.canvas.addEventListener('click', this.handleClick);
         this.canvas.addEventListener('touchstart', this.handleTouch, { passive: false });
-        this.animationTimer = setInterval(() => this.draw(), 1000 / 30);
+        this.animationFrame = null;
+        this.lastFrameAt = 0;
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        }
+        this.startRenderLoop();
     }
 
     get selectedTable() {
@@ -56,6 +62,60 @@ export class OnlineStartScreen {
 
     getCurrentTableId() {
         return (this.queueTable || this.selectedTable)?.id || TABLE_ID;
+    }
+
+    getRenderIntervalMs() {
+        if (['matchmaking', 'versus', 'practice_ai_select'].includes(this.currentScreen)) {
+            return 1000 / 20;
+        }
+        if (this.isConnecting || this.dashboardLoading || this.errorMessage) {
+            return 1000 / 12;
+        }
+        return 1000 / 6;
+    }
+
+    requestFrame(callback) {
+        if (typeof requestAnimationFrame === 'function') {
+            return requestAnimationFrame(callback);
+        }
+        return setTimeout(() => callback(Date.now()), this.getRenderIntervalMs());
+    }
+
+    cancelFrame(frameId) {
+        if (typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(frameId);
+            return;
+        }
+        clearTimeout(frameId);
+    }
+
+    startRenderLoop() {
+        if (!this.isActive || this.animationFrame) return;
+        this.animationFrame = this.requestFrame((timestamp) => this.renderTick(timestamp));
+    }
+
+    renderTick(timestamp) {
+        this.animationFrame = null;
+        if (!this.isActive) return;
+        if (typeof document !== 'undefined' && document.hidden) {
+            this.lastFrameAt = 0;
+            return;
+        }
+
+        const elapsed = this.lastFrameAt ? timestamp - this.lastFrameAt : this.getRenderIntervalMs();
+        if (!this.lastFrameAt || elapsed >= this.getRenderIntervalMs()) {
+            this.lastFrameAt = timestamp;
+            this.draw(elapsed);
+        }
+        this.startRenderLoop();
+    }
+
+    handleVisibilityChange() {
+        if (typeof document === 'undefined' || !document.hidden) {
+            this.lastFrameAt = 0;
+            this.startRenderLoop();
+            this.draw();
+        }
     }
 
     handleTouch(e) {
@@ -119,8 +179,9 @@ export class OnlineStartScreen {
         };
 
         this.network.onCompetitiveProfile = (message) => {
+            if (message.accountId && this.network.accountId && message.accountId !== this.network.accountId) return;
             this.profile = message.profile;
-            this.wallet = message.wallet;
+            this.wallet = this.network.getOwnWalletFromMessage(message) || this.network.wallet || this.wallet;
             this.tables = message.tables || [];
             this.errorMessage = null;
             this.statusMessage = t('profileUpdated');
@@ -131,7 +192,7 @@ export class OnlineStartScreen {
             this.currentScreen = 'matchmaking';
             this.queuedAt = message.queuedAt || Date.now();
             this.queueTable = message.table || this.selectedTable;
-            this.wallet = message.wallet || this.wallet;
+            this.wallet = this.network.getOwnWalletFromMessage(message) || this.network.wallet || this.wallet;
             this.statusMessage = t('findingRival');
             this.draw();
         };
@@ -139,7 +200,7 @@ export class OnlineStartScreen {
         this.network.onMatchmakingCanceled = (message) => {
             this.currentScreen = 'home';
             this.queuedAt = null;
-            this.wallet = message.wallet || this.wallet;
+            this.wallet = this.network.getOwnWalletFromMessage(message) || this.network.wallet || this.wallet;
             this.statusMessage = t('matchmakingCanceled');
             this.draw();
         };
@@ -147,14 +208,14 @@ export class OnlineStartScreen {
         this.network.onCompetitiveMatch = (message) => {
             this.gameStartMessage = message;
             this.currentScreen = 'versus';
-            this.wallet = message.wallet || this.wallet;
+            this.wallet = this.network.getOwnWalletFromMessage(message) || this.network.wallet || this.wallet;
             this.statusMessage = message.match.mode === 'ai' ? t('aiMatchReady') : t('rivalFound');
             this.draw();
             setTimeout(() => this.startCompetitiveMatch(), 900);
         };
 
         this.network.onCompetitiveSettlement = (message) => {
-            this.wallet = message.wallet || this.wallet;
+            this.wallet = this.network.getOwnWalletFromMessage(message) || this.network.wallet || this.wallet;
             this.statusMessage = message.status === 'settled' ? t('settlementConfirmed') : t('waitingResultConfirmation');
             this.draw();
         };
@@ -293,11 +354,11 @@ export class OnlineStartScreen {
         }
     }
 
-    draw() {
+    draw(deltaMs = 33) {
         if (!this.isActive) return;
         const ctx = this.ctx;
         if (this.canvas.__pelloApplyHiDpi) this.canvas.__pelloApplyHiDpi();
-        this.animPhase += 0.03;
+        this.animPhase += Math.min(0.08, Math.max(0.01, deltaMs * 0.0009));
         this.buttons = [];
         this.drawBackground(ctx);
 
@@ -435,7 +496,6 @@ export class OnlineStartScreen {
         ctx.fillStyle = '#47707c';
         ctx.fillText(t('entryCoins', { stake: table.stake }), 54, 281);
         ctx.fillText(t('winnerGetsCoins', { coins: table.winnerPayout }), 54, 311);
-        ctx.fillText(t('poolSink', { pool: table.prizePool, sink: table.systemSink }), 54, 341);
 
         this.drawPuckPreview(ctx, 348, 293);
 
@@ -507,8 +567,7 @@ export class OnlineStartScreen {
 
         this.drawSettlementPreview(ctx, left, 330, t('entryReserved'), `-${table.stake}`, '#d9480f');
         this.drawSettlementPreview(ctx, left, 378, t('winnerPayout'), `+${table.winnerPayout}`, '#16884d');
-        this.drawSettlementPreview(ctx, left, 426, t('systemSink'), `${table.systemSink}`, '#767d87');
-        this.drawSettlementPreview(ctx, left, 474, t('balanceAfterEntry'), `${afterEntry}`, '#8a5a00');
+        this.drawSettlementPreview(ctx, left, 426, t('balanceAfterEntry'), `${afterEntry}`, '#8a5a00');
 
         this.drawButton(ctx, 24, 574, 402, 68, t('confirmEntry'), '#ff8a3d', 'confirm_paid_entry');
         this.drawButton(ctx, 30, 660, 185, 56, t('cancel'), '#767d87', 'cancel_paid_entry');
@@ -820,9 +879,8 @@ export class OnlineStartScreen {
         ctx.font = '15px sans-serif';
         ctx.fillText(aiReady ? t('aiReady') : t('aiUnlocks', { seconds: aiRemaining }), CENTER_X, 516);
 
-        this.drawButton(ctx, 24, 612, 402, 64, t('keepWaiting'), '#ff8a3d', 'noop', true);
-        this.drawButton(ctx, 30, 698, 185, 58, aiReady ? t('playAiNow') : t('aiIn', { seconds: aiRemaining }), '#35b779', 'ai_match', !aiReady);
-        this.drawButton(ctx, 235, 698, 185, 58, t('cancel'), '#767d87', 'cancel_matchmaking');
+        this.drawButton(ctx, 30, 632, 185, 58, aiReady ? t('playAiNow') : t('aiIn', { seconds: aiRemaining }), '#35b779', 'ai_match', !aiReady);
+        this.drawButton(ctx, 235, 632, 185, 58, t('cancel'), '#767d87', 'cancel_matchmaking');
     }
 
     drawVersus(ctx) {
@@ -1185,7 +1243,8 @@ export class OnlineStartScreen {
             'match.stake.release': t('ledgerRelease'),
             'match.stake.consume': t('ledgerConsume'),
             'match.payout': t('ledgerPayout'),
-            'match.ai_reward': t('ledgerAiReward')
+            'match.ai_reward': t('ledgerAiReward'),
+            'match.system_sink': t('ledgerGameFee')
         };
         return labels[type] || type;
     }
@@ -1379,7 +1438,13 @@ export class OnlineStartScreen {
 
     cleanup() {
         this.isActive = false;
-        clearInterval(this.animationTimer);
+        if (this.animationFrame) {
+            this.cancelFrame(this.animationFrame);
+            this.animationFrame = null;
+        }
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+        }
         this.canvas.removeEventListener('click', this.handleClick);
         this.canvas.removeEventListener('touchstart', this.handleTouch);
     }

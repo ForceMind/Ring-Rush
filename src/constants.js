@@ -2,7 +2,7 @@
  * Ring Rush - Constants
  * 游戏全局常量定义
  */
-export const VERSION = '0.10.5';
+export const VERSION = '0.11.0';
 // ===== 画布尺寸 =====
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 900;
@@ -27,7 +27,7 @@ export const LAUNCH_ZONE_OFFSET = 25;
 export const FRICTION = 0.985;
 export const RESTITUTION = 0.8;
 export const MAX_SPEED = 22;
-export const SPEED_THRESHOLD = 0.1;
+export const SPEED_THRESHOLD = 0.16;
 export const LAUNCH_MULTIPLIER = 0.12;
 export const MAX_DRAG_DISTANCE = 250;
 export const POWER_RANDOM_RANGE = 0.10;

@@ -43,6 +43,14 @@ export class Particle {
 export class ParticleSystem {
     constructor() {
         this.particles = [];
+        this.maxParticles = 120;
+    }
+
+    addParticle(particle) {
+        this.particles.push(particle);
+        if (this.particles.length > this.maxParticles) {
+            this.particles.splice(0, this.particles.length - this.maxParticles);
+        }
     }
 
     // 碰撞火花
@@ -53,7 +61,7 @@ export class ParticleSystem {
             const angle = (Math.PI * 2 / count) * i;
             const speed = (2.2 + Math.random() * 2.8) * strength;
             const color = Math.random() > 0.5 ? color1 : color2;
-            this.particles.push(new Particle(
+            this.addParticle(new Particle(
                 x, y, color,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
@@ -69,7 +77,7 @@ export class ParticleSystem {
         for (let i = 0; i < 12; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 0.8 + Math.random() * 2.6;
-            this.particles.push(new Particle(
+            this.addParticle(new Particle(
                 x, y,
                 colors[Math.floor(Math.random() * colors.length)],
                 Math.cos(angle) * speed,
@@ -86,7 +94,7 @@ export class ParticleSystem {
         for (let i = 0; i < 50; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 3 + Math.random() * 6;
-            this.particles.push(new Particle(
+            this.addParticle(new Particle(
                 x + Math.random() * 40 - 20,
                 y + Math.random() * 40 - 20,
                 colors[Math.floor(Math.random() * colors.length)],

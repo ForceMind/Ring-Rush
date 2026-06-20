@@ -316,12 +316,45 @@ h3 {
     width: min(100%, 390px);
 }
 
-.phone-shell iframe {
+.phone-shell img {
     width: 100%;
     height: 100%;
-    border: 0;
     border-radius: 25px;
+    object-fit: cover;
+    object-position: top center;
     background: #8fe4ff;
+}
+
+.play-preview {
+    position: relative;
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.play-preview::after {
+    content: "";
+    position: absolute;
+    inset: 11px;
+    border-radius: 25px;
+    background: linear-gradient(180deg, rgba(18, 54, 66, 0), rgba(18, 54, 66, 0.28));
+    pointer-events: none;
+}
+
+.play-preview span {
+    position: absolute;
+    left: 50%;
+    bottom: 32px;
+    z-index: 1;
+    transform: translateX(-50%);
+    min-width: 132px;
+    padding: 13px 22px;
+    border-radius: 999px;
+    background: #ff7b1a;
+    color: #fffaf1;
+    text-align: center;
+    font-weight: 1000;
+    box-shadow: 0 12px 24px rgba(120, 57, 16, 0.24);
 }
 
 .live-copy {

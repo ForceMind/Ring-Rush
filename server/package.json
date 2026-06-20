@@ -1,6 +1,6 @@
 {
   "name": "pello-server",
-  "version": "0.10.5",
+  "version": "0.11.0",
   "description": "WebSocket Server for Ring Rush",
   "main": "server.js",
   "scripts": {

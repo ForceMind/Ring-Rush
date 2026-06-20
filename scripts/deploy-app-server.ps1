@@ -4,6 +4,8 @@ param(
     [string]$HostName = "0.0.0.0",
     [string]$DataFile = "",
     [string]$ApkPath = "",
+    [string]$AdminToken = "",
+    [string]$AdminTokenFile = "",
     [switch]$StartLocal,
     [switch]$SkipBuild,
     [switch]$WriteEnv,
@@ -37,6 +39,32 @@ $table = $config.tables | Select-Object -First 1
 
 if (-not $DataFile) {
     $DataFile = Join-Path $root "server\data\competitive-state.json"
+}
+
+if (-not $AdminTokenFile) {
+    $AdminTokenFile = Join-Path $root "server\data\admin-token.txt"
+}
+if (-not [System.IO.Path]::IsPathRooted($AdminTokenFile)) {
+    $AdminTokenFile = Join-Path $root $AdminTokenFile
+}
+if (-not $AdminToken) {
+    if (Test-Path -LiteralPath $AdminTokenFile) {
+        $AdminToken = (Get-Content -LiteralPath $AdminTokenFile -Raw).Trim()
+    } else {
+        $tokenBytes = New-Object byte[] 24
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        try {
+            $rng.GetBytes($tokenBytes)
+        } finally {
+            $rng.Dispose()
+        }
+        $AdminToken = ([System.BitConverter]::ToString($tokenBytes) -replace "-", "").ToLowerInvariant()
+        $tokenDir = Split-Path -Parent $AdminTokenFile
+        if ($tokenDir) {
+            New-Item -ItemType Directory -Force -Path $tokenDir | Out-Null
+        }
+        Set-Content -LiteralPath $AdminTokenFile -Value $AdminToken -Encoding ASCII
+    }
 }
 
 if (-not $ApkPath) {
@@ -107,6 +135,7 @@ if ($StartLocal) {
         $env:HOST = $HostName
         $env:PELLO_COMPETITIVE_STORE = $DataFile
         $env:PELLO_APK_PATH = $ApkPath
+        $env:PELLO_ADMIN_TOKEN = $AdminToken
 
         $serverProcess = Start-Process -FilePath $node `
             -ArgumentList "server/server.js" `
@@ -136,13 +165,14 @@ Write-Host "APP_SERVER_HTTP=$httpBase"
 Write-Host "APP_SERVER_WS=$wsBase"
 Write-Host "APP_HEALTH_URL=$healthUrl"
 Write-Host "APP_APK_URL=$httpBase/download/Pello.apk"
+Write-Host "APP_ADMIN_URL=$httpBase/admin.html"
+Write-Host "APP_ADMIN_TOKEN=$AdminToken"
+Write-Host "APP_ADMIN_TOKEN_FILE=$AdminTokenFile"
 Write-Host "APP_CURRENCY=$($config.currency)"
 Write-Host "APP_INITIAL_COINS=$($config.initialCoins)"
 Write-Host "APP_COMPETITIVE_TABLE_ID=$($table.id)"
 Write-Host "APP_COMPETITIVE_STAKE=$($table.stake)"
-Write-Host "APP_COMPETITIVE_PRIZE_POOL=$($table.prizePool)"
 Write-Host "APP_COMPETITIVE_WINNER_PAYOUT=$($table.winnerPayout)"
-Write-Host "APP_COMPETITIVE_SYSTEM_SINK=$($table.systemSink)"
 Write-Host "APP_AI_FALLBACK_TIMEOUT_MS=$($table.matchmakingTimeoutMs)"
 Write-Host "APP_AI_DAILY_REWARD_LIMIT=$($config.ai.dailyRewardLimit)"
 Write-Host ""
@@ -162,10 +192,11 @@ Write-Host "HOST=$HostName"
 Write-Host "PORT=$Port"
 Write-Host "PELLO_COMPETITIVE_STORE=$DataFile"
 Write-Host "PELLO_APK_PATH=$ApkPath"
+Write-Host "PELLO_ADMIN_TOKEN=$AdminToken"
 Write-Host ""
 Write-Host "=== START COMMAND ==="
 Write-Host "npm run build"
-Write-Host "`$env:NODE_ENV=`"production`"; `$env:PORT=`"$Port`"; `$env:HOST=`"$HostName`"; `$env:PELLO_COMPETITIVE_STORE=`"$DataFile`"; `$env:PELLO_APK_PATH=`"$ApkPath`"; npm run server:start"
+Write-Host "`$env:NODE_ENV=`"production`"; `$env:PORT=`"$Port`"; `$env:HOST=`"$HostName`"; `$env:PELLO_COMPETITIVE_STORE=`"$DataFile`"; `$env:PELLO_APK_PATH=`"$ApkPath`"; `$env:PELLO_ADMIN_TOKEN=`"$AdminToken`"; npm run server:start"
 Write-Host ""
 Write-Host "=== ANDROID APP NOTE ==="
 Write-Host "For internal-test APKs, write the Vite env above before building. For a physical Android phone, use this computer's LAN URL, not localhost."

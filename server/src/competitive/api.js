@@ -1,19 +1,19 @@
-function sendJson(res, statusCode, payload) {
+function sendJson(res, statusCode, payload, methods = 'GET, OPTIONS', headers = 'Content-Type, X-Pello-Session') {
     res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Pello-Session'
+        'Access-Control-Allow-Methods': methods,
+        'Access-Control-Allow-Headers': headers
     });
     res.end(JSON.stringify(payload));
 }
 
-function sendCorsPreflight(res) {
+function sendCorsPreflight(res, methods = 'GET, OPTIONS', headers = 'Content-Type, X-Pello-Session') {
     res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Pello-Session',
+        'Access-Control-Allow-Methods': methods,
+        'Access-Control-Allow-Headers': headers,
         'Access-Control-Max-Age': '86400'
     });
     res.end();

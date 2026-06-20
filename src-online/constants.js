@@ -1,7 +1,7 @@
 /**
  * Ring Rush - shared mobile game constants.
  */
-export const VERSION = '0.10.5';
+export const VERSION = '0.11.0';
 
 // Canvas
 export const CANVAS_WIDTH = 450;
@@ -40,7 +40,7 @@ export const BOTTOM_LAUNCH_Y = BOTTOM_LAUNCH_LANE_Y + LAUNCH_ZONE_HEIGHT / 2;
 export const FRICTION = 0.985;
 export const RESTITUTION = 0.8;
 export const MAX_SPEED = 22;
-export const SPEED_THRESHOLD = 0.1;
+export const SPEED_THRESHOLD = 0.16;
 export const LAUNCH_MULTIPLIER = 0.12;
 export const MAX_DRAG_DISTANCE = 250;
 export const POWER_RANDOM_RANGE = 0.10;

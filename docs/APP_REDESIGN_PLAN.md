@@ -7,7 +7,7 @@ Pello should become an Android-first casual competitive game:
 - Players can start a paid 1v1 match quickly.
 - Each player pays 12 coins to enter the default table.
 - The winner receives 20 coins from the 24 coin pool.
-- The server keeps the remaining 4 coins as the system sink.
+- The remaining pool difference is internal settlement data and is not shown as a player-facing fee.
 - If no player is matched in time, the player can switch to a skill-matched AI.
 - Practice AI and local 2P stay available, but they are not confused with paid coin matches.
 - The app UI is fullscreen, bilingual, readable on phones, and visually closer to a casual mobile game than a desktop prototype.
@@ -26,10 +26,11 @@ Current risks from earlier iterations:
 
 The project now also has a public website goal:
 
-- `/` is the website with game introduction, rule explanation, screenshots, live preview, APK download, and online play entry.
+- `/` is the website with game introduction, rule explanation, screenshots, static preview, APK download, and online play entry.
 - `/online.html` remains the actual web game.
+- `/admin.html` is the token-protected user management page.
 - Android starts from `/online.html` through Capacitor `server.appStartPath`.
-- The production Node service should serve the website, web game, HTTP API, WebSocket backend, and `/download/Pello.apk` from the same deployment.
+- The production Node service should serve the website, web game, admin page, HTTP API, WebSocket backend, and `/download/Pello.apk` from the same deployment.
 - Website documentation lives in `README.md`, `ARCHITECTURE.md`, `docs/DEVELOPMENT.md`, and `docs/DESIGN.md`.
 
 ## 3. Non-Negotiable Gameplay Rules
@@ -54,7 +55,7 @@ The game screen must be redesigned as one coherent mobile game view:
 - Runner/tug-of-war is styled as an in-game race/progress meter, not a debug track.
 - Surrender button is visible only when valid and not close to the aiming area.
 - Score, collision, bounce, stop, and win effects stay visible but must not obscure pieces.
-- Result panel shows win/loss, coin delta, entry fee, payout, system sink, and server confirmation.
+- Result panel shows win/loss, coin delta, entry fee, payout, and server confirmation.
 
 ## 5. Bilingual Rule
 
@@ -74,9 +75,10 @@ Backend deployment must provide:
 - HTTP base URL for REST APIs.
 - WebSocket URL for live matchmaking/game messages.
 - Health endpoint.
+- Token-protected admin endpoint and generated admin token.
 - Competitive table config.
 - Currency name.
-- Default stake, winner payout, and system sink.
+- Default stake and winner payout.
 - A copy-paste block for app setup.
 - A Vite env block for Android builds:
   - `VITE_PELLO_SERVER_URL`
@@ -156,7 +158,7 @@ This pass will not fully complete:
 - Full backend production hardening.
 - Real login beyond guest/session token.
 - Store release signing.
-- Admin review dashboard.
+- Larger audit dashboard and role-based admin accounts.
 - A full replay/anti-cheat pipeline.
 
 ## 10. Future Additions

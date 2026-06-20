@@ -121,9 +121,11 @@ function bootApp() {
 
     function startCompetitiveGame(mode, startMessage) {
         const sourceScreen = startScreen;
+        if (!sourceScreen) return;
         const network = sourceScreen.network;
 
         const msg = startMessage || sourceScreen.gameStartMessage;
+        sourceScreen.cleanup();
         startScreen = null;
 
         if (mode === 'practice_ai') {
@@ -161,10 +163,12 @@ function bootApp() {
         if (game.competitiveMatch) {
             network.onCompetitiveSettlement = (message) => {
                 if (!game) return;
+                if (message.match?.id && message.match.id !== game.competitiveMatch?.id) return;
                 game.competitiveSettlement = message;
                 game.competitiveSettlementReceivedAt = Date.now();
                 game.competitiveSettlementError = null;
-                game.competitiveWallet = message.wallet;
+                const accountId = network.accountId || game.competitiveMatch?.participants?.find(p => p.playerId === network.playerId)?.accountId;
+                game.competitiveWallet = message.settlement?.wallets?.[accountId] || message.wallet || game.competitiveWallet;
             };
 
             network.onCompetitiveError = (message) => {
@@ -177,10 +181,12 @@ function bootApp() {
                 if (!game.competitiveMatch || game._competitiveResultSubmitted) return;
                 game._competitiveResultSubmitted = true;
 
-                let winnerRef = winner;
-                if (game.competitiveMatch.mode === 'ai') {
-                    winnerRef = winner === 'A' ? 'player' : 'ai';
-                }
+                const winnerParticipant = game.competitiveMatch.participants?.find(participant => {
+                    return participant.slot === winner || participant.accountId === winner;
+                });
+                const winnerRef = game.competitiveMatch.mode === 'ai'
+                    ? (winnerParticipant?.profile?.isAi ? 'ai' : 'player')
+                    : (winnerParticipant?.accountId || winner);
 
                 network.submitCompetitiveResult(
                     game.competitiveMatch.id,
