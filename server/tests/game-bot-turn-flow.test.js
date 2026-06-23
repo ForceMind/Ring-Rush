@@ -94,7 +94,8 @@ async function main() {
     game.turnStartTime = fakeNow;
 
     const botPiece = game.getCurrentPiece();
-    const launch = game.ai.calculateLaunch(botPiece, game);
+    const launch = await game.ai.calculateLaunch(botPiece, game);
+    botPiece.x = launch.startX ?? launch.launchX ?? botPiece.x;
     botPiece.vx = launch.vx;
     botPiece.vy = launch.vy;
     botPiece.isLaunched = true;

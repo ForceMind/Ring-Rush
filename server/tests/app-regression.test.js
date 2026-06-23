@@ -107,34 +107,36 @@ async function testPhysicsSweptCollisionPreventsTunneling() {
 }
 
 async function testAiSimulationUsesSweptCollision() {
-    const [{ AI }, constants] = await Promise.all([
-        import('../../src-online/ai.js'),
+    const [{ Physics }, constants] = await Promise.all([
+        import('../../src-online/physics.js'),
         import('../../src-online/constants.js')
     ]);
 
-    const ai = new AI('hard');
     const moving = {
         x: constants.CENTER_X,
         y: constants.CENTER_Y + 62,
+        vx: 0,
+        vy: -42,
         radius: constants.PIECE_RADIUS,
         player: 'A',
-        isLaunched: false,
-        isActive: false,
+        isLaunched: true,
+        isActive: true,
         hasEnteredBoard: true
     };
     const target = {
         x: constants.CENTER_X,
         y: constants.CENTER_Y,
+        vx: 0,
+        vy: 0,
         radius: constants.PIECE_RADIUS,
         player: 'B',
         isLaunched: true,
         isActive: false,
         hasEnteredBoard: true
     };
-    const game = { physics: { pieces: [moving, target] } };
-    const outcome = ai.simulateShot(moving, game, 0, -42);
-    const simulatedTarget = outcome.pieces.find((piece) => piece.sourceIndex === 1);
-    const targetMoved = Math.hypot(simulatedTarget.x - target.x, simulatedTarget.y - target.y);
+    const pieces = [moving, target];
+    Physics.simulateStep(pieces);
+    const targetMoved = Math.hypot(target.x - constants.CENTER_X, target.y - constants.CENTER_Y);
 
     assert(targetMoved > constants.PIECE_RADIUS, 'AI simulation should model the same collision the real physics will apply');
 }

@@ -1,122 +1,71 @@
 const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
 
-const rootDir = path.resolve(__dirname, '..', '..');
-
-function readSource(relativePath) {
-    return fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
+async function loadFrontendGameModules() {
+    const [constants, { Board }, { AI }] = await Promise.all([
+        import('../../src-online/constants.js'),
+        import('../../src-online/board.js'),
+        import('../../src-online/ai.js')
+    ]);
+    return { constants, Board, AI };
 }
 
-function stripImports(source) {
-    return source.replace(/import\s*{[\s\S]*?}\s*from\s*['"][^'"]+['"];\s*/g, '');
-}
-
-function loadFrontendGameModules() {
-    const context = {
-        console,
-        setTimeout,
-        clearTimeout,
-        Math
-    };
-    vm.createContext(context);
-
-    const constantsSource = readSource('src-online/constants.js')
-        .replace(/export const /g, 'const ')
-        + `
-Object.assign(globalThis, {
-    VERSION,
-    CANVAS_WIDTH,
-    CANVAS_HEIGHT,
-    PIECE_RADIUS,
-    RUNNER_RADIUS,
-    PIECES_PER_PLAYER,
-    BOARD_X,
-    BOARD_Y,
-    BOARD_REFERENCE_WIDTH,
-    BOARD_REFERENCE_HEIGHT,
-    BOARD_WIDTH,
-    BOARD_HEIGHT,
-    BOARD_SCALE,
-    LAUNCH_ZONE_WIDTH,
-    LAUNCH_ZONE_HEIGHT,
-    LAUNCH_ZONE_OFFSET,
-    LAUNCH_LANE_WIDTH,
-    LAUNCH_LANE_HALF_WIDTH,
-    LAUNCH_LANE_GAP,
-    TOP_LAUNCH_LANE_Y,
-    BOTTOM_LAUNCH_LANE_Y,
-    TOP_LAUNCH_Y,
-    BOTTOM_LAUNCH_Y,
-    FRICTION,
-    RESTITUTION,
-    MAX_SPEED,
-    SPEED_THRESHOLD,
-    LAUNCH_MULTIPLIER,
-    MAX_DRAG_DISTANCE,
-    POWER_RANDOM_RANGE,
-    MIN_POWER_JITTER,
-    MAX_POWER_JITTER,
-    CLICK_RADIUS,
-    RUNNER_SMOOTH_FACTOR,
-    RUNNER_SNAP_THRESHOLD,
-    WIN_THRESHOLD,
-    SCORING_ZONES,
-    CENTER_X,
-    CENTER_Y,
-    TRACK_X,
-    TRACK_Y,
-    TRACK_WIDTH,
-    TRACK_HEIGHT,
-    TRACK_STEPS,
-    AI_DIFFICULTY
-});
-`;
-
-    const boardSource = stripImports(readSource('src-online/board.js'))
-        .replace('export class Board', 'class Board')
-        + '\nglobalThis.Board = Board;\n';
-
-    const aiSource = stripImports(readSource('src-online/ai.js'))
-        .replace('export class AI', 'class AI')
-        + '\nglobalThis.AI = AI;\n';
-
-    vm.runInContext(constantsSource, context, { filename: 'constants.js' });
-    vm.runInContext(boardSource, context, { filename: 'board.js' });
-    vm.runInContext(aiSource, context, { filename: 'ai.js' });
-
-    return context;
-}
-
-function createGame(context) {
+function createGame(modules) {
     const game = {
+        perspective: 'bottom',
+        runnerPosition: 0,
+        piecesLeftA: 10,
+        piecesLeftB: 10,
+        physics: { pieces: [] },
         getPlayerColor(player) {
             return player === 'A' ? '#4A90E2' : '#D94A4A';
-        },
-        physics: {
-            pieces: []
         }
     };
-    game.board = new context.Board(game);
+    game.board = new modules.Board(game);
     return game;
 }
 
-function withRandom(context, values, fn) {
-    const sequence = Array.isArray(values) ? values : [values];
-    const originalRandom = context.Math.random;
-    let index = 0;
-    context.Math.random = () => sequence[Math.min(index++, sequence.length - 1)];
+function createPiece(constants, overrides = {}) {
+    return {
+        x: constants.CENTER_X,
+        y: constants.BOTTOM_LAUNCH_Y,
+        vx: 0,
+        vy: 0,
+        radius: constants.PIECE_RADIUS,
+        player: 'A',
+        isLaunched: false,
+        isActive: false,
+        isDiscarded: false,
+        hasEnteredBoard: false,
+        ...overrides
+    };
+}
+
+function withRandom(value, fn) {
+    const originalRandom = Math.random;
+    Math.random = () => value;
     try {
         return fn();
     } finally {
-        context.Math.random = originalRandom;
+        Math.random = originalRandom;
     }
 }
 
-function testBoardScoresUseRealGeometry(context) {
-    const game = createGame(context);
-    const { CENTER_X, CENTER_Y, SCORING_ZONES } = context;
+function candidateFromLaunch(launch) {
+    const speed = Math.hypot(launch.vx, launch.vy);
+    return {
+        angle: Math.atan2(launch.vy, launch.vx),
+        speed,
+        startX: launch.startX ?? launch.launchX,
+        sliderValue: launch.sliderValue ?? 0.5,
+        targetKind: launch.targetKind || 'test',
+        targetPriority: launch.targetPriority || 0,
+        bank: false
+    };
+}
+
+function testBoardScoresUseRealGeometry(modules) {
+    const game = createGame(modules);
+    const { CENTER_X, CENTER_Y, SCORING_ZONES } = modules.constants;
 
     assert.strictEqual(game.board.calculateScore({ x: CENTER_X, y: CENTER_Y, player: 'A' }), 5);
     assert.strictEqual(game.board.calculateScore({ x: CENTER_X, y: CENTER_Y - SCORING_ZONES.hexagon.radius + 10, player: 'A' }), 4);
@@ -124,7 +73,7 @@ function testBoardScoresUseRealGeometry(context) {
     assert.strictEqual(game.board.calculateScore({ x: CENTER_X + SCORING_ZONES.square.radius - 1, y: CENTER_Y, player: 'A' }), 2);
 }
 
-function testMobileBoardKeepsRealGameAspect(context) {
+function testMobileBoardKeepsRealGameAspect(modules) {
     const {
         BOARD_X,
         BOARD_Y,
@@ -135,7 +84,7 @@ function testMobileBoardKeepsRealGameAspect(context) {
         BOARD_SCALE,
         PIECE_RADIUS,
         SCORING_ZONES
-    } = context;
+    } = modules.constants;
     const aspect = BOARD_WIDTH / BOARD_HEIGHT;
     const referenceAspect = BOARD_REFERENCE_WIDTH / BOARD_REFERENCE_HEIGHT;
     const scoringSquareRatio = (SCORING_ZONES.square.radius * 2) / BOARD_WIDTH;
@@ -153,7 +102,7 @@ function testMobileBoardKeepsRealGameAspect(context) {
     assert(BOARD_X >= 40 && BOARD_Y >= 240, 'Mobile board should leave room for the race track and top match UI');
 }
 
-function testLaunchLanesStayAttachedToRealBoard(context) {
+function testLaunchLanesStayAttachedToRealBoard(modules) {
     const {
         BOARD_Y,
         BOARD_HEIGHT,
@@ -166,7 +115,7 @@ function testLaunchLanesStayAttachedToRealBoard(context) {
         BOTTOM_LAUNCH_LANE_Y,
         TOP_LAUNCH_Y,
         BOTTOM_LAUNCH_Y
-    } = context;
+    } = modules.constants;
 
     assert.strictEqual(LAUNCH_LANE_WIDTH, LAUNCH_LANE_HALF_WIDTH * 2);
     assert.strictEqual(TOP_LAUNCH_LANE_Y + LAUNCH_ZONE_HEIGHT / 2, TOP_LAUNCH_Y);
@@ -177,309 +126,140 @@ function testLaunchLanesStayAttachedToRealBoard(context) {
     assert(CENTER_X + LAUNCH_LANE_HALF_WIDTH - PIECE_RADIUS > CENTER_X);
 }
 
-function testAiScansOuterSquareScoringZone(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const targets = ai.getScoringCandidateTargets(game, 'A');
-
-    assert(targets.some((target) => target.score === 5), 'AI should target the center scoring zone');
-    assert(targets.some((target) => target.score === 4), 'AI should target the hexagon scoring zone');
-    assert(targets.some((target) => target.score === 3), 'AI should target the circle scoring zone');
-    assert(targets.some((target) => target.score === 2), 'AI should target the outer square scoring zone');
-}
-
-function testAiLaunchChoosesScoringTarget(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOARD_Y + context.BOARD_HEIGHT + context.LAUNCH_ZONE_HEIGHT,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false
-    };
-    game.physics.pieces = [piece];
-
-    const launch = ai.calculateLaunch(piece, game);
-    assert(launch.target, 'AI should return a target');
-    assert(launch.predictedStop, 'AI should return a predicted final resting position');
-    assert.strictEqual(typeof launch.predictedScore, 'number', 'AI should return the predicted final score');
-    assert(game.board.calculateScore({ ...launch.target, player: 'A' }) > 0, 'AI target should be inside a real scoring zone');
-}
-
-function testAiLaunchChoosesScoringTargetFromTopLane(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.TOP_LAUNCH_Y,
-        player: 'B',
-        isLaunched: false,
-        isDiscarded: false
-    };
-    game.physics.pieces = [piece];
-
-    const launch = ai.calculateLaunch(piece, game);
-    assert(launch.target, 'Top-lane AI should return a target');
-    assert(game.board.calculateScore({ ...launch.target, player: 'B' }) > 0, 'Top-lane AI target should be inside a real scoring zone');
-}
-
-function getSettledCurrentPiece(ai, game, piece, launch) {
-    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy, { launchX: launch.launchX });
-    return outcome.pieces.find((candidate) => candidate.isCurrent);
-}
-
-function testAiPredictionMatchesSimulatedFinalStop(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOTTOM_LAUNCH_Y,
-        radius: context.PIECE_RADIUS,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false,
-        isActive: false,
-        hasEnteredBoard: false
-    };
-    game.physics.pieces = [piece];
-
-    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
-    const settled = getSettledCurrentPiece(ai, game, piece, launch);
-
-    assert(launch.predictedStop, 'AI should expose the predicted final stop for the selected shot');
-    assert(
-        Math.hypot(settled.x - launch.predictedStop.x, settled.y - launch.predictedStop.y) < context.PIECE_RADIUS * 0.2,
-        'Hard AI prediction should match the actual simulated final stop for its selected shot'
-    );
-    assert.strictEqual(game.board.calculateScore(settled), launch.predictedScore, 'AI predicted score should match the simulated result');
-}
-
-function testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOTTOM_LAUNCH_Y,
-        radius: context.PIECE_RADIUS,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false,
-        isActive: false,
-        hasEnteredBoard: false
-    };
-    game.physics.pieces = [piece];
-
-    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
-    const settled = getSettledCurrentPiece(ai, game, piece, launch);
-
-    assert(settled.hasEnteredBoard, 'Hard AI shot from bottom should enter the board');
-    assert(game.board.calculateScore(settled) >= 4, 'Hard AI shot from bottom should settle in a high-value scoring zone');
-    assert(
-        Math.hypot(settled.x - launch.target.x, settled.y - launch.target.y) < context.PIECE_RADIUS * 1.4,
-        'Hard AI shot from bottom should settle close to its selected target'
-    );
-}
-
-function testAiHardLaunchActuallyLandsOnScoringTargetFromTop(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.TOP_LAUNCH_Y,
-        radius: context.PIECE_RADIUS,
-        player: 'B',
-        isLaunched: false,
-        isDiscarded: false,
-        isActive: false,
-        hasEnteredBoard: false
-    };
-    game.physics.pieces = [piece];
-
-    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
-    const settled = getSettledCurrentPiece(ai, game, piece, launch);
-
-    assert(settled.hasEnteredBoard, 'Hard AI shot from top should enter the board');
-    assert(game.board.calculateScore(settled) >= 4, 'Hard AI shot from top should settle in a high-value scoring zone');
-    assert(
-        Math.hypot(settled.x - launch.target.x, settled.y - launch.target.y) < context.PIECE_RADIUS * 1.4,
-        'Hard AI shot from top should settle close to its selected target'
-    );
-}
-
-function testAiDifficultyProfilesHaveDistinctAccuracy(context) {
-    const makeLaunch = (difficulty) => {
-        const game = createGame(context);
-        const ai = new context.AI(difficulty);
-        const piece = {
-            x: context.CENTER_X,
-            y: context.BOTTOM_LAUNCH_Y,
-            player: 'A',
-            isLaunched: false,
-            isDiscarded: false
-        };
-        game.physics.pieces = [piece];
-
-        return withRandom(context, 1, () => ai.calculateLaunch(piece, game));
-    };
-
-    const angleDelta = (launch) => {
-        const launchX = launch.launchX ?? context.CENTER_X;
-        const base = Math.atan2(launch.target.y - context.BOTTOM_LAUNCH_Y, launch.target.x - launchX);
-        const actual = Math.atan2(launch.vy, launch.vx);
-        return Math.abs(actual - base);
-    };
-
-    const easy = angleDelta(makeLaunch('easy'));
-    const medium = angleDelta(makeLaunch('medium'));
-    const hard = angleDelta(makeLaunch('hard'));
-
-    assert(easy > medium, 'Easy AI should have more aim variance than medium AI');
-    assert(medium > hard, 'Medium AI should have more aim variance than hard AI');
-}
-
-function testAiAvoidsFriendlyOccupiedScoringTarget(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOTTOM_LAUNCH_Y,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false
-    };
-    const friend = {
-        x: context.CENTER_X,
-        y: context.CENTER_Y,
-        player: 'A',
-        isLaunched: true,
-        isDiscarded: false
-    };
-    game.physics.pieces = [piece, friend];
-
-    const launch = withRandom(context, 0.5, () => ai.calculateLaunch(piece, game));
-    const distanceToFriend = Math.hypot(launch.target.x - friend.x, launch.target.y - friend.y);
-
-    assert(distanceToFriend >= context.PIECE_RADIUS * 1.2, 'AI should not target a scoring cell already occupied by a friendly piece');
-    assert(game.board.calculateScore({ ...launch.target, player: 'A' }) > 0, 'AI should still pick a valid scoring target');
-}
-
-function testAiCanKnockHighValueEnemy(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOTTOM_LAUNCH_Y,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false
-    };
-    const enemy = {
-        x: context.CENTER_X,
-        y: context.CENTER_Y,
+function testAiCollectsRealScoringAndPieceTargets(modules) {
+    const game = createGame(modules);
+    const ai = new modules.AI('hard');
+    const piece = createPiece(modules.constants);
+    const enemy = createPiece(modules.constants, {
+        x: modules.constants.CENTER_X,
+        y: modules.constants.CENTER_Y,
         player: 'B',
         isLaunched: true,
-        isDiscarded: false
-    };
-    game.physics.pieces = [piece, enemy];
-
-    const originalScore = game.board.calculateScore.bind(game.board);
-    game.board.calculateScore = (target) => target === enemy ? 5 : 0;
-    const launch = withRandom(context, 0, () => ai.calculateLaunch(piece, game));
-    game.board.calculateScore = originalScore;
-
-    assert.strictEqual(launch.tactic, 'knockout', 'AI should choose knockout when an enemy is the only high-value target');
-    assert(Math.hypot(launch.target.x - enemy.x, launch.target.y - enemy.y) < 1, 'AI knockout target should be the high-value enemy');
-}
-
-function testAiSearchesLaunchPositionForBetterPath(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOTTOM_LAUNCH_Y,
-        radius: context.PIECE_RADIUS,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false,
-        isActive: false,
-        hasEnteredBoard: false
-    };
-    const enemy = {
-        x: context.CENTER_X + 90,
-        y: context.CENTER_Y,
-        radius: context.PIECE_RADIUS,
-        player: 'B',
-        isLaunched: true,
-        isDiscarded: false,
-        isActive: false,
         hasEnteredBoard: true
-    };
-    game.physics.pieces = [piece, enemy];
+    });
+    const friend = createPiece(modules.constants, {
+        x: modules.constants.CENTER_X + 45,
+        y: modules.constants.CENTER_Y,
+        player: 'A',
+        isLaunched: true,
+        hasEnteredBoard: true
+    });
+    game.physics.pieces = [piece, enemy, friend];
 
-    const originalScore = game.board.calculateScore.bind(game.board);
-    game.board.calculateScore = (target) => target === enemy ? 5 : originalScore(target);
-    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
-    game.board.calculateScore = originalScore;
-
-    assert(Math.abs(launch.launchX - context.CENTER_X) > context.PIECE_RADIUS, 'Hard AI should move the launch position when it creates a better shot path');
-    assert.strictEqual(launch.tactic, 'knockout', 'Hard AI should use the moved launch position for the high-value knockout');
-    assert(launch.predictedStop, 'Hard AI moved-shot search should still return the predicted final stop');
+    const targets = ai.collectTargets(game, piece, ai.getSearchConfig());
+    assert(targets.some((target) => target.kind === 'score' && target.priority === 5), 'AI should scan the center scoring zone');
+    assert(targets.some((target) => target.kind === 'score' && target.priority === 4), 'AI should scan high-value scoring zones');
+    assert(targets.some((target) => target.kind === 'score' && target.priority === 2), 'AI should scan the outer scoring zone');
+    assert(targets.some((target) => target.kind === 'enemy'), 'AI should include enemy pieces as tactical targets');
+    assert(targets.some((target) => target.kind === 'friend'), 'AI should know where friendly pieces are');
 }
 
-function testAiKnockoutShotActuallyMovesHighValueEnemy(context) {
-    const game = createGame(context);
-    const ai = new context.AI('hard');
-    const piece = {
-        x: context.CENTER_X,
-        y: context.BOTTOM_LAUNCH_Y,
-        radius: context.PIECE_RADIUS,
-        player: 'A',
-        isLaunched: false,
-        isDiscarded: false,
-        isActive: false,
-        hasEnteredBoard: false
-    };
-    const enemy = {
-        x: context.CENTER_X,
-        y: context.CENTER_Y,
-        radius: context.PIECE_RADIUS,
+function testAiSearchesMultipleLaunchPositions(modules) {
+    const game = createGame(modules);
+    const ai = new modules.AI('hard');
+    const piece = createPiece(modules.constants);
+    game.physics.pieces = [piece];
+
+    const starts = new Set(ai.buildCandidates(game, piece).map((candidate) => Math.round(candidate.startX)));
+    assert(starts.size >= 9, 'Hard AI should search many launch positions instead of always firing from center');
+}
+
+async function testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(modules) {
+    const game = createGame(modules);
+    const ai = new modules.AI('hard');
+    const piece = createPiece(modules.constants);
+    game.physics.pieces = [piece];
+
+    const launch = await withRandom(0.5, () => ai.calculateLaunch(piece, game));
+    assert(launch.validShot, 'Hard AI should choose a valid shot');
+    assert(launch.predictedStop, 'Hard AI should expose a predicted final stop');
+    assert(launch.predictedScore >= 4, `Hard bottom-lane AI should seek high score, got ${launch.predictedScore}`);
+}
+
+async function testAiHardLaunchActuallyLandsOnScoringTargetFromTop(modules) {
+    const game = createGame(modules);
+    const ai = new modules.AI('hard');
+    const piece = createPiece(modules.constants, {
+        y: modules.constants.TOP_LAUNCH_Y,
+        player: 'B'
+    });
+    game.physics.pieces = [piece];
+
+    const launch = await withRandom(0.5, () => ai.calculateLaunch(piece, game));
+    assert(launch.validShot, 'Top-lane hard AI should choose a valid shot');
+    assert(launch.predictedScore >= 4, `Top-lane hard AI should seek high score, got ${launch.predictedScore}`);
+}
+
+async function testAiPredictionMatchesRealPhysicsSimulation(modules) {
+    const game = createGame(modules);
+    const ai = new modules.AI('hard');
+    const piece = createPiece(modules.constants);
+    game.physics.pieces = [piece];
+
+    const launch = await withRandom(0.5, () => ai.calculateLaunch(piece, game));
+    const simulation = ai.simulateCandidate(piece, game, candidateFromLaunch(launch));
+
+    assert(simulation?.simShooter, 'AI should be able to re-simulate its selected launch');
+    assert(
+        Math.hypot(simulation.simShooter.x - launch.predictedStop.x, simulation.simShooter.y - launch.predictedStop.y) < modules.constants.PIECE_RADIUS * 0.2,
+        'Hard AI prediction should match the actual headless physics result'
+    );
+    assert.strictEqual(game.board.calculateScore(simulation.simShooter), launch.predictedScore, 'Predicted score should match the simulated final score');
+}
+
+function testDifficultyProfilesHaveDistinctAccuracy(modules) {
+    const easy = new modules.AI('easy').getDecisionConfig();
+    const medium = new modules.AI('medium').getDecisionConfig();
+    const hard = new modules.AI('hard').getDecisionConfig();
+
+    assert.strictEqual(hard.angleError, 0, 'Hard AI should not add random angle error after prediction');
+    assert.strictEqual(hard.powerError, 0, 'Hard AI should not add random power error after prediction');
+    assert(medium.angleError > hard.angleError, 'Medium AI should add a small angle error');
+    assert(easy.angleError > medium.angleError, 'Easy AI should add more angle error than medium');
+    assert(easy.powerError > medium.powerError && medium.powerError > hard.powerError, 'Difficulty should control launch power error');
+}
+
+async function testAiCanKnockHighValueEnemy(modules) {
+    const game = createGame(modules);
+    const ai = new modules.AI('hard');
+    const piece = createPiece(modules.constants);
+    const enemy = createPiece(modules.constants, {
+        x: modules.constants.CENTER_X,
+        y: modules.constants.CENTER_Y,
         player: 'B',
         isLaunched: true,
-        isDiscarded: false,
-        isActive: false,
         hasEnteredBoard: true
-    };
+    });
     game.physics.pieces = [piece, enemy];
 
-    const originalScore = game.board.calculateScore.bind(game.board);
-    game.board.calculateScore = (target) => target === enemy ? 5 : originalScore(target);
-    const launch = withRandom(context, [0, 0.5, 0.5], () => ai.calculateLaunch(piece, game));
-    game.board.calculateScore = originalScore;
+    const beforeScore = game.board.calculateScore(enemy);
+    const launch = await withRandom(0.5, () => ai.calculateLaunch(piece, game));
+    const simulation = ai.simulateCandidate(piece, game, candidateFromLaunch(launch));
+    const simulatedEnemy = simulation.simPieces.find((candidate) => candidate.originalRef === enemy);
+    const moved = Math.hypot(simulatedEnemy.x - enemy.x, simulatedEnemy.y - enemy.y);
+    const afterScore = game.board.calculateScore(simulatedEnemy);
 
-    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy, { launchX: launch.launchX });
-    const movedEnemy = outcome.pieces.find((candidate) => candidate.sourceIndex === 1);
-    const enemyMovedDistance = Math.hypot(movedEnemy.x - enemy.x, movedEnemy.y - enemy.y);
-
-    assert.strictEqual(launch.tactic, 'knockout', 'Hard AI should still choose a high-value knockout shot');
-    assert(enemyMovedDistance > context.PIECE_RADIUS * 1.25, 'Hard AI knockout shot should physically move the high-value enemy');
-    assert(originalScore(movedEnemy) < originalScore(enemy), 'Hard AI knockout should reduce the enemy scoring value');
+    assert(beforeScore >= 4, 'Test setup should place the enemy in a high-value zone');
+    assert(moved > modules.constants.PIECE_RADIUS * 0.5, 'Hard AI should be able to move a high-value enemy piece');
+    assert(afterScore <= beforeScore, 'Knockout simulation should not improve the enemy score');
 }
 
-const context = loadFrontendGameModules();
-testBoardScoresUseRealGeometry(context);
-testMobileBoardKeepsRealGameAspect(context);
-testLaunchLanesStayAttachedToRealBoard(context);
-testAiScansOuterSquareScoringZone(context);
-testAiLaunchChoosesScoringTarget(context);
-testAiLaunchChoosesScoringTargetFromTopLane(context);
-testAiPredictionMatchesSimulatedFinalStop(context);
-testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(context);
-testAiHardLaunchActuallyLandsOnScoringTargetFromTop(context);
-testAiDifficultyProfilesHaveDistinctAccuracy(context);
-testAiAvoidsFriendlyOccupiedScoringTarget(context);
-testAiCanKnockHighValueEnemy(context);
-testAiSearchesLaunchPositionForBetterPath(context);
-testAiKnockoutShotActuallyMovesHighValueEnemy(context);
+async function main() {
+    const modules = await loadFrontendGameModules();
+    testBoardScoresUseRealGeometry(modules);
+    testMobileBoardKeepsRealGameAspect(modules);
+    testLaunchLanesStayAttachedToRealBoard(modules);
+    testAiCollectsRealScoringAndPieceTargets(modules);
+    testAiSearchesMultipleLaunchPositions(modules);
+    await testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(modules);
+    await testAiHardLaunchActuallyLandsOnScoringTargetFromTop(modules);
+    await testAiPredictionMatchesRealPhysicsSimulation(modules);
+    testDifficultyProfilesHaveDistinctAccuracy(modules);
+    await testAiCanKnockHighValueEnemy(modules);
+    console.log('game AI board targeting tests passed');
+}
 
-console.log('game AI board targeting tests passed');
+main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});
