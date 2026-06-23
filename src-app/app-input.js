@@ -40,6 +40,7 @@ export class AppInput extends Input {
         if (!this.isDragging || !this.currentPiece) return;
 
         const piece = this.currentPiece;
+        const playerColor = this.game.getPlayerColor?.(piece.player || this.game.currentPlayer) || '#4a90d9';
         const px = this.game.perspective === 'top' ? this.game.tx(piece.x) : piece.x;
         const py = this.game.perspective === 'top' ? this.game.ty(piece.y) : piece.y;
         const dx = this.dragStart.x - this.mouse.x;
@@ -64,14 +65,51 @@ export class AppInput extends Input {
         ctx.lineTo(endX, endY);
         ctx.stroke();
 
-        ctx.strokeStyle = power > 0.72 ? '#ff6f54' : '#26b7ff';
+        ctx.strokeStyle = power > 0.72 ? '#ff6f54' : playerColor;
         ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.moveTo(px, py);
         ctx.lineTo(endX, endY);
         ctx.stroke();
 
-        drawAppSprite(ctx, 'aimArrow', endX - 20, endY - 20, 40, 40, { rotation: angle });
+        this.drawColoredArrow(ctx, endX, endY, angle, playerColor);
+        ctx.restore();
+    }
+
+    drawColoredArrow(ctx, x, y, angle, color) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillStyle = color;
+        ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(20, 0);
+        ctx.lineTo(-12, -13);
+        ctx.lineTo(-7, 0);
+        ctx.lineTo(-12, 13);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    drawColoredThumb(ctx, x, y, color) {
+        const gradient = ctx.createRadialGradient(x - 7, y - 9, 2, x, y, 25);
+        gradient.addColorStop(0, 'rgba(255,255,255,0.92)');
+        gradient.addColorStop(0.28, color);
+        gradient.addColorStop(1, 'rgba(20,54,66,0.34)');
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 4;
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, 23, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
         ctx.restore();
     }
 
@@ -111,12 +149,7 @@ export class AppInput extends Input {
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        if (!drawAppSprite(ctx, 'sliderThumb', hx - 28, ty - 28, 56, 56)) {
-            ctx.fillStyle = myColor;
-            ctx.beginPath();
-            ctx.arc(hx, ty, 18, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        this.drawColoredThumb(ctx, hx, ty, myColor);
 
         ctx.fillStyle = 'rgba(18,56,66,0.58)';
         ctx.font = '700 11px sans-serif';

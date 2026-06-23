@@ -1,3 +1,4 @@
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { canUseVibration, loadSettings } from './settings.js';
 
 export class AudioManager {
@@ -185,17 +186,8 @@ export class AudioManager {
         this.musicGain = null;
     }
 
-    vibrate(type) {
-        this.refreshSettings();
-        if (!canUseVibration()) return;
-        if (!this.settings.vibrationEnabled) return;
-        if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
-
-        const now = Date.now();
-        if (now - this.lastVibrateAt < 70) return;
-        this.lastVibrateAt = now;
-
-        const patterns = {
+    getHapticPattern(type) {
+        return {
             launch: [8],
             bounce: [6],
             collision: [10, 18, 8],
@@ -204,10 +196,48 @@ export class AudioManager {
             miss: [10],
             runner: [16],
             win: [28, 30, 28]
-        };
+        }[type] || [8];
+    }
 
-        try {
-            navigator.vibrate(patterns[type] || [8]);
-        } catch (_) {}
+    async playNativeHaptic(type) {
+        if (type === 'win') {
+            await Haptics.notification({ type: NotificationType.Success });
+            return;
+        }
+
+        const style = {
+            collision: ImpactStyle.Medium,
+            score: ImpactStyle.Heavy,
+            runner: ImpactStyle.Medium,
+            launch: ImpactStyle.Light,
+            bounce: ImpactStyle.Light,
+            settle: ImpactStyle.Light,
+            miss: ImpactStyle.Light
+        }[type] || ImpactStyle.Light;
+
+        await Haptics.impact({ style });
+
+        const duration = this.getHapticPattern(type).reduce((sum, item) => sum + item, 0);
+        if (duration > 24) {
+            await Haptics.vibrate({ duration: Math.min(120, duration) });
+        }
+    }
+
+    vibrate(type) {
+        this.refreshSettings();
+        if (!canUseVibration()) return;
+        if (!this.settings.vibrationEnabled) return;
+
+        const now = Date.now();
+        if (now - this.lastVibrateAt < 70) return;
+        this.lastVibrateAt = now;
+
+        this.playNativeHaptic(type).catch(() => {
+            try {
+                if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                    navigator.vibrate(this.getHapticPattern(type));
+                }
+            } catch (_) {}
+        });
     }
 }

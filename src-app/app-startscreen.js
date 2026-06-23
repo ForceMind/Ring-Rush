@@ -7,6 +7,7 @@ import { drawAppButton, drawAppEffectFrame, drawAppPanel, drawAppSprite, loadApp
 export class AppStartScreen extends OnlineStartScreen {
     constructor(canvas, onStart, network = null) {
         super(canvas, onStart, network);
+        this.matchStartDelayMs = 120;
         preloadAppAtlas();
         loadAppAtlas().then(() => {
             if (this.isActive) this.draw();
@@ -183,26 +184,29 @@ export class AppStartScreen extends OnlineStartScreen {
         const table = this.queueTable || this.selectedTable;
         const aiDelay = Math.ceil((table.matchmakingTimeoutMs || 15000) / 1000);
         const remaining = Math.max(0, aiDelay - elapsedSeconds);
+        const aiBusy = this.pendingAiMatch;
 
         this.drawTopBar(ctx);
         this.drawCard(ctx, 36, 178, 378, 388, '#fff', 'modal');
-        drawAppSprite(ctx, 'robot', CENTER_X - 76, 210 + Math.sin(this.animPhase * 4) * 5, 152, 152);
-        drawAppEffectFrame(ctx, 'scorePulse', (Date.now() % 900) / 900, CENTER_X - 90, 198, 180, 180, { alpha: 0.2 });
+        drawAppSprite(ctx, 'robot', CENTER_X - 76, 210 + (aiBusy ? 0 : Math.sin(this.animPhase * 4) * 5), 152, 152);
+        if (!aiBusy) {
+            drawAppEffectFrame(ctx, 'scorePulse', (Date.now() % 900) / 900, CENTER_X - 90, 198, 180, 180, { alpha: 0.2 });
+        }
 
         ctx.save();
         ctx.textAlign = 'center';
         ctx.fillStyle = '#123842';
         ctx.font = '900 30px sans-serif';
-        ctx.fillText(t('findingRival'), CENTER_X, 398);
+        ctx.fillText(aiBusy ? t('preparingAiMatch') : t('findingRival'), CENTER_X, 398);
         ctx.fillStyle = '#4e7780';
         ctx.font = '800 14px sans-serif';
-        ctx.fillText(t('searchingSeconds', { seconds: elapsedSeconds }), CENTER_X, 430);
-        ctx.fillText(remaining > 0 ? t('aiUnlocks', { seconds: remaining }) : t('aiReady'), CENTER_X, 460, 322);
+        ctx.fillText(aiBusy ? t('aiMatchReady') : t('searchingSeconds', { seconds: elapsedSeconds }), CENTER_X, 430);
+        ctx.fillText(aiBusy ? t('pleaseWait') : (remaining > 0 ? t('aiUnlocks', { seconds: remaining }) : t('aiReady')), CENTER_X, 460, 322);
         ctx.restore();
 
         this.drawButton(ctx, 46, 600, 358, 58, t('keepWaiting'), '#25a9e7', 'keep_waiting', true);
-        this.drawButton(ctx, 46, 676, 358, 58, remaining > 0 ? t('aiIn', { seconds: remaining }) : t('playAiNow'), '#30b976', 'ai_match', remaining > 0);
-        this.drawButton(ctx, 46, 752, 358, 54, t('cancel'), '#767d87', 'cancel_matchmaking');
+        this.drawButton(ctx, 46, 676, 358, 58, aiBusy ? t('preparingAiMatch') : (remaining > 0 ? t('aiIn', { seconds: remaining }) : t('playAiNow')), '#30b976', 'ai_match', remaining > 0 || aiBusy);
+        this.drawButton(ctx, 46, 752, 358, 54, t('cancel'), '#767d87', 'cancel_matchmaking', aiBusy);
     }
 
     drawCoinConfirm(ctx) {

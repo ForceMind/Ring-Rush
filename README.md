@@ -23,7 +23,7 @@ Capacitor is configured with `server.appStartPath=/app.html`, so the Android app
 - AI training with Easy / Medium / Hard difficulty.
 - Paid AI fallback controlled by matchmaking and player record, not by manual difficulty selection.
 - Mobile-safe UI with status bar/cutout spacing.
-- Local settings for sound, music, and vibration.
+- Local settings for sound, music, and Android native haptics.
 - Dedicated Android UI using a generated PNG sprite atlas under `public/assets/app-ui`.
 - Website landing page with gameplay explanation, screenshots, static game preview, APK download, and online play link.
 - Token-protected admin page for paginated and categorized user lookup, deletion, no-record bulk cleanup, reset, and wallet adjustment. Production hides it behind a generated random path in addition to the admin token.
@@ -70,6 +70,8 @@ Output:
 ```text
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
+
+The Android APK uses Capacitor native haptics for launch, collision, score, and win feedback. Rebuild with `npm run android:build:debug:local` after haptics or app UI changes so the native plugin syncs into the APK.
 
 ## Production Deployment
 

@@ -34,6 +34,9 @@ export class OnlineStartScreen {
         this.pendingPaidAction = null;
         this.settings = loadSettings();
         this.isActive = true;
+        this.pendingAiMatch = false;
+        this.competitiveStartTimer = null;
+        this.matchStartDelayMs = 900;
         this.serverBaseUrl = this.network.getDisplayServerBaseUrl();
         this.handleClick = this.handleClick.bind(this);
         this.handleTouch = this.handleTouch.bind(this);
@@ -206,12 +209,17 @@ export class OnlineStartScreen {
         };
 
         this.network.onCompetitiveMatch = (message) => {
+            if (!this.isActive || this.competitiveStartTimer) return;
+            this.pendingAiMatch = false;
             this.gameStartMessage = message;
             this.currentScreen = 'versus';
             this.wallet = this.network.getOwnWalletFromMessage(message) || this.network.wallet || this.wallet;
             this.statusMessage = message.match.mode === 'ai' ? t('aiMatchReady') : t('rivalFound');
             this.draw();
-            setTimeout(() => this.startCompetitiveMatch(), 900);
+            this.competitiveStartTimer = setTimeout(() => {
+                this.competitiveStartTimer = null;
+                this.startCompetitiveMatch();
+            }, this.matchStartDelayMs);
         };
 
         this.network.onCompetitiveSettlement = (message) => {
@@ -221,6 +229,7 @@ export class OnlineStartScreen {
         };
 
         this.network.onCompetitiveError = (message) => {
+            this.pendingAiMatch = false;
             this.errorMessage = message.message;
             this.statusMessage = t('actionFailed');
             this.draw();
@@ -1331,6 +1340,8 @@ export class OnlineStartScreen {
             } else if (btn.id === 'paid_ai_match') {
                 this.openPaidConfirm('paid_ai_match');
             } else if (btn.id === 'ai_match') {
+                if (this.pendingAiMatch) return;
+                this.pendingAiMatch = true;
                 this.errorMessage = null;
                 this.statusMessage = this.currentScreen === 'matchmaking' ? t('switchingToAi') : t('preparingAiMatch');
                 this.draw();
@@ -1441,6 +1452,10 @@ export class OnlineStartScreen {
         if (this.animationFrame) {
             this.cancelFrame(this.animationFrame);
             this.animationFrame = null;
+        }
+        if (this.competitiveStartTimer) {
+            clearTimeout(this.competitiveStartTimer);
+            this.competitiveStartTimer = null;
         }
         if (typeof document !== 'undefined') {
             document.removeEventListener('visibilitychange', this.handleVisibilityChange);

@@ -146,6 +146,7 @@ const dictionary = {
         confirmEntryStatus: 'Confirm entry',
         switchingToAi: 'Switching to AI...',
         preparingAiMatch: 'Preparing AI match...',
+        pleaseWait: 'Please wait...',
         joiningQueue: 'Joining queue...',
         track: 'Track',
         sideAWin: 'A wins',
@@ -731,6 +732,8 @@ Object.assign(dictionary.zh, {
     finishBottom: '下方胜',
     settlementTitle: '金币结算'
 });
+
+dictionary.zh.pleaseWait = '请稍候...';
 
 export function t(key, vars = {}) {
     const source = dictionary[locale]?.[key] ?? dictionary.en[key] ?? key;

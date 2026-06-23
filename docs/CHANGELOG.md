@@ -4,6 +4,25 @@ All notable changes are tracked here.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-06-23
+
+### Added
+
+- Added native Capacitor Haptics support for Android vibration feedback instead of relying only on WebView vibration.
+
+### Changed
+
+- Updated app and website version to `0.12.1`.
+- Shortened the Android AI fallback transition and locked the "Play AI now" action while the AI match is being created to prevent repeated start-screen redraws.
+
+### Fixed
+
+- Fixed Android AI fallback screen flicker after tapping "Play AI now".
+- Fixed Android red-side aiming and slider controls still drawing blue arrow/thumb feedback.
+- Fixed Android haptics not firing on devices where `navigator.vibrate` is unavailable or ignored.
+
+## [0.12.0] - 2026-06-23
+
 ### Added
 
 - Added a dedicated Android app entry at `/app.html`, backed by `src-app`.

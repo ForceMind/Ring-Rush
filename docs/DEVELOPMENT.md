@@ -65,6 +65,8 @@ The game keeps a fixed logical canvas size of `450x960`. HiDPI rendering only ch
 
 This prevents the APK from opening the website landing page or the browser-oriented online game UI.
 
+Android vibration uses the Capacitor `@capacitor/haptics` native plugin. Web builds do not show vibration controls; the app triggers native haptics for launches, collisions, scoring, and wins when the vibration setting is enabled.
+
 ### App UI assets
 
 The Android app uses a generated PNG sprite atlas:
