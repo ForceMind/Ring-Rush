@@ -225,7 +225,7 @@ function testAiLaunchChoosesScoringTargetFromTopLane(context) {
 }
 
 function getSettledCurrentPiece(ai, game, piece, launch) {
-    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy);
+    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy, { launchX: launch.launchX });
     return outcome.pieces.find((candidate) => candidate.isCurrent);
 }
 
@@ -324,7 +324,8 @@ function testAiDifficultyProfilesHaveDistinctAccuracy(context) {
     };
 
     const angleDelta = (launch) => {
-        const base = Math.atan2(launch.target.y - context.BOTTOM_LAUNCH_Y, launch.target.x - context.CENTER_X);
+        const launchX = launch.launchX ?? context.CENTER_X;
+        const base = Math.atan2(launch.target.y - context.BOTTOM_LAUNCH_Y, launch.target.x - launchX);
         const actual = Math.atan2(launch.vy, launch.vx);
         return Math.abs(actual - base);
     };
@@ -391,6 +392,41 @@ function testAiCanKnockHighValueEnemy(context) {
     assert(Math.hypot(launch.target.x - enemy.x, launch.target.y - enemy.y) < 1, 'AI knockout target should be the high-value enemy');
 }
 
+function testAiSearchesLaunchPositionForBetterPath(context) {
+    const game = createGame(context);
+    const ai = new context.AI('hard');
+    const piece = {
+        x: context.CENTER_X,
+        y: context.BOTTOM_LAUNCH_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'A',
+        isLaunched: false,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: false
+    };
+    const enemy = {
+        x: context.CENTER_X + 90,
+        y: context.CENTER_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'B',
+        isLaunched: true,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: true
+    };
+    game.physics.pieces = [piece, enemy];
+
+    const originalScore = game.board.calculateScore.bind(game.board);
+    game.board.calculateScore = (target) => target === enemy ? 5 : originalScore(target);
+    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
+    game.board.calculateScore = originalScore;
+
+    assert(Math.abs(launch.launchX - context.CENTER_X) > context.PIECE_RADIUS, 'Hard AI should move the launch position when it creates a better shot path');
+    assert.strictEqual(launch.tactic, 'knockout', 'Hard AI should use the moved launch position for the high-value knockout');
+    assert(launch.predictedStop, 'Hard AI moved-shot search should still return the predicted final stop');
+}
+
 function testAiKnockoutShotActuallyMovesHighValueEnemy(context) {
     const game = createGame(context);
     const ai = new context.AI('hard');
@@ -421,7 +457,7 @@ function testAiKnockoutShotActuallyMovesHighValueEnemy(context) {
     const launch = withRandom(context, [0, 0.5, 0.5], () => ai.calculateLaunch(piece, game));
     game.board.calculateScore = originalScore;
 
-    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy);
+    const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy, { launchX: launch.launchX });
     const movedEnemy = outcome.pieces.find((candidate) => candidate.sourceIndex === 1);
     const enemyMovedDistance = Math.hypot(movedEnemy.x - enemy.x, movedEnemy.y - enemy.y);
 
@@ -443,6 +479,7 @@ testAiHardLaunchActuallyLandsOnScoringTargetFromTop(context);
 testAiDifficultyProfilesHaveDistinctAccuracy(context);
 testAiAvoidsFriendlyOccupiedScoringTarget(context);
 testAiCanKnockHighValueEnemy(context);
+testAiSearchesLaunchPositionForBetterPath(context);
 testAiKnockoutShotActuallyMovesHighValueEnemy(context);
 
 console.log('game AI board targeting tests passed');

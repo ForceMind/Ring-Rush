@@ -7,6 +7,7 @@ import {
     CENTER_X,
     CENTER_Y,
     FRICTION,
+    LAUNCH_LANE_HALF_WIDTH,
     MAX_SPEED,
     PIECE_RADIUS,
     RESTITUTION,
@@ -66,16 +67,6 @@ export class AI {
             const score = game.board.calculateScore(enemy);
             if (score < 3) continue;
 
-            const clear = this.checkPathClear(
-                piece.x,
-                piece.y,
-                enemy.x,
-                enemy.y,
-                [...friends, ...neutral],
-                PIECE_RADIUS * 2.4
-            );
-            if (!clear) continue;
-
             if (Math.random() < this.config.accuracy) {
                 plans.push({
                     target: { x: enemy.x, y: enemy.y },
@@ -89,9 +80,6 @@ export class AI {
         for (const target of candidateTargets) {
             const isOccupied = avoidPieces.some((p) => Math.sqrt((p.x - target.x) ** 2 + (p.y - target.y) ** 2) < PIECE_RADIUS * 1.2);
             if (isOccupied) continue;
-
-            const clear = this.checkPathClear(piece.x, piece.y, target.x, target.y, avoidPieces, PIECE_RADIUS * 3);
-            if (!clear) continue;
 
             plans.push({
                 target,
@@ -159,7 +147,7 @@ export class AI {
         const sortedPlans = plans
             .filter((plan) => plan && plan.target)
             .sort((a, b) => b.baseValue - a.baseValue);
-        const limit = this.difficulty === 'hard' ? 28 : this.difficulty === 'medium' ? 16 : 9;
+        const limit = this.difficulty === 'hard' ? 16 : this.difficulty === 'medium' ? 10 : 6;
         const evaluated = [];
 
         for (const plan of sortedPlans.slice(0, limit)) {
@@ -177,7 +165,7 @@ export class AI {
                 },
                 tactic: 'occupy'
             };
-            const fallbackLaunch = this.createLaunchVector(piece, fallbackPlan.target, fallbackPlan.tactic);
+            const fallbackLaunch = this.createLaunchVector(piece, fallbackPlan.target, fallbackPlan.tactic, piece.x);
             return this.evaluateLaunch(piece, game, fallbackPlan, fallbackLaunch);
         }
 
@@ -197,44 +185,64 @@ export class AI {
     }
 
     generateLaunchCandidates(piece, plan) {
-        const base = this.createLaunchVector(piece, plan.target, plan.tactic);
+        const launchPositions = this.getLaunchPositionCandidates(piece, plan.target);
         const angleOffsets = this.difficulty === 'hard'
-            ? [0, -0.035, 0.035, -0.07, 0.07]
+            ? [0, -0.032, 0.032]
             : this.difficulty === 'medium'
                 ? [0, -0.055, 0.055]
                 : [0, -0.085, 0.085];
         const speedScales = this.difficulty === 'hard'
-            ? [0.86, 0.94, 1, 1.06, 1.14]
+            ? [0.92, 1, 1.1]
             : this.difficulty === 'medium'
                 ? [0.92, 1, 1.1]
                 : [0.94, 1.08];
         const candidates = [];
         const seen = new Set();
 
-        for (const angleOffset of angleOffsets) {
-            for (const speedScale of speedScales) {
-                const angle = base.baseAngle + angleOffset;
-                const speed = Math.min(MAX_SPEED, Math.max(0.5, base.requiredSpeed * speedScale));
-                const key = `${Math.round(angle * 1000)}:${Math.round(speed * 100)}`;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                candidates.push({
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    baseAngle: angle,
-                    requiredSpeed: speed,
-                    tactic: plan.tactic,
-                    target: plan.target
-                });
+        for (const launchX of launchPositions) {
+            const base = this.createLaunchVector(piece, plan.target, plan.tactic, launchX);
+            for (const angleOffset of angleOffsets) {
+                for (const speedScale of speedScales) {
+                    const angle = base.baseAngle + angleOffset;
+                    const speed = Math.min(MAX_SPEED, Math.max(0.5, base.requiredSpeed * speedScale));
+                    const key = `${Math.round(launchX)}:${Math.round(angle * 1000)}:${Math.round(speed * 100)}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    candidates.push({
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        baseAngle: angle,
+                        requiredSpeed: speed,
+                        launchX,
+                        tactic: plan.tactic,
+                        target: plan.target
+                    });
+                }
             }
         }
 
         return candidates;
     }
 
+    getLaunchPositionCandidates(piece, target) {
+        const radius = piece.radius || PIECE_RADIUS;
+        const minX = CENTER_X - LAUNCH_LANE_HALF_WIDTH + radius;
+        const maxX = CENTER_X + LAUNCH_LANE_HALF_WIDTH - radius;
+        const clamp = (x) => Math.max(minX, Math.min(maxX, x));
+        const count = this.difficulty === 'hard' ? 7 : this.difficulty === 'medium' ? 5 : 3;
+        const candidates = [clamp(piece.x), clamp(CENTER_X), clamp(target.x)];
+
+        for (let i = 0; i < count; i++) {
+            const t = count === 1 ? 0.5 : i / (count - 1);
+            candidates.push(minX + (maxX - minX) * t);
+        }
+
+        return [...new Set(candidates.map((x) => Math.round(clamp(x) * 100) / 100))];
+    }
+
     evaluateLaunch(piece, game, plan, launch) {
         const before = this.scoreSimulationPieces(game.physics.pieces, game);
-        const outcome = this.simulateShot(piece, game, launch.vx, launch.vy);
+        const outcome = this.simulateShot(piece, game, launch.vx, launch.vy, { launchX: launch.launchX });
         const after = this.scoreSimulationPieces(outcome.pieces, game);
         const current = outcome.pieces.find((p) => p.isCurrent);
 
@@ -311,6 +319,7 @@ export class AI {
         return {
             vx: Math.cos(actualAngle) * actualSpeed,
             vy: Math.sin(actualAngle) * actualSpeed,
+            launchX: launch.launchX,
             tactic: launch.tactic,
             target: launch.target,
             predictedStop: launch.predictedStop,
@@ -320,8 +329,8 @@ export class AI {
         };
     }
 
-    createLaunchVector(piece, target, tactic) {
-        const dx = target.x - piece.x;
+    createLaunchVector(piece, target, tactic, launchX = piece.x) {
+        const dx = target.x - launchX;
         const dy = target.y - piece.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const baseAngle = Math.atan2(dy, dx);
@@ -332,13 +341,14 @@ export class AI {
             vx: Math.cos(baseAngle) * requiredSpeed,
             vy: Math.sin(baseAngle) * requiredSpeed,
             baseAngle,
-            requiredSpeed
+            requiredSpeed,
+            launchX
         };
     }
 
-    simulateShot(sourcePiece, game, vx, vy) {
+    simulateShot(sourcePiece, game, vx, vy, options = {}) {
         const pieces = game.physics.pieces.map((piece, index) => ({
-            x: piece.x,
+            x: piece === sourcePiece && options.launchX !== undefined ? options.launchX : piece.x,
             y: piece.y,
             vx: piece === sourcePiece ? vx : (piece.vx || 0),
             vy: piece === sourcePiece ? vy : (piece.vy || 0),
@@ -594,6 +604,9 @@ export class AI {
         }
 
         const launch = this.calculateLaunch(piece, game);
+        if (launch.launchX !== undefined) {
+            piece.x = launch.launchX;
+        }
         piece.vx = launch.vx;
         piece.vy = launch.vy;
         piece.isLaunched = true;
