@@ -116,8 +116,11 @@ function bootApp() {
         startScreen = null;
 
         if (mode === 'practice_ai') {
+            const difficulty = ['easy', 'medium', 'hard'].includes(startMessage?.difficulty)
+                ? startMessage.difficulty
+                : 'medium';
             game = new AppBotGame(canvas);
-            game.init(startMessage?.difficulty || 'medium');
+            game.init(difficulty);
         } else if (mode === 'practice_local') {
             game = new AppLocalGame(canvas);
             game.init();

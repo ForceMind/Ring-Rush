@@ -185,6 +185,47 @@ function Add-Sprite {
     & $Draw $script:g $X $Y $W $H
 }
 
+function Add-ImageSprite {
+    param([string]$Name, [int]$X, [int]$Y, [int]$W, [int]$H, [string]$Path, [float]$Radius = 0)
+    $entry = [ordered]@{ x = $X; y = $Y; w = $W; h = $H }
+    $script:frames[$Name] = $entry
+    if (!(Test-Path -LiteralPath $Path)) { return }
+
+    $image = [System.Drawing.Image]::FromFile($Path)
+    $srcRatio = $image.Width / $image.Height
+    $dstRatio = $W / $H
+    if ($srcRatio -gt $dstRatio) {
+        $srcH = $image.Height
+        $srcW = [int]($srcH * $dstRatio)
+        $srcX = [int](($image.Width - $srcW) / 2)
+        $srcY = 0
+    } else {
+        $srcW = $image.Width
+        $srcH = [int]($srcW / $dstRatio)
+        $srcX = 0
+        $srcY = [int](($image.Height - $srcH) / 2)
+    }
+
+    $state = $null
+    $clipPath = $null
+    if ($Radius -gt 0) {
+        $state = $script:g.Save()
+        $clipPath = New-RoundPath $X $Y $W $H $Radius
+        $script:g.SetClip($clipPath)
+    }
+    $script:g.DrawImage(
+        $image,
+        [System.Drawing.Rectangle]::new($X, $Y, $W, $H),
+        [System.Drawing.Rectangle]::new($srcX, $srcY, $srcW, $srcH),
+        [System.Drawing.GraphicsUnit]::Pixel
+    )
+    if ($state) {
+        $script:g.Restore($state)
+        $clipPath.Dispose()
+    }
+    $image.Dispose()
+}
+
 $outDir = Join-Path $Root 'public\assets\app-ui'
 $mockDir = Join-Path $Root 'design\app-ui\mockups'
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
@@ -227,6 +268,8 @@ Add-Sprite 'buttonBlue' 680 1000 330 76 { param($g,$x,$y,$w,$h) Draw-ButtonSprit
 Add-Sprite 'buttonPurple' 1020 1000 330 76 { param($g,$x,$y,$w,$h) Draw-ButtonSprite $g $x $y $w $h '#9b82ff' '#6653c8' } @{ left=38; top=30; right=38; bottom=30 }
 Add-Sprite 'buttonGray' 1360 1000 330 76 { param($g,$x,$y,$w,$h) Draw-ButtonSprite $g $x $y $w $h '#90a0a8' '#5c6870' } @{ left=38; top=30; right=38; bottom=30 }
 Add-Sprite 'buttonRed' 1700 1000 330 76 { param($g,$x,$y,$w,$h) Draw-ButtonSprite $g $x $y $w $h '#ff817b' '#d9423f' } @{ left=38; top=30; right=38; bottom=30 }
+$homeHeroSource = Join-Path $Root 'design\app-ui\source\home-hero.png'
+Add-ImageSprite 'homeHero' 0 1120 390 226 $homeHeroSource 28
 Add-Sprite 'boardSkin' 480 120 356 396 { param($g,$x,$y,$w,$h) Draw-BoardSkin $g $x $y $w $h }
 Add-Sprite 'coin' 480 550 96 96 { param($g,$x,$y,$w,$h) Draw-Coin $g $x $y $w }
 Add-Sprite 'puckBlue' 600 550 76 76 { param($g,$x,$y,$w,$h) Draw-Puck $g $x $y $w '#64cfff' '#2377d4' }

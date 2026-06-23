@@ -65,11 +65,13 @@ export class AppStartScreen extends OnlineStartScreen {
         ctx.fillText(t('homeSubtitle'), CENTER_X, 162, CANVAS_WIDTH - 56);
         ctx.restore();
 
-        this.drawCard(ctx, 30, 190, 390, 226, '#fff', 'modal');
-        drawAppSprite(ctx, 'boardSkin', 76, 216, 180, 200);
-        drawAppSprite(ctx, 'puckBlue', 260, 254, 58, 58);
-        drawAppSprite(ctx, 'puckRed', 308, 306, 58, 58);
-        drawAppSprite(ctx, 'coin', 324, 230, 52, 52);
+        if (!drawAppSprite(ctx, 'homeHero', 30, 190, 390, 226)) {
+            this.drawCard(ctx, 30, 190, 390, 226, '#fff', 'modal');
+            drawAppSprite(ctx, 'boardSkin', 76, 216, 180, 200);
+            drawAppSprite(ctx, 'puckBlue', 260, 254, 58, 58);
+            drawAppSprite(ctx, 'puckRed', 308, 306, 58, 58);
+            drawAppSprite(ctx, 'coin', 324, 230, 52, 52);
+        }
 
         ctx.save();
         ctx.textAlign = 'left';
@@ -285,10 +287,43 @@ export class AppStartScreen extends OnlineStartScreen {
         return 'buttonPrimary';
     }
 
+    getClickedButton(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / rect.width;
+        const scaleY = CANVAS_HEIGHT / rect.height;
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
+        return this.buttons.find((btn) => {
+            return !btn.disabled
+                && mouseX >= btn.x
+                && mouseX <= btn.x + btn.w
+                && mouseY >= btn.y
+                && mouseY <= btn.y + btn.h;
+        }) || null;
+    }
+
+    startPracticeAi(difficulty) {
+        const normalized = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium';
+        const cb = this.onStart;
+        this.onStart = null;
+        this.cleanup();
+        if (cb) cb('practice_ai', { difficulty: normalized });
+    }
+
     async handleClick(e) {
+        const clicked = this.getClickedButton(e);
+        if (clicked?.id?.startsWith('practice_ai_')) {
+            this.startPracticeAi(clicked.id.replace('practice_ai_', ''));
+            return;
+        }
+
         const before = { ...this.settings };
         await super.handleClick(e);
-        if (before.musicEnabled !== this.settings.musicEnabled || before.audioEnabled !== this.settings.audioEnabled || before.vibrationEnabled !== this.settings.vibrationEnabled) {
+        if (this.settings && (
+            before.musicEnabled !== this.settings.musicEnabled
+            || before.audioEnabled !== this.settings.audioEnabled
+            || before.vibrationEnabled !== this.settings.vibrationEnabled
+        )) {
             this.settings = updateSetting('musicEnabled', this.settings.musicEnabled);
             this.settings = loadSettings();
         }
@@ -296,7 +331,10 @@ export class AppStartScreen extends OnlineStartScreen {
 
     formatTableLabel(table = this.selectedTable) {
         const label = table.label || 'Bronze 1v1';
-        if (locale === 'zh' && (table.id === 'bronze_12' || /^bronze\b/i.test(label))) return '青铜 1v1';
+        if (table.id === 'bronze_12' || /^bronze\b/i.test(label)) {
+            return locale === 'zh' ? '青铜场' : 'Bronze Arena';
+        }
         return label;
     }
 }
+

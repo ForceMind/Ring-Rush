@@ -141,10 +141,39 @@ async function testAiSimulationUsesSweptCollision() {
     assert(targetMoved > constants.PIECE_RADIUS, 'AI simulation should model the same collision the real physics will apply');
 }
 
+async function testAppPracticeMediumButtonStartsMediumAi() {
+    const { AppStartScreen } = await import('../../src-app/app-startscreen.js');
+    let started = null;
+    const screen = Object.create(AppStartScreen.prototype);
+    screen.canvas = {
+        getBoundingClientRect() {
+            return { left: 0, top: 0, width: 450, height: 960 };
+        },
+        removeEventListener() {}
+    };
+    screen.buttons = [{ x: 66, y: 512, w: 318, h: 56, id: 'practice_ai_medium', disabled: false }];
+    screen.settings = { audioEnabled: true, musicEnabled: true, vibrationEnabled: true };
+    screen.cleanup = function cleanup() {
+        this.cleaned = true;
+    };
+    screen.onStart = (mode, payload) => {
+        started = { mode, payload };
+    };
+
+    await screen.handleClick({ clientX: 225, clientY: 540 });
+
+    assert.strictEqual(screen.cleaned, true, 'Practice AI click should clean up the start screen');
+    assert.deepStrictEqual(started, {
+        mode: 'practice_ai',
+        payload: { difficulty: 'medium' }
+    }, 'Medium practice AI button should start a medium AI game');
+}
+
 async function main() {
     await testAppAimLineUsesSlingshotDirection();
     await testPhysicsSweptCollisionPreventsTunneling();
     await testAiSimulationUsesSweptCollision();
+    await testAppPracticeMediumButtonStartsMediumAi();
     console.log('app regression tests passed');
 }
 
