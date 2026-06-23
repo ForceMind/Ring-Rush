@@ -1,4 +1,5 @@
 import {
+    CANVAS_HEIGHT,
     CANVAS_WIDTH,
     CENTER_X,
     MAX_DRAG_DISTANCE
@@ -8,6 +9,33 @@ import { t } from '../src-online/i18n.js';
 import { drawAppPanel, drawAppSprite } from './app-assets.js';
 
 export class AppInput extends Input {
+    isAppUiButtonHit(mouseX, mouseY) {
+        const buttons = [
+            this.game.surrenderBtn,
+            this.game.restartBtn,
+            this.game.exitBtn
+        ].filter(Boolean);
+        return buttons.some((btn) => {
+            return mouseX >= btn.x
+                && mouseX <= btn.x + btn.w
+                && mouseY >= btn.y
+                && mouseY <= btn.y + btn.h;
+        });
+    }
+
+    handleMouseDown(e) {
+        const rect = this.game.canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+        const mouseY = (e.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+        if (this.isAppUiButtonHit(mouseX, mouseY)) {
+            this.isDragging = false;
+            this.sliderDragging = false;
+            this.currentPiece = null;
+            return;
+        }
+        super.handleMouseDown(e);
+    }
+
     drawAimingLine(ctx) {
         if (!this.isDragging || !this.currentPiece) return;
 
@@ -59,7 +87,8 @@ export class AppInput extends Input {
         const ty = metrics.y;
         const tw = metrics.w;
         const hx = tx + this.sliderValue * tw;
-        const myColor = this.game.getPlayerColor(this.game.currentPlayer);
+        const piecePlayer = currentPiece.player || this.game.currentPlayer;
+        const myColor = this.game.getPlayerColor(piecePlayer);
 
         ctx.save();
         ctx.textAlign = 'center';

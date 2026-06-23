@@ -169,11 +169,87 @@ async function testAppPracticeMediumButtonStartsMediumAi() {
     }, 'Medium practice AI button should start a medium AI game');
 }
 
+async function testAppInputDoesNotStartDragOnUiButtons() {
+    const { AppInput } = await import('../../src-app/app-input.js');
+    let superPathTouched = false;
+    const input = new AppInput({
+        canvas: {
+            getBoundingClientRect() {
+                return { left: 0, top: 0, width: 450, height: 960 };
+            }
+        },
+        surrenderBtn: { x: 346, y: 190, w: 86, h: 36 },
+        restartBtn: null,
+        exitBtn: null,
+        gameOver: false,
+        isAnimating: false,
+        isBotTurn: () => false,
+        opponentTemporarilyDisconnected: false,
+        audio: { resume() { superPathTouched = true; } },
+        dice: { phase: false },
+        isOnlineGame: () => false
+    });
+
+    input.isDragging = true;
+    input.sliderDragging = true;
+    input.currentPiece = { player: 'A' };
+    input.handleMouseDown({ clientX: 370, clientY: 205 });
+
+    assert.strictEqual(superPathTouched, false, 'APP UI button taps should not fall through into board input');
+    assert.strictEqual(input.isDragging, false);
+    assert.strictEqual(input.sliderDragging, false);
+    assert.strictEqual(input.currentPiece, null);
+}
+
+async function testSurrenderModalMountsInAppContainer() {
+    const { ModalManager } = await import('../../src-online/modals.js');
+    const previousDocument = globalThis.document;
+    const buttons = {
+        btnSurrenderNo: {},
+        btnSurrenderYes: {}
+    };
+    const appContainer = {
+        children: [],
+        appendChild(child) {
+            this.children.push(child);
+        }
+    };
+    const modal = { id: '', innerHTML: '', style: {} };
+
+    globalThis.document = {
+        getElementById(id) {
+            if (id === 'gameContainer') return null;
+            if (id === 'appGameContainer') return appContainer;
+            if (id === 'ringRushSurrenderModal') return null;
+            return buttons[id] || null;
+        },
+        createElement() {
+            return modal;
+        },
+        body: {
+            appendChild() {
+                throw new Error('APP modal should prefer appGameContainer');
+            }
+        }
+    };
+
+    try {
+        const manager = new ModalManager({ surrender() {} });
+        manager.showSurrenderConfirm();
+        assert.strictEqual(appContainer.children[0], modal, 'Surrender modal should mount inside the APP container');
+        assert.strictEqual(typeof buttons.btnSurrenderYes.onclick, 'function');
+    } finally {
+        globalThis.document = previousDocument;
+    }
+}
+
 async function main() {
     await testAppAimLineUsesSlingshotDirection();
     await testPhysicsSweptCollisionPreventsTunneling();
     await testAiSimulationUsesSweptCollision();
     await testAppPracticeMediumButtonStartsMediumAi();
+    await testAppInputDoesNotStartDragOnUiButtons();
+    await testSurrenderModalMountsInAppContainer();
     console.log('app regression tests passed');
 }
 

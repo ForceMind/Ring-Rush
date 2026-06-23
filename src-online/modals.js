@@ -83,7 +83,10 @@ export class ModalManager {
                     </div>
                 </div>
             `;
-            document.getElementById('gameContainer').appendChild(modal);
+            const container = document.getElementById('gameContainer')
+                || document.getElementById('appGameContainer')
+                || document.body;
+            container.appendChild(modal);
 
             document.getElementById('btnSurrenderNo').onclick = () => {
                 modal.style.display = 'none';

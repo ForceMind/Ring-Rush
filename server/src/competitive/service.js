@@ -850,6 +850,18 @@ class CompetitiveService {
 
         const existingActiveMatch = this.findActiveMatchByAccount(accountId);
         if (existingActiveMatch) {
+            if (existingActiveMatch.mode === 'ai') {
+                const participant = existingActiveMatch.participants.find(item => item.accountId === accountId);
+                if (participant) participant.playerId = player.id;
+                player.activeMatchId = existingActiveMatch.id;
+                this.persist();
+                return {
+                    status: 'matched',
+                    resumed: true,
+                    table: clone(existingActiveMatch.table),
+                    match: this.publicMatch(existingActiveMatch)
+                };
+            }
             throw this.error('MATCH_ALREADY_ACTIVE', 'A match is already active');
         }
 

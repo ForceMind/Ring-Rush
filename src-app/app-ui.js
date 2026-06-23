@@ -248,8 +248,8 @@ export class AppUI extends UI {
         ctx.save();
         ctx.fillStyle = 'rgba(10, 28, 36, 0.75)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        const panelY = this.game.competitiveMatch ? 178 : 202;
-        const panelH = this.game.competitiveMatch ? 270 : 338;
+        const panelY = this.game.competitiveMatch ? 156 : 190;
+        const panelH = this.game.competitiveMatch ? 610 : 386;
         this.drawSoftPanel(ctx, 38, panelY, CANVAS_WIDTH - 76, panelH, 28, this.palette.panelStrong, 'modal');
         drawAppSprite(ctx, isWinner ? 'badgeWin' : 'badgeLose', CENTER_X - 48, panelY + 22, 96, 96);
         ctx.textAlign = 'center';
@@ -273,7 +273,7 @@ export class AppUI extends UI {
         }
 
         const btnX = CENTER_X - 116;
-        const btnY = panelY + 230;
+        const btnY = panelY + 232;
         this.drawImageButton(ctx, btnX, btnY, 232, 56, this.game.opponentWantsRestart ? t('agreeStart') : t('playAgain'), '#35b779', 19);
         this.game.restartBtn = { x: btnX, y: btnY, w: 232, h: 56 };
 
@@ -299,9 +299,9 @@ export class AppUI extends UI {
         const netChange = confirmed ? finalBalance - beforeBalance : (isWinner ? match.winnerPayout - match.stake : -match.stake);
 
         const panelX = 34;
-        const panelY = CENTER_Y + 4;
+        const panelY = CENTER_Y - 8;
         const panelW = CANVAS_WIDTH - 68;
-        const panelH = 206;
+        const panelH = 288;
         this.drawSoftPanel(ctx, panelX, panelY, panelW, panelH, 24, this.palette.panelStrong, 'panel');
 
         ctx.save();
@@ -322,7 +322,7 @@ export class AppUI extends UI {
 
     drawCompetitiveExitButton(ctx) {
         const btnX = CENTER_X - 118;
-        const btnY = CENTER_Y + 228;
+        const btnY = CENTER_Y + 210;
         this.drawImageButton(ctx, btnX, btnY, 236, 56, t('backHome'), '#35b779', 20);
         this.game.restartBtn = null;
         this.game.exitBtn = { x: btnX, y: btnY, w: 236, h: 56 };

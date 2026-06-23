@@ -303,6 +303,8 @@ export class AppStartScreen extends OnlineStartScreen {
     }
 
     startPracticeAi(difficulty) {
+        if (this.startingGame) return;
+        this.startingGame = true;
         const normalized = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium';
         const cb = this.onStart;
         this.onStart = null;
@@ -311,6 +313,7 @@ export class AppStartScreen extends OnlineStartScreen {
     }
 
     async handleClick(e) {
+        if (this.startingGame) return;
         const clicked = this.getClickedButton(e);
         if (clicked?.id?.startsWith('practice_ai_')) {
             this.startPracticeAi(clicked.id.replace('practice_ai_', ''));

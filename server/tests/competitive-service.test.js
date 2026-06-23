@@ -100,9 +100,10 @@ function testAiSettlementAndActiveGuard() {
     const profile = service.ensureAccountForPlayer(user).profile;
     const aiMatch = service.startAiMatch(user, 'bronze_12').match;
 
-    assert.throws(() => {
-        service.startAiMatch(user, 'bronze_12');
-    }, /A match is already active/);
+    const resumed = service.startAiMatch(user, 'bronze_12');
+    assert.strictEqual(resumed.resumed, true);
+    assert.strictEqual(resumed.match.id, aiMatch.id);
+    assert.strictEqual(service.getSnapshot(profile.id).wallet.reserved, 12);
 
     assert.throws(() => {
         service.submitResult(user, aiMatch.id, {
@@ -125,6 +126,27 @@ function testAiSettlementAndActiveGuard() {
     });
     assert.strictEqual(settled.status, 'settled');
     assert.strictEqual(service.getSnapshot(profile.id).wallet.balance, 128);
+}
+
+function testHumanActiveMatchStillBlocksNewQuickMatch() {
+    const service = new CompetitiveService();
+    const alice = player('active-alice');
+    const bob = player('active-bob');
+    const charlie = player('active-charlie');
+    service.ensureAccountForPlayer(alice);
+    service.ensureAccountForPlayer(bob);
+    service.ensureAccountForPlayer(charlie);
+
+    service.joinQuickMatch(alice, 'bronze_12');
+    service.joinQuickMatch(bob, 'bronze_12');
+
+    assert.throws(() => {
+        service.joinQuickMatch(alice, 'bronze_12');
+    }, /A match is already active/);
+
+    assert.doesNotThrow(() => {
+        service.joinQuickMatch(charlie, 'bronze_12');
+    });
 }
 
 function testAiSurrenderSettlesLossAndReleasesReserve() {
@@ -368,6 +390,7 @@ function testRestartReleasesActiveMatchReserve() {
 testResultValidator();
 testHumanSettlementRequiresMatchingFinalState();
 testAiSettlementAndActiveGuard();
+testHumanActiveMatchStillBlocksNewQuickMatch();
 testAiSurrenderSettlesLossAndReleasesReserve();
 testAiDisconnectForfeitSettlesLossAndReleasesReserve();
 testHumanDisconnectForfeitPaysOpponentAndReleasesBothReserves();

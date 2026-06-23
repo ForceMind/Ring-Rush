@@ -115,39 +115,55 @@ function bootApp() {
         sourceScreen.cleanup();
         startScreen = null;
 
-        if (mode === 'practice_ai') {
-            const difficulty = ['easy', 'medium', 'hard'].includes(startMessage?.difficulty)
-                ? startMessage.difficulty
-                : 'medium';
-            game = new AppBotGame(canvas);
-            game.init(difficulty);
-        } else if (mode === 'practice_local') {
-            game = new AppLocalGame(canvas);
-            game.init();
-        } else if (mode === 'competitive_ai') {
-            const aiParticipant = msg.match?.participants?.find((p) => p.profile?.isAi);
-            const difficulty = aiParticipant?.profile?.difficulty || 'medium';
-            game = new AppBotGame(canvas);
-            game.network = network;
-            game.competitiveMatch = msg.match;
-            game.competitiveEntryWallet = msg.wallet;
-            game.competitiveWallet = msg.wallet;
-            bindGameConnectionStatus(game, network);
-            game.init(difficulty);
-        } else {
-            game = new AppGame(canvas);
-            if (msg) {
+        try {
+            if (mode === 'practice_ai') {
+                const difficulty = ['easy', 'medium', 'hard'].includes(startMessage?.difficulty)
+                    ? startMessage.difficulty
+                    : 'medium';
+                game = new AppBotGame(canvas);
+                game.init(difficulty);
+            } else if (mode === 'practice_local') {
+                game = new AppLocalGame(canvas);
+                game.init();
+            } else if (mode === 'competitive_ai') {
+                if (!msg?.match) throw new Error(t('actionFailed'));
+                const aiParticipant = msg.match.participants?.find((p) => p.profile?.isAi);
+                const difficulty = aiParticipant?.profile?.difficulty || 'medium';
+                game = new AppBotGame(canvas);
+                game.network = network;
                 game.competitiveMatch = msg.match;
                 game.competitiveEntryWallet = msg.wallet;
                 game.competitiveWallet = msg.wallet;
-                game.initOnlineGame(network, msg.playerIndex, msg.opponentName || 'Opponent');
-                sourceScreen.gameStartMessage = null;
+                bindGameConnectionStatus(game, network);
+                game.init(difficulty);
             } else {
-                network.onGameStart = (message) => {
-                    game.competitiveMatch = network.activeMatch;
-                    game.initOnlineGame(network, message.playerIndex, message.opponentName);
-                };
+                game = new AppGame(canvas);
+                if (msg) {
+                    game.competitiveMatch = msg.match;
+                    game.competitiveEntryWallet = msg.wallet;
+                    game.competitiveWallet = msg.wallet;
+                    game.initOnlineGame(network, msg.playerIndex, msg.opponentName || 'Opponent');
+                    sourceScreen.gameStartMessage = null;
+                } else {
+                    network.onGameStart = (message) => {
+                        game.competitiveMatch = network.activeMatch;
+                        game.initOnlineGame(network, message.playerIndex, message.opponentName);
+                    };
+                }
             }
+        } catch (error) {
+            if (game) {
+                game.cleanup();
+                game = null;
+            }
+            attachHomeScreen(network).then(() => {
+                if (startScreen) {
+                    startScreen.errorMessage = error.message || t('actionFailed');
+                    startScreen.statusMessage = t('actionFailed');
+                    startScreen.draw();
+                }
+            });
+            return;
         }
 
         if (game.competitiveMatch) {
