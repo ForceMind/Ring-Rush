@@ -202,6 +202,8 @@ function testAiLaunchChoosesScoringTarget(context) {
 
     const launch = ai.calculateLaunch(piece, game);
     assert(launch.target, 'AI should return a target');
+    assert(launch.predictedStop, 'AI should return a predicted final resting position');
+    assert.strictEqual(typeof launch.predictedScore, 'number', 'AI should return the predicted final score');
     assert(game.board.calculateScore({ ...launch.target, player: 'A' }) > 0, 'AI target should be inside a real scoring zone');
 }
 
@@ -225,6 +227,32 @@ function testAiLaunchChoosesScoringTargetFromTopLane(context) {
 function getSettledCurrentPiece(ai, game, piece, launch) {
     const outcome = ai.simulateShot(piece, game, launch.vx, launch.vy);
     return outcome.pieces.find((candidate) => candidate.isCurrent);
+}
+
+function testAiPredictionMatchesSimulatedFinalStop(context) {
+    const game = createGame(context);
+    const ai = new context.AI('hard');
+    const piece = {
+        x: context.CENTER_X,
+        y: context.BOTTOM_LAUNCH_Y,
+        radius: context.PIECE_RADIUS,
+        player: 'A',
+        isLaunched: false,
+        isDiscarded: false,
+        isActive: false,
+        hasEnteredBoard: false
+    };
+    game.physics.pieces = [piece];
+
+    const launch = withRandom(context, [0.5, 0.5], () => ai.calculateLaunch(piece, game));
+    const settled = getSettledCurrentPiece(ai, game, piece, launch);
+
+    assert(launch.predictedStop, 'AI should expose the predicted final stop for the selected shot');
+    assert(
+        Math.hypot(settled.x - launch.predictedStop.x, settled.y - launch.predictedStop.y) < context.PIECE_RADIUS * 0.2,
+        'Hard AI prediction should match the actual simulated final stop for its selected shot'
+    );
+    assert.strictEqual(game.board.calculateScore(settled), launch.predictedScore, 'AI predicted score should match the simulated result');
 }
 
 function testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(context) {
@@ -409,6 +437,7 @@ testLaunchLanesStayAttachedToRealBoard(context);
 testAiScansOuterSquareScoringZone(context);
 testAiLaunchChoosesScoringTarget(context);
 testAiLaunchChoosesScoringTargetFromTopLane(context);
+testAiPredictionMatchesSimulatedFinalStop(context);
 testAiHardLaunchActuallyLandsOnScoringTargetFromBottom(context);
 testAiHardLaunchActuallyLandsOnScoringTargetFromTop(context);
 testAiDifficultyProfilesHaveDistinctAccuracy(context);
