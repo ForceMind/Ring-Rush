@@ -114,12 +114,12 @@ export function drawAppPiece(ctx, piece, x, y, highlight = false) {
     if (piece.player === 'N') sprite = 'puckGold';
     else if (/d94a|c83a|red/i.test(color)) sprite = 'puckRed';
 
-    const size = radius * (highlight ? 2.85 : 2.62);
+    const size = radius * (highlight ? 2.24 : 2.08);
     const ok = drawAppSprite(ctx, sprite, x - size / 2, y - size / 2, size, size);
     if (!ok) return false;
 
     if (highlight) {
-        drawAppEffectFrame(ctx, 'scorePulse', (Date.now() % 900) / 900, x - radius * 2.1, y - radius * 2.1, radius * 4.2, radius * 4.2, { alpha: 0.34 });
+        drawAppEffectFrame(ctx, 'scorePulse', (Date.now() % 900) / 900, x - radius * 1.85, y - radius * 1.85, radius * 3.7, radius * 3.7, { alpha: 0.26 });
     }
     if (piece.hitFlash > 0) {
         drawAppEffectFrame(ctx, 'collisionSpark', 1 - piece.hitFlash, x - radius * 2.4, y - radius * 2.4, radius * 4.8, radius * 4.8, { alpha: piece.hitFlash });

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test:game-ai": "node server/tests/game-ai-board-targeting.test.js && node server/tests/game-bot-turn-flow.test.js",
+    "test:game-ai": "node server/tests/game-ai-board-targeting.test.js && node server/tests/game-bot-turn-flow.test.js && node server/tests/app-regression.test.js",
     "test:competitive": "node server/tests/competitive-service.test.js && node server/tests/competitive-api.test.js && node server/tests/competitive-admin-api.test.js && node server/tests/competitive-live-controller.test.js",
     "test:apk-size": "powershell -ExecutionPolicy Bypass -File scripts/check-apk-size.ps1",
     "android:add": "cap add android",

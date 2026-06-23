@@ -137,14 +137,14 @@ function Draw-Puck {
     $brush = [System.Drawing.Drawing2D.LinearGradientBrush]::new($rect, (Color-Hex $Top), (Color-Hex $Bottom), [System.Drawing.Drawing2D.LinearGradientMode]::ForwardDiagonal)
     $G.FillEllipse($brush, $rect)
     $brush.Dispose()
-    $pen = [System.Drawing.Pen]::new((Color-Hex '#ffffff' 210), [Math]::Max(2, $Size * 0.055))
+    $pen = [System.Drawing.Pen]::new((Color-Hex '#ffffff' 130), [Math]::Max(1, $Size * 0.026))
     $G.DrawEllipse($pen, $rect)
     $pen.Dispose()
     $innerBrush = [System.Drawing.SolidBrush]::new((Color-Hex $Bottom 210))
     $G.FillEllipse($innerBrush, $X + $Size * 0.24, $Y + $Size * 0.24, $Size * 0.52, $Size * 0.52)
     $innerBrush.Dispose()
-    $shine = [System.Drawing.SolidBrush]::new((Color-Hex '#ffffff' 150))
-    $G.FillEllipse($shine, $X + $Size * 0.24, $Y + $Size * 0.20, $Size * 0.18, $Size * 0.14)
+    $shine = [System.Drawing.SolidBrush]::new((Color-Hex '#ffffff' 115))
+    $G.FillEllipse($shine, $X + $Size * 0.26, $Y + $Size * 0.21, $Size * 0.14, $Size * 0.10)
     $shine.Dispose()
 }
 
@@ -175,20 +175,6 @@ function Draw-BoardSkin {
     $surface = New-RoundPath ($X + 20) ($Y + 20) ($W - 40) ($H - 40) 18
     Fill-PathGradient $G $surface ($X + 20) ($Y + 20) ($W - 40) ($H - 40) (Color-Hex '#f7fffb') (Color-Hex '#d7f6ff') (Color-Hex '#ffffff' 180) 2
     $surface.Dispose()
-    $cx = $X + $W / 2
-    $cy = $Y + $H / 2
-    $zonePen = [System.Drawing.Pen]::new((Color-Hex '#123842' 80), 2)
-    $zoneFill = [System.Drawing.SolidBrush]::new((Color-Hex '#ffc936' 90))
-    $G.FillEllipse($zoneFill, $cx - 26, $cy - 26, 52, 52)
-    $G.DrawEllipse($zonePen, $cx - 26, $cy - 26, 52, 52)
-    $zoneFill.Color = (Color-Hex '#30b976' 72)
-    $G.FillEllipse($zoneFill, $cx - 58, $cy - 58, 116, 116)
-    $G.DrawEllipse($zonePen, $cx - 58, $cy - 58, 116, 116)
-    $zoneFill.Color = (Color-Hex '#25a9e7' 58)
-    $G.FillEllipse($zoneFill, $cx - 112, $cy - 112, 224, 224)
-    $G.DrawEllipse($zonePen, $cx - 112, $cy - 112, 224, 224)
-    $zoneFill.Dispose()
-    $zonePen.Dispose()
 }
 
 function Add-Sprite {

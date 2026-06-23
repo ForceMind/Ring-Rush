@@ -14,14 +14,17 @@ export class AppInput extends Input {
         const piece = this.currentPiece;
         const px = this.game.perspective === 'top' ? this.game.tx(piece.x) : piece.x;
         const py = this.game.perspective === 'top' ? this.game.ty(piece.y) : piece.y;
-        const mx = this.mouse?.x ?? px;
-        const my = this.mouse?.y ?? py;
-        const dx = mx - px;
-        const dy = my - py;
-        const dist = Math.min(Math.sqrt(dx * dx + dy * dy), MAX_DRAG_DISTANCE);
-        const angle = Math.atan2(dy, dx);
-        const endX = px + Math.cos(angle) * dist;
-        const endY = py + Math.sin(angle) * dist;
+        const dx = this.dragStart.x - this.mouse.x;
+        const dy = this.dragStart.y - this.mouse.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 5) return;
+
+        const dist = Math.min(distance, MAX_DRAG_DISTANCE);
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        const angle = Math.atan2(dirY, dirX);
+        const endX = px + dirX * dist;
+        const endY = py + dirY * dist;
         const power = dist / MAX_DRAG_DISTANCE;
 
         ctx.save();

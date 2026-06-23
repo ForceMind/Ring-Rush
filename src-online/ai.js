@@ -289,7 +289,14 @@ export class AI {
         for (let frame = 0; frame < 460; frame++) {
             let anyActive = false;
             for (const piece of pieces) {
+                piece.prevX = piece.x;
+                piece.prevY = piece.y;
+            }
+            for (const piece of pieces) {
                 if (!piece.isActive || piece.isDiscarded) continue;
+
+                const prevX = piece.x;
+                const prevY = piece.y;
 
                 piece.x += piece.vx;
                 piece.y += piece.vy;
@@ -297,7 +304,7 @@ export class AI {
                 piece.vy *= FRICTION;
 
                 this.applySimulationBoundary(piece);
-                this.applySimulationCollisions(piece, pieces);
+                this.applySimulationCollisions(piece, pieces, prevX, prevY);
 
                 const speed = Math.sqrt(piece.vx * piece.vx + piece.vy * piece.vy);
                 if (speed < SPEED_THRESHOLD) {
@@ -358,7 +365,58 @@ export class AI {
         }
     }
 
-    applySimulationCollisions(currentPiece, pieces) {
+    getSimulationSweptCollision(currentPiece, other, currentPrevX, currentPrevY) {
+        const otherPrevX = other.prevX ?? other.x;
+        const otherPrevY = other.prevY ?? other.y;
+        const minDist = currentPiece.radius + other.radius;
+        const startX = currentPrevX - otherPrevX;
+        const startY = currentPrevY - otherPrevY;
+        const endX = currentPiece.x - other.x;
+        const endY = currentPiece.y - other.y;
+        const moveX = endX - startX;
+        const moveY = endY - startY;
+        const a = moveX * moveX + moveY * moveY;
+        const b = 2 * (startX * moveX + startY * moveY);
+        const c = startX * startX + startY * startY - minDist * minDist;
+
+        if (c <= 0 || a === 0) return null;
+        const discriminant = b * b - 4 * a * c;
+        if (discriminant < 0) return null;
+        const t = (-b - Math.sqrt(discriminant)) / (2 * a);
+        if (t < 0 || t > 1) return null;
+
+        return {
+            currentX: currentPrevX + (currentPiece.x - currentPrevX) * t,
+            currentY: currentPrevY + (currentPiece.y - currentPrevY) * t,
+            otherX: otherPrevX + (other.x - otherPrevX) * t,
+            otherY: otherPrevY + (other.y - otherPrevY) * t
+        };
+    }
+
+    resolveSimulationCollision(currentPiece, other, nx, ny, distance, minDist) {
+        const dvx = currentPiece.vx - other.vx;
+        const dvy = currentPiece.vy - other.vy;
+        const dvDotN = dvx * nx + dvy * ny;
+
+        if (dvDotN > 0) {
+            const impulse = dvDotN * (1 + RESTITUTION) / 2;
+            currentPiece.vx -= impulse * nx;
+            currentPiece.vy -= impulse * ny;
+            other.vx += impulse * nx;
+            other.vy += impulse * ny;
+            other.isActive = true;
+        }
+
+        const overlap = minDist - distance;
+        if (overlap > 0) {
+            currentPiece.x -= (overlap / 2) * nx;
+            currentPiece.y -= (overlap / 2) * ny;
+            other.x += (overlap / 2) * nx;
+            other.y += (overlap / 2) * ny;
+        }
+    }
+
+    applySimulationCollisions(currentPiece, pieces, currentPrevX = currentPiece.prevX ?? currentPiece.x, currentPrevY = currentPiece.prevY ?? currentPiece.y) {
         for (const other of pieces) {
             if (other === currentPiece || !other.isLaunched || other.isDiscarded) continue;
 
@@ -366,6 +424,24 @@ export class AI {
             const dy = other.y - currentPiece.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             const minDist = currentPiece.radius + other.radius;
+
+            if (distance < minDist && distance > 0) {
+                this.resolveSimulationCollision(currentPiece, other, dx / distance, dy / distance, distance, minDist);
+                continue;
+            }
+
+            const swept = this.getSimulationSweptCollision(currentPiece, other, currentPrevX, currentPrevY);
+            if (swept) {
+                currentPiece.x = swept.currentX;
+                currentPiece.y = swept.currentY;
+                other.x = swept.otherX;
+                other.y = swept.otherY;
+                const hitDx = other.x - currentPiece.x;
+                const hitDy = other.y - currentPiece.y;
+                const hitDistance = Math.max(0.0001, Math.sqrt(hitDx * hitDx + hitDy * hitDy));
+                this.resolveSimulationCollision(currentPiece, other, hitDx / hitDistance, hitDy / hitDistance, hitDistance, minDist);
+                continue;
+            }
 
             if (distance < minDist && distance > 0) {
                 const nx = dx / distance;
