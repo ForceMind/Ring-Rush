@@ -4,6 +4,17 @@ All notable changes are tracked here.
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-06-29
+
+### Changed
+
+- Changed competitive result popups to show the actual winner reward or entry loss for the finished match instead of deriving the headline from wallet balance deltas.
+
+### Fixed
+
+- Fixed AI match wins eventually showing and paying `0` coins after the old daily AI reward cap was reached.
+- Fixed competitive victory settlement displays that could show `+0` coins when the entry wallet snapshot matched the final wallet.
+
 ## [0.12.1] - 2026-06-23
 
 ### Added

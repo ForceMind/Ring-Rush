@@ -279,14 +279,15 @@ function testAiProfileUsesRatingAndRecord() {
     assert.strictEqual(coldAi.skillScore, 780);
 }
 
-function testAiRewardCap() {
+function testAiWinsAlwaysPayConfiguredReward() {
     const service = new CompetitiveService();
     const user = player('daily');
     const profile = service.ensureAccountForPlayer(user).profile;
+    let lastSettlement = null;
 
     for (let i = 0; i < 7; i++) {
         const match = service.startAiMatch(user, 'bronze_12').match;
-        service.submitResult(user, match.id, {
+        lastSettlement = service.submitResult(user, match.id, {
             winner: 'player',
             reason: 'runner',
             state: finalRunnerState('A')
@@ -294,8 +295,9 @@ function testAiRewardCap() {
     }
 
     const snapshot = service.getSnapshot(profile.id);
-    assert.strictEqual(snapshot.wallet.balance, 156);
+    assert.strictEqual(snapshot.wallet.balance, 176);
     assert.strictEqual(snapshot.profile.wins, 7);
+    assert.strictEqual(lastSettlement.match.settlement.winnerPayout, 20);
 }
 
 function withTempStore(testFn) {
@@ -396,7 +398,7 @@ testAiDisconnectForfeitSettlesLossAndReleasesReserve();
 testHumanDisconnectForfeitPaysOpponentAndReleasesBothReserves();
 testQueuedPlayerCanSwitchToAiAfterTimeoutWithoutDoubleReserve();
 testAiProfileUsesRatingAndRecord();
-testAiRewardCap();
+testAiWinsAlwaysPayConfiguredReward();
 testRestoreExistingAccountDoesNotCreateGuestWallet();
 testRestoreExistingAccountRequiresSessionToken();
 testPersistentSettlementRecovery();

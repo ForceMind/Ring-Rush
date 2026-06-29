@@ -1191,11 +1191,8 @@ class CompetitiveService {
             user.aiRewardClaimed = 0;
         }
 
-        const limit = this.config.ai.dailyRewardLimit;
-        const remaining = Math.max(0, limit - user.aiRewardClaimed);
-        const payout = Math.min(requestedPayout, remaining);
-        user.aiRewardClaimed += payout;
-        return payout;
+        user.aiRewardClaimed += requestedPayout;
+        return requestedPayout;
     }
 
     findActiveMatchByAccount(accountId) {

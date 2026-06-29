@@ -1120,10 +1120,9 @@ export class UI {
 
         const beforeBalance = beforeWallet?.balance ?? wallet?.balance ?? 0;
         const finalBalance = wallet?.balance ?? beforeBalance;
-        const netChange = confirmed
-            ? finalBalance - beforeBalance
-            : (isWinner ? match.winnerPayout - match.stake : -match.stake);
-        const reward = confirmed && isWinner ? settlement.winnerPayout : 0;
+        const stake = confirmed ? settlement.stake : match.stake;
+        const reward = confirmed ? (settlement.winnerPayout || 0) : match.winnerPayout;
+        const resultAmount = isWinner ? reward : -stake;
         const displayBalance = confirmed
             ? this.getAnimatedSettlementBalance(beforeBalance, finalBalance)
             : finalBalance;
@@ -1145,9 +1144,9 @@ export class UI {
 
         ctx.font = 'bold 38px sans-serif';
         ctx.fillStyle = confirmed
-            ? (netChange >= 0 ? '#16884d' : '#d9480f')
+            ? (resultAmount >= 0 ? '#16884d' : '#d9480f')
             : '#143642';
-        const headline = confirmed ? this.formatCoinAmount(netChange) : t('pending');
+        const headline = confirmed ? this.formatCoinAmount(resultAmount) : t('pending');
         ctx.fillText(headline, CENTER_X, panelY + 72, panelW - 40);
 
         ctx.font = 'bold 18px sans-serif';
@@ -1157,8 +1156,8 @@ export class UI {
             : t('entryWinShort', { stake: match.stake, win: match.winnerPayout });
         ctx.fillText(balanceText, CENTER_X, panelY + 106, panelW - 40);
 
-        const rewardText = isWinner ? `+${confirmed ? reward : match.winnerPayout}` : '+0';
-        this.drawSettlementLine(ctx, panelX + 36, panelY + 142, t('entryFee'), `-${match.stake}`, '#d9480f');
+        const rewardText = isWinner ? `+${reward}` : '+0';
+        this.drawSettlementLine(ctx, panelX + 36, panelY + 142, t('entryFee'), `-${stake}`, '#d9480f');
         this.drawSettlementLine(ctx, panelX + 36, panelY + 172, t('winnerReward'), rewardText, isWinner ? '#16884d' : '#767d87');
 
         if (error) {

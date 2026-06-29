@@ -296,7 +296,9 @@ export class AppUI extends UI {
         const isWinner = confirmed && myAccountId ? settlement.winnerAccountId === myAccountId : fallbackWinner;
         const beforeBalance = beforeWallet?.balance ?? wallet?.balance ?? 0;
         const finalBalance = wallet?.balance ?? beforeBalance;
-        const netChange = confirmed ? finalBalance - beforeBalance : (isWinner ? match.winnerPayout - match.stake : -match.stake);
+        const stake = confirmed ? settlement.stake : match.stake;
+        const reward = confirmed ? (settlement.winnerPayout || 0) : match.winnerPayout;
+        const resultAmount = isWinner ? reward : -stake;
 
         const panelX = 34;
         const panelY = CENTER_Y - 8;
@@ -311,9 +313,9 @@ export class AppUI extends UI {
         ctx.font = '900 14px sans-serif';
         ctx.fillText(confirmed ? t('serverConfirmed') : t('serverConfirming'), CENTER_X, panelY + 28);
         drawAppSprite(ctx, 'coin', CENTER_X - 30, panelY + 44, 60, 60);
-        ctx.fillStyle = confirmed ? (netChange >= 0 ? '#178b53' : '#d9480f') : this.palette.ink;
+        ctx.fillStyle = confirmed ? (resultAmount >= 0 ? '#178b53' : '#d9480f') : this.palette.ink;
         ctx.font = '900 35px sans-serif';
-        ctx.fillText(confirmed ? this.formatCoinAmount(netChange) : t('pending'), CENTER_X, panelY + 122, panelW - 40);
+        ctx.fillText(confirmed ? this.formatCoinAmount(resultAmount) : t('pending'), CENTER_X, panelY + 122, panelW - 40);
         ctx.fillStyle = this.palette.muted;
         ctx.font = '800 14px sans-serif';
         ctx.fillText(confirmed ? t('balance', { balance: this.getAnimatedSettlementBalance(beforeBalance, finalBalance) }) : t('entryWinShort', { stake: match.stake, win: match.winnerPayout }), CENTER_X, panelY + 158, panelW - 40);
