@@ -243,6 +243,39 @@ async function testSurrenderModalMountsInAppContainer() {
     }
 }
 
+async function testOnlineOpponentSettleClearsLocalAnimation() {
+    const { Game } = await import('../../src-online/game.js');
+    const canvas = {
+        getContext() {
+            return createFakeContext();
+        },
+        addEventListener() {},
+        removeEventListener() {},
+        getBoundingClientRect() {
+            return { left: 0, top: 0, width: 450, height: 960 };
+        }
+    };
+    const game = new Game(canvas);
+
+    game.audio.play = () => {};
+    game.audio.vibrate = () => {};
+    game.gameMode = 'online';
+    game.perspective = 'bottom';
+    game.currentPlayer = 'B';
+    game.dice.phase = false;
+    game.gameOver = false;
+    game.pendingWin = false;
+    game.isAnimating = true;
+    game.settlePauseUntil = Date.now() - 1;
+    game.settleCueShown = true;
+
+    game.update();
+
+    assert.strictEqual(game.isAnimating, false, 'Opponent settle should clear local animation while waiting for server sync');
+    assert.strictEqual(game.settlePauseUntil, 0);
+    assert.strictEqual(game.settleCueShown, false);
+}
+
 async function main() {
     await testAppAimLineUsesSlingshotDirection();
     await testPhysicsSweptCollisionPreventsTunneling();
@@ -250,6 +283,7 @@ async function main() {
     await testAppPracticeMediumButtonStartsMediumAi();
     await testAppInputDoesNotStartDragOnUiButtons();
     await testSurrenderModalMountsInAppContainer();
+    await testOnlineOpponentSettleClearsLocalAnimation();
     console.log('app regression tests passed');
 }
 

@@ -599,6 +599,8 @@ export class Game {
                     // 被动方等待网络同步，避免双端重复计算导致累计得分
                     this.checkRoundEnd();
                     this.network.updateGameState(this.getState());
+                } else {
+                    this.clearSettledAnimationState();
                 }
             } else {
                 // 本地模式：正常结算
@@ -713,6 +715,7 @@ export class Game {
 
             const winReason = this.checkWinner();
             if (winReason) {
+                this.clearSettledAnimationState();
                 this.pendingWin = true;
                 this.pendingWinReason = winReason;
                 this.pendingWinTime = 0; // 等小人动画结束后才开始计时
@@ -729,6 +732,12 @@ export class Game {
             this.pendingWinReason = postWinReason;
             this.pendingWinTime = 0;
         }
+    }
+
+    clearSettledAnimationState() {
+        this.settlePauseUntil = 0;
+        this.settleCueShown = false;
+        this.isAnimating = false;
     }
 
     updateRunnerPosition(score) {

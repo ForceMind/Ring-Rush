@@ -48,17 +48,32 @@ Write-Host "Android app server locked: $env:VITE_PELLO_SERVER_LOCKED"
 
 $downloadDir = Join-Path $root "public\download"
 $downloadApk = Join-Path $downloadDir "Pello.apk"
-$backupApk = $null
-$buildCompleted = $false
 
 Push-Location $root
 try {
-    if (Test-Path -LiteralPath $downloadApk) {
-        $backupApk = Join-Path ([System.IO.Path]::GetTempPath()) ("Pello-apk-backup-{0}.apk" -f [guid]::NewGuid())
-        Move-Item -LiteralPath $downloadApk -Destination $backupApk -Force
+    npm run build
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
     }
 
-    npm run android:build:debug
+    $distDownloadDir = Join-Path $root "dist\download"
+    if (Test-Path -LiteralPath $distDownloadDir) {
+        Get-ChildItem -LiteralPath $distDownloadDir -Filter "*.apk" -File | ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Force
+        }
+    }
+
+    npx cap sync android
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    Push-Location (Join-Path $root "android")
+    try {
+        .\gradlew.bat :app:assembleDebug
+    } finally {
+        Pop-Location
+    }
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -75,15 +90,6 @@ try {
     }
     Copy-Item -LiteralPath $builtApk -Destination $downloadApk -Force
     & (Join-Path $root "scripts\check-apk-size.ps1") -ApkPath $downloadApk
-    $buildCompleted = $true
 } finally {
-    if (-not $buildCompleted -and $backupApk -and (Test-Path -LiteralPath $backupApk)) {
-        if (-not (Test-Path -LiteralPath $downloadDir)) {
-            New-Item -ItemType Directory -Path $downloadDir | Out-Null
-        }
-        Move-Item -LiteralPath $backupApk -Destination $downloadApk -Force
-    } elseif ($backupApk -and (Test-Path -LiteralPath $backupApk)) {
-        Remove-Item -LiteralPath $backupApk -Force
-    }
     Pop-Location
 }
